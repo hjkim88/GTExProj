@@ -13,14 +13,163 @@
 #
 #   Example
 #               > source("The_directory_of_PreprocessTCGA.R/PreprocessTCGA.R")
-#               > preprocess_tcga()
+#               > preprocess_tcga(targetDir="E:/TCGA/",
+#                                 targetSampleInfoPath="E:/TCGA/sample_sheet_11093.xlsx",
+#                                 targetMetadataPath="E:/TCGA/metadata_11093.json",
+#                                 rinInfoDir="//isilon.c2b2.columbia.edu/ifs/archive/TCGA/Open_Access/",
+#                                 outputFilePath="./data/RDA_Files/TCGA_RAW_COUNTS.rda")
 ###
 
-preprocess_tcga <- function() {
+preprocess_tcga <- function(targetDir="E:/TCGA/",
+                            targetSampleInfoPath="E:/TCGA/sample_sheet_11093.xlsx",
+                            targetMetadataPath="E:/TCGA/metadata_11093.json",
+                            rinInfoDir="//isilon.c2b2.columbia.edu/ifs/archive/TCGA/Open_Access/",
+                            outputFilePath="./data/RDA_Files/TCGA_RAW_COUNTS.rda") {
+  
+  ### JAVA memory setup - because of xlsx package
+  options(java.parameters = "-Xmx2048m")
   
   
+  ### load libraries
+  if(!require(xlsx, quietly = TRUE)) {
+    install.packages("xlsx", dependencies = TRUE, quiet = TRUE)
+    require(xlsx, quietly = TRUE)
+  }
+  if(!require(jsonlite, quietly = TRUE)) {
+    install.packages("jsonlite", dependencies = TRUE, quiet = TRUE)
+    require(jsonlite, quietly = TRUE)
+  }
   
   
+  ### load TCGA sample files
+  tcga_files <- list.files(targetDir, full.names = TRUE, recursive = TRUE, pattern = "*.gz")
+  
+  
+  ### load TCGA sample info
+  tcga_sample_info <- read.xlsx2(file = targetSampleInfoPath, sheetIndex = 1,
+                                 stringsAsFactors = FALSE, check.names = FALSE)
+  
+  
+  ### order the sample info by the sample file names
+  rownames(tcga_sample_info) <- tcga_sample_info$`File Name`
+  tcga_sample_info <- tcga_sample_info[basename(tcga_files),]
+  
+  
+  ### load TCGA metadata info
+  metadata <- fromJSON(txt = targetMetadataPath)
+  rownames(metadata) <- metadata$file_name
+  metadata <- metadata[basename(tcga_files),]
+  
+  
+  ### merge the metadata and the sample info
+  tcga_sample_info <- data.frame(tcga_sample_info,
+                                 md5sum=metadata$md5sum,
+                                 file_size=metadata$file_size,
+                                 analysis_id=metadata$analysis$analysis_id,
+                                 updated_datetime=metadata$analysis$updated_datetime,
+                                 created_datetime=metadata$analysis$created_datetime,
+                                 workflow_link=metadata$analysis$workflow_link,
+                                 workflow_type=metadata$analysis$workflow_type,
+                                 workflow_version=metadata$analysis$workflow_version,
+                                 entity_id=sapply(metadata$associated_entities, function(x) x[1,1]),
+                                 case_id=sapply(metadata$associated_entities, function(x) x[1,2]),
+                                 barcode=sapply(metadata$associated_entities, function(x) x[1,3]),
+                                 stringsAsFactors = FALSE, check.names = FALSE)
+  rm(metadata)
+  
+  
+  ### collect unique project IDs
+  project_ids <- unique(tcga_sample_info$`Project ID`)
+  project_ids <- substring(project_ids, 6)
+  project_ids <- tolower(project_ids)
+  
+  
+  ### add additional info (RIN & FFPE) to the sample info based on "nationwidechildrens.org"
+  tcga_sample_info <- data.frame(tcga_sample_info,
+                                 is_derived_from_ffpe=NA,
+                                 RIN=NA,
+                                 stringsAsFactors = FALSE, check.names = FALSE)
+  for(i in 1:length(project_ids)) {
+    ### load the additional info for the given project ID
+    add_info <- read.table(file = paste0(rinInfoDir, project_ids[i],
+                                         "/bcr/biotab/clin/nationwidechildrens.org_biospecimen_analyte_",
+                                         project_ids[i], ".txt"),
+                           header = TRUE, sep = "\t", stringsAsFactors = FALSE, check.names = FALSE)
+    
+    ### get indicies of the specific project ID
+    idx <- which(tcga_sample_info$`Project ID` == paste0("TCGA-", toupper(project_ids[i])))
+    
+    ### for every project ID
+    for(j in 1:length(idx)) {
+      ### get index of the given sample in the add info
+      targetIdx <- which(add_info$bcr_analyte_barcode ==
+                         paste(strsplit(tcga_sample_info$barcode[idx[j]], split = "-", fixed = TRUE)[[1]][1:5], collapse = "-"))
+      
+      ### there are identical rows with the same bar code in the add info
+      ### this is an issue of TCGA-XX-XXXX-01A-21R-A083-07
+      ### only COAD & READ samples have this issue
+      ### I found if there are duplicated rows, the second one is always the appropriate one
+      ### after manually checking of the TCGA portal
+      if(length(targetIdx) == 1) {
+        ### fill out the FFPE & RIN column with the add info
+        tcga_sample_info$is_derived_from_ffpe[idx[j]] <- add_info$is_derived_from_ffpe[targetIdx]
+        tcga_sample_info$RIN[idx[j]] <- add_info$rinvalue[targetIdx]
+      } else if(length(targetIdx) == 2) {
+        ### fill out the FFPE & RIN column with the add info
+        tcga_sample_info$is_derived_from_ffpe[idx[j]] <- add_info$is_derived_from_ffpe[targetIdx[2]]
+        tcga_sample_info$RIN[idx[j]] <- add_info$rinvalue[targetIdx[2]]
+      } else {
+        stop(paste0("ERROR: There are too many duplicated rows in \"add_info\": ",
+                    paste0("TCGA-", toupper(project_ids[i])), " ",
+                    paste(targetIdx, collapse = "\t")))
+      }
+    }
+  }
+  rm(add_info)
+  
+  
+  ### if RIN == "[Not Available]", then change it to NA
+  naIdx <- which(tcga_sample_info$RIN == "[Not Available]")
+  if(length(naIdx) > 0) {
+    tcga_sample_info$RIN[naIdx] <- NA
+  }
+  
+  
+  ### set new row names for the sample info
+  rownames(tcga_sample_info) <- tcga_sample_info$barcode
+  
+  
+  ### read TCGA sample files
+  htseq_raw_counts <- read.table(file = gzfile(tcga_files[1]), sep = "\t", row.names = 1, header = FALSE,
+                                 stringsAsFactors = FALSE, check.names = FALSE)
+  for(i in 2:length(tcga_files)) {
+    htseq_raw_counts <- data.frame(htseq_raw_counts,
+                                   read.table(file = gzfile(tcga_files[i]), sep = "\t", row.names = 1, header = FALSE,
+                                              stringsAsFactors = FALSE, check.names = FALSE),
+                                   stringsAsFactors = FALSE, check.names = FALSE)
+  }
+  colnames(htseq_raw_counts) <- rownames(tcga_sample_info)
+  
+  
+  ### set README function
+  README <- function(){
+    writeLines(paste(rep("#", 100), collapse = ""))
+    writeLines("All the TCGA HT-SEQ raw counts were downloaded from the TCGA portal")
+    writeLines("https://portal.gdc.cancer.gov/ on Dec 19, 2018")
+    writeLines("There are 11093 files from 33 TCGA tissues")
+    writeLines("The sample information are generated by combining info from three sources:")
+    writeLines("sample sheet, metadata, and biotab analyte info - they are all available from the portal as well")
+    writeLines("The \"htseq_raw_counts\" has 60488 rows and 11093 columns")
+    writeLines("The rows are Ensembl IDs and the columns are sample IDs")
+    writeLines("The \"tcga_sample_info\" has 11093 rows and 21 columns")
+    writeLines("The rows are samples corresponding to the columns of the \"htseq_raw_counts\"")
+    writeLines("The columns represent various attributes of the samples")
+    writeLines(paste(rep("#", 100), collapse = ""))
+  }
+  
+  
+  ### save the raw counts and the sample info as a RDA file
+  save(list = c("htseq_raw_counts", "tcga_sample_info", "README"), file = outputFilePath)
   
 }
 
