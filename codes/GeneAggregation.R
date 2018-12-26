@@ -5,6 +5,15 @@
 #   Email     : hk2990@cumc.columbia.edu
 #   Purpose   : If there are duplicated gene symbols, then just add all counts up
 #
+#   * First, the data already has Genecode IDs (Ensembl ID) and corresponding gene symbols
+#     Several Genecode IDs can be mapped to one gene symbol, so there may be duplicated gene symbols
+#     We keep unique gene symbols only, so add up all the counts for any one gene symbol
+#     So now there are no duplicated gene symbols
+#     Secondly, try to transform the gene symbols to Entrez IDs
+#     Very few gene symbols have multiple Entrez IDs mapped
+#     In that case, if we use the corresponding Genecode ID, we can get accurate Entrez ID for that
+#     This is because both many Genecode IDs and Entrez IDs are mapped to one gene symbol
+#
 #   Instruction
 #               1. Source("GeneAggregation.R")
 #               2. Run the function "reconcile()" - specify the input file (raw count)
@@ -81,7 +90,7 @@ reconcile <- function(rawCntPath="//isilon.c2b2.columbia.edu/ifs/archive/shares/
     ### get Gencode ID transcript version cleaned
     gencode <- apply(data.frame(filteredData$Gencode_ID), 1, function(x) strsplit(x, ".", fixed = TRUE)[[1]][1])
     
-    ### keep all the duplicated Entrez IDs
+    ### get the accurate Entrez ID using Ensembl ID when there are multiple Entrez IDs mapped to one gene symbol
     filteredData$Entrez_ID <- as.character(filteredData$Entrez_ID)
     entrez_dups <- grep("c", filteredData$Entrez_ID)
     for(dup in entrez_dups) {
