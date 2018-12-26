@@ -22,11 +22,11 @@
 #                                 outputDir="./data/RDA_Files/")
 ###
 
-preprocess_tcga <- function(targetDir="E:/TCGA/",
-                            targetSampleInfoPath="E:/TCGA/sample_sheet_11093.xlsx",
-                            targetMetadataPath="E:/TCGA/metadata_11093.json",
+preprocess_tcga <- function(targetDir="//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/TCGA/ExpressionMatrices/tcga_af_lab_raw_data/",
+                            targetSampleInfoPath="//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/TCGA/ExpressionMatrices/tcga_af_lab_raw_data/sample_sheet_11093.xlsx",
+                            targetMetadataPath="//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/TCGA/ExpressionMatrices/tcga_af_lab_raw_data/metadata_11093.json",
                             rinInfoDir="//isilon.c2b2.columbia.edu/ifs/archive/TCGA/Open_Access/",
-                            outputDir="./data/RDA_Files/") {
+                            outputDir="//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/") {
   
   ### JAVA memory setup - because of xlsx package
   options(java.parameters = "-Xmx2048m")
