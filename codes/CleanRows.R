@@ -24,11 +24,11 @@ cleanRows <- function(cntPath="//isilon.c2b2.columbia.edu/ifs/archive/shares/af_
   f <- list.files(cntPath)
   
   
-  ### a function returns logical value whether a given row has 0 or 1 across all samples
+  ### a function returns logical value whether a given row has NA, 0 or 1 across all samples
   isRubbish <- function(geneRow) {
     isZeroOrOne <- TRUE
     for(i in 1:length(geneRow)) {
-      if(geneRow[i] > 1) {
+      if((!is.na(geneRow[i])) && (geneRow[i] > 1)) {
         isZeroOrOne <- FALSE
         break
       }
