@@ -31,9 +31,9 @@ makeScript <- function(inputPath="./results/aracne_ready/TCGA_our_own/",
   
   ### set global variables in the script
   script <- "aracne=/cygdrive/c/Research/CUMC/ARACNe/aracne\n"
-  script <- paste0(script, "tf=/cygdrive/c/Research/CUMC/ARACNe/hubGenes/tf.txt\n")
-  script <- paste0(script, "cotf=/cygdrive/c/Research/CUMC/ARACNe/hubGenes/cotf.txt\n")
-  script <- paste0(script, "signaling=/cygdrive/c/Research/CUMC/ARACNe/hubGenes/signaling.txt\n")
+  script <- paste0(script, "tf=C:/Research/CUMC/ARACNe/hubGenes/tf.txt\n")
+  script <- paste0(script, "cotf=C:/Research/CUMC/ARACNe/hubGenes/cotf.txt\n")
+  script <- paste0(script, "signaling=C:/Research/CUMC/ARACNe/hubGenes/signaling.txt\n")
   script <- paste0(script, "pv=0.00000001\n")
   script <- paste0(script, "threads=4\n")
   script <- paste0(script, "bootstrap=100\n")
@@ -43,7 +43,7 @@ makeScript <- function(inputPath="./results/aracne_ready/TCGA_our_own/",
   ### iteratively write Aracne run code for each TCGA tissue
   for(i in 1:length(f)) {
     ### set Aracne ready data path variable
-    script <- paste0(script, "input=/cygdrive/c/Research/CUMC/GTExProj/results/aracne_ready/TCGA_our_own/",
+    script <- paste0(script, "input=C:/Research/CUMC/GTExProj/results/aracne_ready/TCGA_our_own/",
                      f[i], "\n")
     
     ### make an output directory for the tissue
@@ -52,7 +52,7 @@ makeScript <- function(inputPath="./results/aracne_ready/TCGA_our_own/",
                      dir, "\n")
     
     ### set Aracne run output directory path variable
-    script <- paste0(script, "output=/cygdrive/c/Research/CUMC/GTExProj/results/Aracne/TCGA_our_own/",
+    script <- paste0(script, "output=C:/Research/CUMC/GTExProj/results/Aracne/TCGA_our_own/",
                      dir, "/\n")
     
     ### Aracne run with TF hubs
