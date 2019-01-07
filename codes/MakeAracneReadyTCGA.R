@@ -40,6 +40,71 @@ makeAracneReady_TCGA <- function(preprocessedRDAPath="//isilon.c2b2.columbia.edu
   load(preprocessedRDAPath)
   
   
+  ### retain only primary tumor & new primary tumor
+  tcga_sample_info <- tcga_sample_info[union(union(which(tcga_sample_info$`Sample Type` == "Primary Tumor"),
+                                                   which(tcga_sample_info$`Sample Type` == "Additional - New Primary")),
+                                             which(tcga_sample_info$`Sample Type` == "Primary Blood Derived Cancer - Peripheral Blood")),]
+  
+  
+  ### remove FFPE samples
+  tcga_sample_info <- tcga_sample_info[which(tcga_sample_info$is_derived_from_ffpe == "NO"),]
+  
+  
+  ### order the sample info based on Project ID and Case ID
+  tcga_sample_info <- tcga_sample_info[order(tcga_sample_info$`Project ID`,
+                                             tcga_sample_info$`Case ID`),]
+  
+  
+  ### if there are multiple samples per one patient in each tissue, select one with the highest RIN
+  unique_tissues <- unique(tcga_sample_info$`Project ID`)
+  rIdx <- NULL
+  for(i in 1:length(unique_tissues)) {
+    ### get indicies for the given tissue
+    tempIdx <- which(tcga_sample_info$`Project ID` == unique_tissues[i])
+    
+    ### get duplicated indicies in the given tissue
+    dupIdx <- tempIdx[which(duplicated(tcga_sample_info$`Case ID`[tempIdx]))]
+    
+    ### if there are duplicates, select one with the highest RIN
+    ### tie breaker (multiple highest RIN) - select one with the highest lexical order
+    if(length(dupIdx) > 0) {
+      dups <- unique(tcga_sample_info$`Case ID`[dupIdx])
+      
+      ### collect indicies except one that will remain
+      ### those indicies will be removed away later
+      for(j in 1:length(dups)) {
+        dIdx <- which(tcga_sample_info$`Case ID` == dups[j])
+        rIdx <- c(rIdx, dIdx[order(tcga_sample_info$RIN[dIdx])])
+        rIdx <- rIdx[-length(rIdx)]
+      }
+    }
+  }
+  tcga_sample_info <- tcga_sample_info[-rIdx,]
+  
+  
+  ### make all the raw count matrices have samples only appeared in the tcga_sample_info
+  for(i in 1:length(rcnt_matNames)) {
+    ### get raw count matrix for the given tissue
+    rcnt_mat <- get(rcnt_matNames[i])
+    
+    ### retain samples only appeared in the tcga_sample_info (which means they are filtered)
+    rcnt_mat <- rcnt_mat[,which(colnames(rcnt_mat) %in% rownames(tcga_sample_info))]
+    
+    ### order the samples in lexical order
+    rcnt_mat <- rcnt_mat[,order(colnames(rcnt_mat))]
+    
+    ### change the colnames based on "Case ID"
+    colnames(rcnt_mat) <- tcga_sample_info[colnames(rcnt_mat), "Case ID"]
+    
+    ### save the result back to the variable
+    assign(rcnt_matNames[i], rcnt_mat, envir = globalenv())
+  }
+  
+  
+  ### change the row names based on "Case ID"
+  rownames(tcga_sample_info) <- tcga_sample_info$`Case ID`
+  
+  
   ### a function to transfrom Ensembl IDs to Gene symbols
   ensemblIDsToGeneSymbols <- function(ensembl_ids){
     
@@ -130,12 +195,6 @@ makeAracneReady_TCGA <- function(preprocessedRDAPath="//isilon.c2b2.columbia.edu
   for(i in 1:length(rcnt_matNames)) {
     ### get raw counts for the given tissue
     df <- get(rcnt_matNames[i])
-    
-    ### remove FFPE samples
-    isFFPE <- which(tcga_sample_info[colnames(df), "is_derived_from_ffpe"] == "YES")
-    if(length(isFFPE) > 0) {
-      df <- df[,-isFFPE]
-    }
     
     ### If the number of samples exceeds 200, 200 samples will be selected based on RIN
     if(ncol(df) > 200) {
