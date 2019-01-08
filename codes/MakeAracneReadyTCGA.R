@@ -13,6 +13,10 @@
 #               5. Only use tissues with >= 100 samples and if there are more than 200 samples,
 #                  choose 200 with highest RIN
 #
+#   * Currently, there is a bug in ggplot that it does not work in "source()".
+#     If this code generates empty PCA/TSNE figures, then please run this code
+#     without using "source()". Just set the input parameters and run the whole script 
+#
 #   Instruction
 #               1. Source("MakeAracneReadyTCGA.R")
 #               2. Run the function "makeAracneReady_TCGA()" - specify the pre-processed TCGA RDA file path and output directory
