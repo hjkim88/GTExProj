@@ -93,16 +93,16 @@ makeAracneReady_TCGA <- function(preprocessedRDAPath="//isilon.c2b2.columbia.edu
     ### order the samples in lexical order
     rcnt_mat <- rcnt_mat[,order(colnames(rcnt_mat))]
     
-    ### change the colnames based on "Case ID"
-    colnames(rcnt_mat) <- tcga_sample_info[colnames(rcnt_mat), "Case ID"]
+    ### change the colnames based on the first 15 characters
+    colnames(rcnt_mat) <- substr(colnames(rcnt_mat), 1, 15)
     
     ### save the result back to the variable
     assign(rcnt_matNames[i], rcnt_mat, envir = globalenv())
   }
   
   
-  ### change the row names based on "Case ID"
-  rownames(tcga_sample_info) <- tcga_sample_info$`Case ID`
+  ### change the row names based on the first 15 characters
+  rownames(tcga_sample_info) <- substr(rownames(tcga_sample_info), 1, 15)
   
   
   ### a function to transfrom Ensembl IDs to Gene symbols
@@ -191,6 +191,80 @@ makeAracneReady_TCGA <- function(preprocessedRDAPath="//isilon.c2b2.columbia.edu
   list_ensembl2eg <- as.list(org.Hs.egENSEMBL2EG[map_ensembl_eg])
   
   
+  ### a function to perform both PCA and t-SNE
+  pca_tsne_plot <- function(normalizedMat, grp, title, filePath) {
+    
+    ### load libraries
+    if(!require(ggfortify)) {
+      install.packages("ggfortify")
+      library(ggfortify)
+    }
+    if(!require(Rtsne)) {
+      install.packages("Rtsne")
+      library(Rtsne)
+    }
+    if(!require(gridExtra)) {
+      install.packages("gridExtra")
+      library(gridExtra)
+    }
+    
+    ### PCA
+    pca_result <- prcomp(t(normalizedMat))
+    pca_group <- data.frame(pca_result$x, group=grp)
+    
+    ### TSNE
+    env <- new.env()
+    set.seed(1234)
+    tryCatch({
+      writeLines("Perplexity = 30")
+      t <- Rtsne(t(normalizedMat), perplexity = 30)
+      assign("t", t, envir = env)
+    }, error = function(err) {
+      tryCatch({
+        writeLines("Perplexity = 10")
+        t <- Rtsne(t(normalizedMat), perplexity = 10)
+        assign("t", t, envir = env)
+      }, error = function(err) {
+        tryCatch({
+          writeLines("Perplexity = 5")
+          t <- Rtsne(t(normalizedMat), perplexity = 5)
+          assign("t", t, envir = env)
+        }, error = function(err) {
+          tryCatch({
+            writeLines("Perplexity = 3")
+            t <- Rtsne(t(normalizedMat), perplexity = 3)
+            assign("t", t, envir = env)
+          }, error = function(err) {
+            writeLines("Perplexity = 2")
+            t <- Rtsne(t(normalizedMat), perplexity = 2)
+            assign("t", t, envir = env)
+          })
+        })
+      })
+    })
+    t <- get("t", envir = env)
+    tsne_group <- data.frame(Dimension1=t$Y[,1], Dimension2=t$Y[,2], group=grp)
+    
+    ### set colors for the samples
+    colors = rainbow(length(unique(grp)))
+    names(colors) = unique(grp)
+    
+    ### print out the results
+    pca_plot <- ggplot(pca_group,aes(x=PC1,y=PC2,col=group)) +
+      labs(title=paste("PCA", title, sep = "_")) +
+      geom_text(aes(label=colnames(normalizedMat)),hjust=0, vjust=0) +
+      scale_color_manual(values = colors) +
+      theme_classic(base_size = 16)
+    tsne_plot <- ggplot(tsne_group, aes(x=Dimension1,y=Dimension2,col=group)) +
+      labs(title=paste("TSNE", title, sep = "_")) +
+      geom_text(aes(label=colnames(normalizedMat)),hjust=0, vjust=0) +
+      scale_color_manual(values = colors) +
+      theme_classic(base_size = 16)
+    ggsave(filename = filePath, arrangeGrob(pca_plot, tsne_plot, ncol = 2), width = 20, height = 10)
+    
+  }
+  
+  
   ### make Aracne-ready files for each TCGA tissue
   for(i in 1:length(rcnt_matNames)) {
     ### get raw counts for the given tissue
@@ -277,6 +351,13 @@ makeAracneReady_TCGA <- function(preprocessedRDAPath="//isilon.c2b2.columbia.edu
                                collapse = "_"),
                          ".dat"),
                   sep = "\t", row.names = FALSE, quote = FALSE)
+      
+      ### PCA/TSNE plot for each tissue
+      pca_tsne_plot(normalizedMat = df[,4:ncol(df)], grp = tcga_sample_info[colnames(df[,4:ncol(df)]), "Project ID"],
+                    title = rcnt_matNames[i], filePath = paste0(outputDir, "PCA_",
+                                                                paste(strsplit(rcnt_matNames[i],
+                                                                               split = "_", fixed = TRUE)[[1]][2:3],
+                                                                      collapse = "_"), ".png"))
     }
   }
   
