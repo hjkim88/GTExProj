@@ -218,7 +218,7 @@ preprocess_tcga <- function(targetDir="//isilon.c2b2.columbia.edu/ifs/archive/sh
   
   
   ### save the raw counts and the sample info as a RDA file
-  save(list = c("htseq_raw_counts", "tcga_sample_info", "README"), file = paste0(outputDir, "TCGA_RAW_COUNTS_ORIGINAL.rda"))
+  save(list = c("htseq_raw_counts", "tcga_sample_info", "README"), file = paste0(outputDir, "TCGA_RAW_COUNTS.rda"))
   
   
   ### separate raw counts by each tissue
@@ -255,7 +255,7 @@ preprocess_tcga <- function(targetDir="//isilon.c2b2.columbia.edu/ifs/archive/sh
   
   
   ### save the raw counts and the sample info as a RDA file
-  save(list = c(rcnt_matNames, "rcnt_matNames", "tcga_sample_info", "README"), file = paste0(outputDir, "TCGA_33_RAW_COUNTS_ORIGINAL.rda"))
+  save(list = c(rcnt_matNames, "rcnt_matNames", "tcga_sample_info", "README"), file = paste0(outputDir, "TCGA_33_RAW_COUNTS.rda"))
   
 }
 
