@@ -111,6 +111,10 @@ preprocess_tcga <- function(targetDir="//isilon.c2b2.columbia.edu/ifs/archive/sh
   rm(exposureInfo)
   
   
+  ### change all "--" to NA
+  tcga_sample_info[which(tcga_sample_info == "--", arr.ind = TRUE)] <- NA
+  
+  
   ### collect unique project IDs
   project_ids <- unique(tcga_sample_info$`Project ID`)
   project_ids <- substring(project_ids, 6)
@@ -242,7 +246,7 @@ preprocess_tcga <- function(targetDir="//isilon.c2b2.columbia.edu/ifs/archive/sh
     writeLines("The \"rcnt_tcga_[TISSUE_NAME]\" has 60483 rows")
     writeLines("There are 33 tissues and corresponding raw count data frames")
     writeLines("The rows are Ensembl IDs and the columns are sample IDs")
-    writeLines("The \"tcga_sample_info\" has 11093 rows and 21 columns")
+    writeLines("The \"tcga_sample_info\" has 11093 rows and 53 columns")
     writeLines("The rows are samples corresponding to the columns of the \"rcnt_tcga_[TISSUE_NAME]\"")
     writeLines("The columns represent various attributes of the samples")
     writeLines("The \"rcnt_matNames\" is a character vector that has the names of 33 rcnt_tcga_[TISSUE_NAME]s")
