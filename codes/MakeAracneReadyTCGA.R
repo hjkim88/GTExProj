@@ -26,11 +26,11 @@
 #
 #   Example
 #               > source("The_directory_of_MakeAracneReadyTCGA.R/MakeAracneReadyTCGA.R")
-#               > makeAracneReady_TCGA(preprocessedRDAPath="./data/RDA_Files/TCGA_33_RAW_COUNTS_ORIGINAL.rda",
+#               > makeAracneReady_TCGA(preprocessedRDAPath="./data/RDA_Files/TCGA_33_RAW_COUNTS.rda",
 #                                      outputDir="./results/aracne_ready/TCGA_our_own/")
 ###
 
-makeAracneReady_TCGA <- function(preprocessedRDAPath="//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/TCGA_33_RAW_COUNTS_ORIGINAL.rda",
+makeAracneReady_TCGA <- function(preprocessedRDAPath="//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/TCGA_33_RAW_COUNTS.rda",
                                  outputDir="//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/TCGA/ExpressionMatrices/aracne_ready_af_lab/") {
   
   ### load library
@@ -342,6 +342,9 @@ makeAracneReady_TCGA <- function(preprocessedRDAPath="//isilon.c2b2.columbia.edu
       for(dup in entrez_dups) {
         df$Entrez_ID[dup] <- list_ensembl2eg[df$Ensembl_ID[dup]][[1]]
       }
+      
+      ### set rownames with Entrez ID
+      rownames(df) <- df$Entrez_ID
       
       ### order based on Entrez ID
       df <- df[order(as.numeric(as.character(df$Entrez_ID))),]
