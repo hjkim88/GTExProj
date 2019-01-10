@@ -8,9 +8,11 @@
 #               The process to make Aracne-ready files are like below:
 #               1. If there are duplicated gene symbols, then just add all counts up
 #               2. Remove genes that have NA, 0 or 1 across all samples
-#               3. Remove FFPE samples
-#               4. Perform VST(Variance Stabilizing Transformation) on counts
-#               5. Only use tissues with >= 100 samples and if there are more than 200 samples,
+#               3. Only keep primary tumor samples
+#               4. If there are multiple samples per one patient in each tissue, select one with the highest RIN
+#               5. Remove FFPE samples
+#               6. Perform VST(Variance Stabilizing Transformation) on counts
+#               7. Only use tissues with >= 100 samples and if there are more than 200 samples,
 #                  choose 200 with highest RIN
 #
 #   * Currently, there is a bug in ggplot that it does not work in "source()".
@@ -24,11 +26,11 @@
 #
 #   Example
 #               > source("The_directory_of_MakeAracneReadyTCGA.R/MakeAracneReadyTCGA.R")
-#               > makeAracneReady_TCGA(preprocessedRDAPath="./data/RDA_Files/TCGA_33_RAW_COUNTS.rda",
+#               > makeAracneReady_TCGA(preprocessedRDAPath="./data/RDA_Files/TCGA_33_RAW_COUNTS_ORIGINAL.rda",
 #                                      outputDir="./results/aracne_ready/TCGA_our_own/")
 ###
 
-makeAracneReady_TCGA <- function(preprocessedRDAPath="//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/TCGA_33_RAW_COUNTS.rda",
+makeAracneReady_TCGA <- function(preprocessedRDAPath="//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/TCGA_33_RAW_COUNTS_ORIGINAL.rda",
                                  outputDir="//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/TCGA/ExpressionMatrices/aracne_ready_af_lab/") {
   
   ### load library
@@ -269,6 +271,10 @@ makeAracneReady_TCGA <- function(preprocessedRDAPath="//isilon.c2b2.columbia.edu
   }
   
   
+  ### initialize the count matrix names for a RDA file
+  tcga_expmat_names <- NULL
+  
+  
   ### make Aracne-ready files for each TCGA tissue
   for(i in 1:length(rcnt_matNames)) {
     ### get raw counts for the given tissue
@@ -356,6 +362,12 @@ makeAracneReady_TCGA <- function(preprocessedRDAPath="//isilon.c2b2.columbia.edu
                          ".dat"),
                   sep = "\t", row.names = FALSE, quote = FALSE)
       
+      ### save the Aracne-ready expressions to a variable
+      tcga_expmat_names <- c(tcga_expmat_names, paste0("expmat_", paste(strsplit(rcnt_matNames[i],
+                                                                          split = "_", fixed = TRUE)[[1]][2:3],
+                                                                 collapse = "_")))
+      assign(tcga_expmat_names[length(tcga_expmat_names)], df[,4:ncol(df)], envir = globalenv())
+      
       ### PCA/TSNE plot for each tissue
       pca_tsne_plot(normalizedMat = df[,4:ncol(df)], grp = tcga_sample_info[colnames(df[,4:ncol(df)]), "Project ID"],
                     title = rcnt_matNames[i], filePath = paste0(outputDir, "PCA_",
@@ -364,5 +376,32 @@ makeAracneReady_TCGA <- function(preprocessedRDAPath="//isilon.c2b2.columbia.edu
                                                                       collapse = "_"), ".png"))
     }
   }
+  
+  
+  ### set README function
+  README <- function(){
+    writeLines(paste(rep("#", 100), collapse = ""))
+    writeLines("There are 26 Aracne-ready expression matrices of TCGA data")
+    writeLines("The \"tcga_expmat_names\" is a vector of length 26 and has all the variable names of the matrices")
+    writeLines("The \"expmat_tcga_[TISSUE NAME]\" has the Aracne-ready expressions for the given tissue")
+    writeLines("The process to make Aracne-ready files are like below:")
+    writeLines("1. If there are duplicated gene symbols, then just add all counts up")
+    writeLines("2. Remove genes that have NA, 0 or 1 across all samples")
+    writeLines("3. Only keep primary tumor samples")
+    writeLines("4. If there are multiple samples per one patient in each tissue, select one with the highest RIN")
+    writeLines("5. Remove FFPE samples")
+    writeLines("6. Perform VST(Variance Stabilizing Transformation) on counts")
+    writeLines("7. Only use tissues with >= 100 samples and if there are more than 200 samples, choose 200 with highest RIN")
+    writeLines("The \"tcga_sample_info\" has all the information related the TCGA samples")
+    writeLines("The \"tcga_sample_info\" has 9825 rows and 53 columns")
+    writeLines("The rows are samples corresponding to the columns of the \"expmat_tcga_[TISSUE NAME]\"")
+    writeLines("The columns represent various attributes of the samples")
+    writeLines(paste(rep("#", 100), collapse = ""))
+  }
+  
+  
+  ### save the raw counts and the sample info as a RDA file
+  save(list = c(tcga_expmat_names, "tcga_expmat_names", "tcga_sample_info", "README"),
+       file = paste0(dirname(preprocessedRDAPath), "/TCGA_26_ARACNE_READY_EXPMAT.rda"))
   
 }
