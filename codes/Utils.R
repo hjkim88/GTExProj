@@ -38,13 +38,15 @@ if (!exists("goTermMap"))
 # a second worksheet is also attached listing the detailed results of the 
 # synergy calculation.
 # 
-# mrs:		An msviper object such as that returned by the methods msviper(),
+# * mrs:		An msviper object such as that returned by the methods msviper(),
 #		msviperCombinatorial(), msviperSynergy()
-# file_name:	The file name where to write the results.
-# worksheet:	The name for the 2 worksheets (the second will just be named
+# * file_name:	The file name where to write the results.
+# * worksheet:	The name for the 2 worksheets (the second will just be named
 #		"<worksheet> - Synergy"
+# * format:		Specifies if the results will be stored in an Excel or a R
+#		binary data file.
 # *****************************************************************************
-writeMarinaResults = function(mrs, file_name, worksheet, regul){
+writeMarinaResults = function(mrs, file_name, worksheet, regul, format = c("xlsx", "rda")){
    # get the symbol names, the nes, the p-values, the regulon sizes, and the ledge genes.
    names = names(mrs$es$nes)
    nes   = mrs$es$nes
@@ -52,6 +54,8 @@ writeMarinaResults = function(mrs, file_name, worksheet, regul){
    sizes = mrs$es$size
    ledge = mrs$ledge
    
+   # Variables used to store results
+	marina_hubs = marina_synergy = NULL
    # generate FDR values
    fdr = signif(p.adjust(mrs$es$p.value, "fdr"), 3)
    
@@ -70,10 +74,11 @@ writeMarinaResults = function(mrs, file_name, worksheet, regul){
       }
    
    # order everything by increasing FDR and write to file
-   pos = order(fdr)
-   output = data.frame(Gene = names[pos], NES = nes[pos], FDR = fdr[pos], P_value = pvals[pos], 
-               Regulon_size = sizes[pos], Ledge_size = ledge_sizes[pos], Ledge = ledge_genes[pos])
-   write.xlsx(output, file = file_name, row.names = FALSE, col.names = TRUE, sheetName = worksheet, append=TRUE)
+	pos = order(fdr)
+	marina_hubs = data.frame(Gene = names[pos], NES = nes[pos], FDR = fdr[pos], P_value = pvals[pos], 
+			Regulon_size = sizes[pos], Ledge_size = ledge_sizes[pos], Ledge = ledge_genes[pos])
+	if (format == "xlsx")
+		write.xlsx(marina_hubs, file = file_name, row.names = FALSE, col.names = TRUE, sheetName = worksheet, append=TRUE)
 
    # prepare to write out the second worksheet, containing the synergy results   
    L = length(ledge)
@@ -95,13 +100,17 @@ writeMarinaResults = function(mrs, file_name, worksheet, regul){
          ledge_genes[i] = toString(intersect(reg1, reg2))
       }
       
-      pos = order(fdr)
-      output = data.frame(Gene = names[pos], NES = nes[pos], FDR = fdr[pos], P_value = pvals[pos], 
-                     Common_enriched = sizes[pos], Shared_regulon = ledge_sizes[pos], Shared_genes = ledge_genes[pos])
-      write.xlsx(output, file = file_name, row.names = FALSE, col.names = TRUE, 
-                     sheetName = paste(worksheet, " - Synergy"), append=TRUE)
-      
+	  pos = order(fdr)
+	  marina_synergy = data.frame(Gene = names[pos], NES = nes[pos], FDR = fdr[pos], P_value = pvals[pos], 
+			  Common_enriched = sizes[pos], Shared_regulon = ledge_sizes[pos], Shared_genes = ledge_genes[pos])
+	  if (format == "xlsx")
+		  write.xlsx(marina_synergy, file = file_name, row.names = FALSE, col.names = TRUE, 
+				  sheetName = paste(worksheet, " - Synergy"), append=TRUE)
+  
    }
+   
+   if (format == "rda")
+	   save(list = c("marina_hubs", "marina_synergy"), file = file_name)
 }
 
 
@@ -1317,6 +1326,8 @@ pathwayAnalysis_CP <- function(geneList,
       ### KEGG Pathway
       kegg_enrich <- enrichKEGG(gene = geneList, organism = org, pvalueCutoff = pv_threshold)
       
+      kegg_enrich@result <- kegg_enrich@result[which(kegg_enrich@result$p.adjust < pv_threshold),]
+      
       if(is.null(kegg_enrich)) {
         writeLines("KEGG Result does not exist")
       } else if(imgPrint == TRUE){
@@ -1356,6 +1367,8 @@ pathwayAnalysis_CP <- function(geneList,
         go_enrich <- NULL
         writeLines(paste("Unknown org variable:", org))
       }
+      
+      go_enrich@result <- go_enrich@result[which(go_enrich@result$p.adjust < pv_threshold),]
       
       if(is.null(go_enrich)) {
         writeLines("GO Result does not exist")
@@ -1556,9 +1569,11 @@ replace.NA <- function(mat, val){
 # * save:		if TRUE, save plot to file. Otherwise just plot on screen.
 # * f_name:		if save == TRUE, this is the full pathname of the file were the plot will be saved.
 # * width, height, res:	values of graphical parameters to use when generating the plot.
+# * xlab, ylab, main:	titles for x-axis, y-axis, and entire plot, respectively 
 mdsPlot <- function(mat, plot_names = FALSE, alt_names = NULL, groups = NULL, dist_fun = NULL,
 		dist_options = c("euclidean", "maximum", "manhattan", "canberra", "binary", "minkowski", "pearson", "spearman", "kendall"), 
-		save = FALSE, f_name = "./mds_plot.png", width = 1000, height = 1000, res = 130){
+		save = FALSE, f_name = "./mds_plot.png", width = 1000, height = 1000, res = 130,
+		xlab = "", ylab="", main=""){
 	
   ### load library
   if(!require(ArgumentCheck)) {
@@ -1648,7 +1663,7 @@ mdsPlot <- function(mat, plot_names = FALSE, alt_names = NULL, groups = NULL, di
   ### group coloring
   if(is.null(groups)) {
     ### make a MDS plot
-    plot(Dimension1, Dimension2, main=strsplit(basename(f_name), ".", fixed = TRUE)[[1]][1])
+    plot(Dimension1, Dimension2, main=main, xlab=xlab, ylab=ylab)
     
     ### print point names
     if(plot_names == TRUE) {
@@ -1664,8 +1679,7 @@ mdsPlot <- function(mat, plot_names = FALSE, alt_names = NULL, groups = NULL, di
     names(colors) = unique(as.character(groups))
     
     ### make a MDS plot
-    plot(Dimension1, Dimension2,
-         main=strsplit(basename(f_name), ".", fixed = TRUE)[[1]][1],
+    plot(Dimension1, Dimension2, main=main, xlab=xlab, ylab=ylab,
          col = colors[as.character(groups)])
     legend("topright", legend = unique(as.character(groups)),
            col = colors[unique(as.character(groups))], pch = 15,
