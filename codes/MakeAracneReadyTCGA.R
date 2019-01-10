@@ -378,6 +378,12 @@ makeAracneReady_TCGA <- function(preprocessedRDAPath="//isilon.c2b2.columbia.edu
   }
   
   
+  ### only keep the sample info of Aracne-ready exps
+  tcga_sample_info <- tcga_sample_info[unlist(sapply(tcga_expmat_names, function(x) {
+    return(colnames(get(x)))
+  })),]
+  
+  
   ### set README function
   README <- function(){
     writeLines(paste(rep("#", 100), collapse = ""))
@@ -393,7 +399,7 @@ makeAracneReady_TCGA <- function(preprocessedRDAPath="//isilon.c2b2.columbia.edu
     writeLines("6. Perform VST(Variance Stabilizing Transformation) on counts")
     writeLines("7. Only use tissues with >= 100 samples and if there are more than 200 samples, choose 200 with highest RIN")
     writeLines("The \"tcga_sample_info\" has all the information related the TCGA samples")
-    writeLines("The \"tcga_sample_info\" has 9825 rows and 53 columns")
+    writeLines("The \"tcga_sample_info\" has 4760 rows and 53 columns")
     writeLines("The rows are samples corresponding to the columns of the \"expmat_tcga_[TISSUE NAME]\"")
     writeLines("The columns represent various attributes of the samples")
     writeLines(paste(rep("#", 100), collapse = ""))
