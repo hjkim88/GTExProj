@@ -254,6 +254,15 @@ preprocess_tcga <- function(targetDir="//isilon.c2b2.columbia.edu/ifs/archive/sh
   }
   
   
+  ### make all the data frames into matrices before creating the RDA file
+  for(i in 1:length(rcnt_matNames)) {
+    temp <- get(rcnt_matNames[i])
+    temp <- as.matrix(temp)
+    assign(rcnt_matNames[i], temp, envir = globalenv())
+  }
+  tcga_sample_info <- as.matrix(tcga_sample_info)
+  
+  
   ### save the raw counts and the sample info as a RDA file
   save(list = c(rcnt_matNames, "rcnt_matNames", "tcga_sample_info", "README"), file = paste0(outputDir, "TCGA_33_RAW_COUNTS.rda"))
   
