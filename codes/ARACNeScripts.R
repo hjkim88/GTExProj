@@ -18,7 +18,7 @@
 #                             dos2unixPath="C:/cygwin64/bin/dos2unix.exe")
 ###
 
-makeScripts <- function(examplePath="../../ARACNe/GTEx/Aracne_example.sh",
+makeScripts <- function(examplePath="../ARACNe/GTEx/Aracne_example.sh",
                         inputPath="./results/aracne_ready/",
                         outputPath="./results/scripts/",
                         dos2unixPath="C:/cygwin64/bin/dos2unix.exe") {
@@ -29,6 +29,8 @@ makeScripts <- function(examplePath="../../ARACNe/GTEx/Aracne_example.sh",
   
   ### collect files from the cntPath
   f <- list.files(inputPath)
+  f <- f[which(endsWith(f, ".dat"))]
+  
   
   ### master script's first two lines
   masterScript <- "#!/bin/bash\nqacct -o hk2990\n"
