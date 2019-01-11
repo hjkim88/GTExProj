@@ -133,8 +133,17 @@ makeReady <- function(inputPath="//isilon.c2b2.columbia.edu/ifs/archive/shares/a
   }
   
   
+  ### make all the data frames into matrices before creating the RDA file
+  for(i in 1:length(gtex_expmat_names)) {
+    temp <- get(gtex_expmat_names[i])
+    temp <- as.matrix(temp)
+    assign(gtex_expmat_names[i], temp, envir = globalenv())
+  }
+  gtex_sample_info <- as.matrix(gtex_sample_info)
+  
+  
   ### save the raw counts and the sample info as a RDA file
   save(list = c(gtex_expmat_names, "gtex_expmat_names", "gtex_sample_info", "README"),
-       file = paste0(rdaFilePath, "/GTEX_36_ARACNE_READY_EXPMAT.rda"))
+       file = paste0(rdaFilePath, "GTEX_36_ARACNE_READY_EXPMAT.rda"))
   
 }
