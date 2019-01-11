@@ -409,6 +409,15 @@ makeAracneReady_TCGA <- function(preprocessedRDAPath="//isilon.c2b2.columbia.edu
   }
   
   
+  ### make all the data frames into matrices before creating the RDA file
+  for(i in 1:length(tcga_expmat_names)) {
+    temp <- get(tcga_expmat_names[i])
+    temp <- as.matrix(temp)
+    assign(tcga_expmat_names[i], temp, envir = globalenv())
+  }
+  tcga_sample_info <- as.matrix(tcga_sample_info)
+  
+  
   ### save the raw counts and the sample info as a RDA file
   save(list = c(tcga_expmat_names, "tcga_expmat_names", "tcga_sample_info", "README"),
        file = paste0(dirname(preprocessedRDAPath), "/TCGA_26_ARACNE_READY_EXPMAT.rda"))
