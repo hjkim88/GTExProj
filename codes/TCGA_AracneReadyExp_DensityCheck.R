@@ -18,8 +18,8 @@
 #                              rawCntRDAPath="./data/RDA_Files/TCGA_33_RAW_COUNTS.rda")
 ###
 
-densityCheck() <- function(AracneReadyRDAPath="./data/RDA_Files/TCGA_26_ARACNE_READY_EXPMAT.rda",
-                           rawCntRDAPath="./data/RDA_Files/TCGA_33_RAW_COUNTS.rda") {
+densityCheck() <- function(AracneReadyRDAPath="//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/TCGA_26_ARACNE_READY_EXPMAT.rda",
+                           rawCntRDAPath="//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/TCGA_33_RAW_COUNTS.rda") {
   
   ### load library
   if(!require(ggplot2)) {
