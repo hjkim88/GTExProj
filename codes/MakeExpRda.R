@@ -69,14 +69,14 @@ makeRda <- function(fileNamePath="//isilon.c2b2.columbia.edu/ifs/archive/shares/
   
   ### load exp datasets
   for(i in 1:length(gtexFileNames)) {
-    assign(gtexMatNames[i], read.table(paste0(fileLocationPath, "GTEx/", gtexFileNames[i], ".dat"),
-                                       row.names = 1, header = TRUE, sep = "\t", quote = "",
-                                       check.names = FALSE, stringsAsFactors = FALSE), envir = globalenv())
+    assign(gtexMatNames[i], as.matrix(read.table(paste0(fileLocationPath, "GTEx/", gtexFileNames[i], ".dat"),
+                                                 row.names = 1, header = TRUE, sep = "\t", quote = "",
+                                                 check.names = FALSE, stringsAsFactors = FALSE), envir = globalenv()))
   }
   for(i in 1:length(tcgaFileNames)) {
-    assign(tcgaMatNames[i], read.table(paste0(fileLocationPath, "TCGA/", tcgaFileNames[i], ".dat"),
-                                       row.names = 1, header = TRUE, sep = "\t", quote = "",
-                                       check.names = FALSE, stringsAsFactors = FALSE), envir = globalenv())
+    assign(tcgaMatNames[i], as.matrix(read.table(paste0(fileLocationPath, "TCGA/", tcgaFileNames[i], ".dat"),
+                                                 row.names = 1, header = TRUE, sep = "\t", quote = "",
+                                                 check.names = FALSE, stringsAsFactors = FALSE), envir = globalenv()))
   }
   
   

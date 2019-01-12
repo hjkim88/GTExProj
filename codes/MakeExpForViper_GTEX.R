@@ -136,7 +136,7 @@ norm_counts <- function(fileNamePath="//isilon.c2b2.columbia.edu/ifs/archive/sha
   
   
   ### perform VST
-  assign("emat_gtex_all", RNASEQwithVST(d), envir = globalenv())
+  assign("emat_gtex_all", as.matrix(RNASEQwithVST(d)), envir = globalenv())
   
   
   ### split the combined one into tissue-specific data

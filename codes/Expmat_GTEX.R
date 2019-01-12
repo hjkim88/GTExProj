@@ -81,7 +81,7 @@ ematReady <- function(fileNamePath="//isilon.c2b2.columbia.edu/ifs/archive/share
                     row.names = 1, header = TRUE, sep = "\t",
                     check.names = FALSE, stringsAsFactors = FALSE)
     d <- d[,-1]
-    assign(gtexMatNames[i], d, envir = globalenv())
+    assign(as.matrix(gtexMatNames[i]), d, envir = globalenv())
   }
   
   assign("emat_gtex_names", gtexMatNames, envir = globalenv())

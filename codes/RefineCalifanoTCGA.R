@@ -14,12 +14,12 @@
 #               > source("The_directory_of_RefineCalifanoTCGA.R/RefineCalifanoTCGA.R")
 #               > refineTheirTCGA(rCntPath="//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/TCGA/ExpressionMatrices/tcga_read_counts/cancer-rawcounts.rda",
 #                                 marianoNormDatPath="//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/TCGA/ExpressionMatrices/normalized_by_mariano/",
-#                                 outputPath="//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/TCGA/ExpressionMatrices/tcga_read_counts/vst_normalized_counts.rda")
+#                                 outputPath="//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/TCGA/ExpressionMatrices/tcga_read_counts/tcga_norm_counts_cleaned.rda")
 ###
 
 refineTheirTCGA <- function(rCntPath="//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/TCGA/ExpressionMatrices/tcga_read_counts/cancer-rawcounts.rda",
                             marianoNormDatPath="//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/TCGA/ExpressionMatrices/normalized_by_mariano/",
-                            outputPath="//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/TCGA/ExpressionMatrices/tcga_read_counts/vst_normalized_counts.rda") {
+                            outputPath="//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/TCGA/ExpressionMatrices/tcga_read_counts/tcga_norm_counts_cleaned.rda") {
   
   ### load datasets
   load(rCntPath)
@@ -70,7 +70,7 @@ refineTheirTCGA <- function(rCntPath="//isilon.c2b2.columbia.edu/ifs/archive/sha
   }
   
   ### normalized count variable names
-  norm_counts_vars <- NULL
+  tcga_norm_counts_vars <- NULL
   
   ### iteratively perform normalization for each tissue
   for(i in 1:length(f)) {
@@ -107,10 +107,10 @@ refineTheirTCGA <- function(rCntPath="//isilon.c2b2.columbia.edu/ifs/archive/sha
     norm_cnt <- RNASEQwithVST(cnt)
     
     ### save it with appropriate name
-    assign(paste0("emat_tcga2_", strsplit(f[i], split = "-", fixed = TRUE)[[1]][1]), norm_cnt, envir = globalenv())
+    assign(paste0("emat_tcga2_", strsplit(f[i], split = "-", fixed = TRUE)[[1]][1]), as.matrix(norm_cnt), envir = globalenv())
     
     ### add the var name
-    norm_counts_vars <- c(norm_counts_vars, paste0("emat_tcga2_", strsplit(f[i], split = "-", fixed = TRUE)[[1]][1]))
+    tcga_norm_counts_vars <- c(tcga_norm_counts_vars, paste0("emat_tcga2_", strsplit(f[i], split = "-", fixed = TRUE)[[1]][1]))
     
     ### progress print
     writeLines(paste(i, "/", length(f)))
@@ -124,14 +124,11 @@ refineTheirTCGA <- function(rCntPath="//isilon.c2b2.columbia.edu/ifs/archive/sha
     writeLines("All the NAs in the raw count data were changed to 0")
     writeLines("Genes with 0 or 1 across all samples were removed")
     writeLines("VST-normalization of DESeq2 package was used")
-    writeLines("norm_counts_vars has all the name of 37 TCGA normalized counts")
+    writeLines("tcga_norm_counts_vars has all the name of 37 TCGA normalized counts")
     writeLines("For each tissue, the object name is emat_tcga2_<tumor_caronym>")
   }
   
   ### save all the variables in one RDA file
-  save(list = c("norm_counts_vars", norm_counts_vars, "README"), file = outputPath)
+  save(list = c("tcga_norm_counts_vars", tcga_norm_counts_vars, "README"), file = outputPath)
   
 }
-
-
-
