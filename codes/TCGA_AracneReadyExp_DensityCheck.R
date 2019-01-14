@@ -41,6 +41,84 @@ densityCheck() <- function(AracneReadyRDAPath="//isilon.c2b2.columbia.edu/ifs/ar
   load(AracneReadyRDAPath)
   
   
+  ### a function to perform both PCA and t-SNE
+  pca_tsne_plot <- function(normalizedMat, grp, title, filePath=NULL) {
+    
+    ### load libraries
+    if(!require(ggfortify)) {
+      install.packages("ggfortify")
+      library(ggfortify)
+    }
+    if(!require(Rtsne)) {
+      install.packages("Rtsne")
+      library(Rtsne)
+    }
+    if(!require(gridExtra)) {
+      install.packages("gridExtra")
+      library(gridExtra)
+    }
+    
+    ### PCA
+    pca_result <- prcomp(t(normalizedMat))
+    pca_group <- data.frame(pca_result$x, group=grp)
+    
+    ### TSNE
+    env <- new.env()
+    set.seed(1234)
+    tryCatch({
+      writeLines("Perplexity = 30")
+      t <- Rtsne(t(normalizedMat), perplexity = 30)
+      assign("t", t, envir = env)
+    }, error = function(err) {
+      tryCatch({
+        writeLines("Perplexity = 10")
+        t <- Rtsne(t(normalizedMat), perplexity = 10)
+        assign("t", t, envir = env)
+      }, error = function(err) {
+        tryCatch({
+          writeLines("Perplexity = 5")
+          t <- Rtsne(t(normalizedMat), perplexity = 5)
+          assign("t", t, envir = env)
+        }, error = function(err) {
+          tryCatch({
+            writeLines("Perplexity = 3")
+            t <- Rtsne(t(normalizedMat), perplexity = 3)
+            assign("t", t, envir = env)
+          }, error = function(err) {
+            writeLines("Perplexity = 2")
+            t <- Rtsne(t(normalizedMat), perplexity = 2)
+            assign("t", t, envir = env)
+          })
+        })
+      })
+    })
+    t <- get("t", envir = env)
+    tsne_group <- data.frame(Dimension1=t$Y[,1], Dimension2=t$Y[,2], group=grp)
+    
+    ### set colors for the samples
+    colors = rainbow(length(unique(grp)))
+    names(colors) = unique(grp)
+    
+    ### print out the results
+    pca_plot <- ggplot(pca_group,aes(x=PC1,y=PC2,col=group)) +
+      labs(title=paste("PCA", title, sep = "_")) +
+      geom_text(aes(label=colnames(normalizedMat)),hjust=0, vjust=0) +
+      scale_color_manual(values = colors) +
+      theme_classic(base_size = 16)
+    tsne_plot <- ggplot(tsne_group, aes(x=Dimension1,y=Dimension2,col=group)) +
+      labs(title=paste("TSNE", title, sep = "_")) +
+      geom_text(aes(label=colnames(normalizedMat)),hjust=0, vjust=0) +
+      scale_color_manual(values = colors) +
+      theme_classic(base_size = 16)
+    if(is.null(filePath)) {
+      grid.arrange(pca_plot, tsne_plot, ncol = 2)
+    } else {
+      ggsave(filename = filePath, arrangeGrob(pca_plot, tsne_plot, ncol = 2), width = 20, height = 10)
+    }
+    
+  }
+  
+  
   ### print density plots
   for(i in 1:length(tcga_expmat_names)) {
     mat <- get(tcga_expmat_names[i])
@@ -56,10 +134,10 @@ densityCheck() <- function(AracneReadyRDAPath="//isilon.c2b2.columbia.edu/ifs/ar
   
   ### variances check
   variances <- apply(expmat_tcga_esca, 2, var)
-  barplot(variances, main = tcga_expmat_names[tum_no])
+  barplot(variances, main = "TCGA_ESCA")
   
   ### deviating samples have relatively low variances than the others
-  plot(density(expmat_tcga_esca[,1]), main = tcga_expmat_names[tum_no])
+  plot(density(expmat_tcga_esca[,1]), main = "TCGA_ESCA")
   apply(expmat_tcga_esca[, 2:ncol(expmat_tcga_esca)], 2, function(x){lines(density(x))})
   apply(expmat_tcga_esca[, order(variances)[1:10]], 2, function(x){lines(density(x), col = "RED")})
   
@@ -86,15 +164,23 @@ densityCheck() <- function(AracneReadyRDAPath="//isilon.c2b2.columbia.edu/ifs/ar
     geom_beeswarm(aes(color=Type)) +
     stat_compare_means()
   
+  ### PCA/TSNE plot with the deviating samples
+  grp <- rep("The_Others", ncol(expmat_tcga_esca))
+  grp[order(variances)[1:10]] <- "Deviating_Samples"
+  pca_tsne_plot(normalizedMat = expmat_tcga_esca,
+                grp = grp,
+                title = "TCGA_ESCA",
+                filePath = NULL)
+   
   
   ### TCGA_STAD
   
   ### variances check
   variances <- apply(expmat_tcga_stad, 2, var)
-  barplot(variances, main = tcga_expmat_names[tum_no])
+  barplot(variances, main = "TCGA_STAD")
   
   ### deviating samples have relatively low variances than the others
-  plot(density(expmat_tcga_stad[,1]), main = tcga_expmat_names[tum_no])
+  plot(density(expmat_tcga_stad[,1]), main = "TCGA_STAD")
   apply(expmat_tcga_stad[, 2:ncol(expmat_tcga_stad)], 2, function(x){lines(density(x))})
   apply(expmat_tcga_stad[, order(variances)[1:20]], 2, function(x){lines(density(x), col = "RED")})
   
@@ -120,7 +206,15 @@ densityCheck() <- function(AracneReadyRDAPath="//isilon.c2b2.columbia.edu/ifs/ar
     geom_beeswarm(aes(color=Type)) +
     stat_compare_means()
   
+  ### PCA/TSNE plot with the deviating samples
+  grp <- rep("The_Others", ncol(expmat_tcga_stad))
+  grp[order(variances)[1:20]] <- "Deviating_Samples"
+  pca_tsne_plot(normalizedMat = expmat_tcga_stad,
+                grp = grp,
+                title = "TCGA_STAD",
+                filePath = NULL)
   
+
   ### Concluded that both in TCGA_ESCA and TCGA_STAD, there are no difference in sample info
   ### between the deviating and normal samples
   
