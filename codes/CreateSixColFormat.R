@@ -25,7 +25,7 @@ createNew <- function(expDir="//isilon.c2b2.columbia.edu/ifs/archive/shares/af_l
   
   ### collect files from the cntPath
   f <- list.files(networkDir)
-  f <- f[which(endsWith(f, "clean_vst"))]
+  f <- f[which(f != "MI")]
   
   
   ### iteratively perform conslidateNets() on the datasets
