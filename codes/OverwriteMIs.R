@@ -27,7 +27,7 @@ overWrite <- function(bsnPath="//isilon.c2b2.columbia.edu/ifs/archive/shares/af_
   
   ### collect bootstrapped network files from the bsnPath
   f1 <- list.files(bsnPath)
-  f1 <- f1[which(endsWith(f1, "clean_vst"))]
+  f1 <- f1[which(f1 != "MI")]
   
   ### iteratively overwrite
   for(i in 1:length(f1)) {
