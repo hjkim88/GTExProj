@@ -11,6 +11,8 @@ if (Sys.info()["nodename"] == "C2B2AFPL8"){
   UTILS_FILE = "/ifs/home/c2b2/af_lab/floratos/cvs/labProjects/Common/Utils.R"
 } else if (Sys.info()["nodename"] == "C2B2AFPD10"){
   UTILS_FILE = "C:/Users/floratos/eclipse-workspace/R/labProjects/Common/Utils.R"
+} else if (Sys.info()["nodename"] == "C2B2AFPD11"){
+  UTILS_FILE = "C:/Users/floratos/workspace/R/labProjects/Common/Utils.R"
 } else if  (Sys.info()["user"]=='jb3401' || Sys.info()["user"]=='joshuabroyde'){
   source ('~/jb3401/scripts/labProjects/Common/Broyde/rFunctions.R')
   UTILS_FILE='~/jb3401/scripts/Utils/FloratosUtils.R'
@@ -62,20 +64,19 @@ source(UTILS_FILE, chdir = TRUE)
 #               "WholeBlood_vst/WholeBlood_vst_6cols.txt")
 
 # Names of ARACNe files on disk.
-fileNames = c("tcga_bbrca/tcga_bbrca_6cols.txt","tcga_blca/tcga_blca_6cols.txt",
-              "tcga_brca/tcga_brca_6cols.txt","tcga_cesc/tcga_cesc_6cols.txt",
-              "tcga_coad/tcga_coad_6cols.txt","tcga_esca/tcga_esca_6cols.txt",
-              "tcga_gbm/tcga_gbm_6cols.txt","tcga_hnsc/tcga_hnsc_6cols.txt",
-              "tcga_kirc/tcga_kirc_6cols.txt","tcga_kirp/tcga_kirp_6cols.txt",
-              "tcga_laml/tcga_laml_6cols.txt","tcga_lbrca/tcga_lbrca_6cols.txt",
-              "tcga_lgg/tcga_lgg_6cols.txt","tcga_lihc/tcga_lihc_6cols.txt",
-              "tcga_luad/tcga_luad_6cols.txt","tcga_lusc/tcga_lusc_6cols.txt",
-              "tcga_ov/tcga_ov_6cols.txt","tcga_paad/tcga_paad_6cols.txt",
-              "tcga_pcpg/tcga_pcpg_6cols.txt","tcga_prad/tcga_prad_6cols.txt",
-              "tcga_read/tcga_read_6cols.txt","tcga_sarc/tcga_sarc_6cols.txt",
-              "tcga_skcm/tcga_skcm_6cols.txt","tcga_stad/tcga_stad_6cols.txt",
-              "tcga_tgct/tcga_tgct_6cols.txt","tcga_thca/tcga_thca_6cols.txt",
-              "tcga_thym/tcga_thym_6cols.txt","tcga_ucec/tcga_ucec_6cols.txt")
+fileNames = c("tcga_blca/tcga_blca_6cols2.txt","tcga_brca/tcga_brca_6cols2.txt",
+              "tcga_cesc/tcga_cesc_6cols2.txt","tcga_coad/tcga_coad_6cols2.txt",
+              "tcga_esca/tcga_esca_6cols2.txt","tcga_gbm/tcga_gbm_6cols2.txt",
+              "tcga_hnsc/tcga_hnsc_6cols2.txt","tcga_kirc/tcga_kirc_6cols2.txt",
+              "tcga_kirp/tcga_kirp_6cols2.txt","tcga_laml/tcga_laml_6cols2.txt",
+              "tcga_lgg/tcga_lgg_6cols2.txt","tcga_lihc/tcga_lihc_6cols2.txt",
+              "tcga_luad/tcga_luad_6cols2.txt","tcga_lusc/tcga_lusc_6cols2.txt",
+              "tcga_ov/tcga_ov_6cols2.txt","tcga_paad/tcga_paad_6cols2.txt",
+              "tcga_pcpg/tcga_pcpg_6cols2.txt","tcga_prad/tcga_prad_6cols2.txt",
+              "tcga_read/tcga_read_6cols2.txt","tcga_sarc/tcga_sarc_6cols2.txt",
+              "tcga_skcm/tcga_skcm_6cols2.txt","tcga_stad/tcga_stad_6cols2.txt",
+              "tcga_tgct/tcga_tgct_6cols2.txt","tcga_thca/tcga_thca_6cols2.txt",
+              "tcga_thym/tcga_thym_6cols2.txt","tcga_ucec/tcga_ucec_6cols2.txt")
 
 # Names of DIGGIT files of disk
 # fileNamesDG = c("associations-blca.dat",  "associations-laml.dat",  "associations-read.dat",
@@ -107,10 +108,10 @@ fileNames = c("tcga_bbrca/tcga_bbrca_6cols.txt","tcga_blca/tcga_blca_6cols.txt",
 
 # Variable names to be used for storing the data for each network.
 if (!exists("varNames"))
-  varNames = c("tcga_bbrca","tcga_blca","tcga_brca","tcga_cesc","tcga_coad","tcga_esca","tcga_gbm","tcga_hnsc",
-               "tcga_kirc","tcga_kirp","tcga_laml","tcga_lbrca","tcga_lgg","tcga_lihc","tcga_luad","tcga_lusc",
-               "tcga_ov","tcga_paad","tcga_pcpg","tcga_prad","tcga_read","tcga_sarc","tcga_skcm","tcga_stad",
-               "tcga_tgct","tcga_thca","tcga_thym","tcga_ucec")
+  varNames = c("tcga_blca","tcga_brca","tcga_cesc","tcga_coad","tcga_esca","tcga_gbm","tcga_hnsc",
+               "tcga_kirc","tcga_kirp","tcga_laml","tcga_lgg","tcga_lihc","tcga_luad","tcga_lusc",
+               "tcga_ov","tcga_paad","tcga_pcpg","tcga_prad","tcga_read","tcga_sarc","tcga_skcm",
+               "tcga_stad","tcga_tgct","tcga_thca","tcga_thym","tcga_ucec")
 
 # Variable names to be used for storing the DIGGIT data for each cancer.
 # if (!exists("varNamesDG"))
@@ -1048,6 +1049,119 @@ tfNetProb <- function() {
 
 
 # *****************************************************************************
+#
+# The result of the function has regulon conservation info between every possible
+# hub pair in each interactome (tissue). This is different from tfNetEnrichment(),
+# since this occurs in each interactome of different hubs while the tfNetEnrichment()
+# takes place in different interactomes of regulons of one same hub gene.
+#
+# This function returns a list with length of "varNames", which means the length of
+# existing interactomes. And each element in the list is another list that has length of
+# the number of hubs in a given interactome. In each of this inner list, there is
+# a matrix that contains the regulon conservation info.
+#
+# Detailed descriptions of the result are:
+# * tfPairEnrich is a list object such that:
+#   - length(tfPairEnrich) = length(varNames).
+#   - names(tfPairEnrich) = varNames
+# * Let net_name be a value from varNames (e.g., net_name = “Liver”) and let  X = get(net_name) . Then tfPairEnrich[[net]] is a named list L with one entry for every hub in X (i.e., length(L) = nrow(X[[1]])) such that:
+#   -	names(L) = rownames(X[[1]])
+#   -	Let G be the Entrez ID of the i-th hub in X, i.e., G = rownames(X[[1]][i]). Then L[[i]] is a matrix M with 5 columns and one row for every hub gene in X except G, such that:
+#       >> rownames(M) = rownames(X[[1]])[-i]. I.e., the row names of M are the Entrez Ids of the hubs in X, other than G.
+#       >> colnames(M) = c(“hub_gene”, “-log10_pval”, “common”, “regulon1”, “regulon2”). These are the same column names as those used for the matrices in tfNetEnrich[[2]].
+# * Specifically, if H = rownames(M)[i], i.e., H is the Entrez Id of a hub other than G, then:
+#   - M[i, “hub_gene”] = H
+#   - M[i, “-log10_pval”] = -log10(p-value) of the FET statistic representing the intersection of regulon(G) and regulon(H) in the X interactome.
+#   - M[i, “common”] = size of the intersection of regulon(G) and regulon(H).
+#   - M[i, “regulon1”] = size of regulon(G).
+#   - M[i, “regulon2”] = size of regulon(H).
+#
+# * When computing Fisher's exact test we use the following 2 x 2 contingency matrix:
+#
+#                 Regulon2  No-Regulon2
+#                -----------------------
+#   Regulon1    |     X	          Y
+#   No-Regulon1 |     Z	          W
+#
+#   where:
+#     - X is the size of the interesection of the 2 regulons : the number of shared genes
+#     - Y is the size of the first regulon minus X.
+#     - Z is the size of the other (second) regulon minus X.
+#     - W is the total number of genes in the interactome minus (X plus Y plus Z).
+#
+#   The p-value of the FET will be one-sided p-value with alternative = "greater" option,
+#   which means it is a test of the odds ratio being bigger than 1.
+#
+# *****************************************************************************
+tfPairEnrichment() <- function() {
+  
+  ### calculate the total number of genes for each interactome
+  ### this will be used in FET calculation later
+  totalGeneCounts <- geneCounts("single")
+  
+  ### create an empty list
+  tfPairEnrich <- list()
+  
+  ### the process runs on every tissue of the varNames
+  for(i in 1:length(varNames)) {
+    
+    ### create an empty list for the i-th element of the bigger list
+    tfPairEnrich[[i]] <- list()
+    
+    ### get the Aracne network of the i-th tissue of the varNames
+    X <- get(varNames[i])
+    
+    ### the process runs on every hub in a given interactome
+    for(j in 1:nrow(X[[1]])) {
+      
+      ### create an empty matrix with 5 columns and one row for every hub gene in X except the j-th
+      tfPairEnrich[[i]][[j]] <- matrix(NA, nrow(X[[1]])-1, 5)
+      
+      ### set rownames and colnames of the matrix
+      rownames(tfPairEnrich[[i]][[j]]) <- rownames(X[[1]])[-j]
+      colnames(tfPairEnrich[[i]][[j]]) <- c("hub_gene", "-log10_pval", "common", "regulon1", "regulon2")
+      
+      ### the process runs on every hub gene in X except the j-th
+      for(k in 1:nrow(tfPairEnrich[[i]][[j]])) {
+        
+        ### set the first column - the Entrez ID of the hub
+        tfPairEnrich[[i]][[j]][k,"hub_gene"] <- rownames(tfPairEnrich[[i]][[j]])[k]
+        
+        ### set the second column - p-value of FET between two regulons (conservativeness)
+        common <- length(intersect(rownames(X[[2]][[j]]),rownames(X[[2]][[rownames(tfPairEnrich[[i]][[j]])[k]]])))
+        r1_minus_r2 <- X[[1]][j,3] - common
+        r2_minus_r1 <- X[[1]][rownames(tfPairEnrich[[i]][[j]])[k],3] - common
+        remainder <- totalGeneCounts[i] - (common + r1_minus_r2 + r2_minus_r1)
+        tfPairEnrich[[i]][[j]][k,"-log10_pval"] <- -log10(fisher.test(rbind(c(common, r1_minus_r2), c(r2_minus_r1, remainder)), alternative = "greater")$p.value)
+        
+        ### set the third column - the number of shared genes between the two regulons
+        tfPairEnrich[[i]][[j]][k,"common"] <- common
+        
+        ### set the fourth column - the number of genes in the first regulon
+        tfPairEnrich[[i]][[j]][k,"regulon1"] <- X[[1]][j,3]
+        
+        ### set the fifth column - the number of genes in the other (second) regulon
+        tfPairEnrich[[i]][[j]][k,"regulon2"] <- X[[1]][rownames(tfPairEnrich[[i]][[j]])[k],3]
+        
+      }
+      
+    }
+    
+    ### set the names of the list as hub names
+    names(tfPairEnrich[[i]]) <- rownames(X[[1]])
+    
+  }
+  
+  ### set the names of the list as tissue names
+  names(tfPairEnrich) <- varNames
+  
+  ### return the result
+  return(tfPairEnrich)
+  
+}
+
+
+# *****************************************************************************
 # Return the regulon of a specific TF gene, possibly filtered to include only
 # interactions that clear MI and P-value thresholds.
 #
@@ -1073,14 +1187,13 @@ tfNetProb <- function() {
 # for the corresponding network.
 # *****************************************************************************
 getRegulon <- function(geneHub, mode="ids", net = NULL, mi = 0, pval = 1){
-  if (is.character(geneHub)){
-    if (is.na(strtoi(geneHub)))
-      geneHub =  geneSymbolToEntrezId(geneHub)
-    else
-      geneHub = strtoi(geneHub)
-  }
-  if (is.null(net))
-    return(sapply(varNames, function(e){return(getRegulon(geneHub, mode, e, mi, pval))}))
+	geneHub = strtoi(as.entrezId(geneHub))
+	if (is.na(geneHub))
+		return(NULL)
+
+	if (is.null(net))
+		return(sapply(varNames, function(e){return(getRegulon(geneHub, mode, e, mi, pval))}))
+	
   # Make sure the name of the network exists
   if (is.character(net))
     if(net %in% varNames)
@@ -1195,12 +1308,11 @@ regulonAnnotation <- function(gene, nets = varNames, top = 100, heatMap = TRUE, 
 # with entres corresponding to the networks in 'net'.	
 # *****************************************************************************
 getRegulators <- function(geneID, mode = "ids", net = NULL, mi = 0, pval = 1){
-  if (is.numeric(geneID))
-    geneID = as.character(geneID)
-  else if (is.character(geneID) && is.na(strtoi(geneID))){
-    geneID =  as.character(geneSymbolToEntrezId(geneID))
-  }
-  
+ 
+    geneID =  as.entrezId(geneID)
+	if (is.na(geneID))
+		return(NULL)
+   
   if (is.null(net))
     return(sapply(varNames, function(e){return(getRegulators(geneID, mode, e, mi, pval))}))
   if (is.character(net) && (length(net) > 1))
@@ -1252,12 +1364,9 @@ getRegulators <- function(geneID, mode = "ids", net = NULL, mi = 0, pval = 1){
 # *****************************************************************************
 
 getConservedRegulon <- function(gene, net1_name, net2_name){
-	if (is.character(gene)){
-		if (is.na(strtoi(gene)))
-			gene =  geneSymbolToEntrezId(gene)
-		else
-			gene = strtoi(gene)
-	}
+	gene = as.entrezId(gene)
+	if (is.na(gene))
+		return(NULL)
 	
 	if (!is.character(net1_name) | !is.character(net2_name))
 		stop("Interactome names must be strings")
@@ -1322,12 +1431,7 @@ getConservedRegulon <- function(gene, net1_name, net2_name){
 # intersection of regulons of "gene" in nets[i] and nets[j]. 
 # ***************************************************************************** 
 regulonConservationAcrossNets <- function(gene, nets = varNames, mode="vector"){
-	if (is.character(gene)){
-		if (is.na(strtoi(gene)))
-			gene =  geneSymbolToEntrezId(gene)
-		else
-			gene = strtoi(gene)
-	}
+	gene = strtoi(as.entrezId(gene))
 	
 	N = length(nets)
 	
@@ -1423,13 +1527,7 @@ getRegulonFETs <- function(gene, replaceInf = FALSE){
 # p-value <= "pval"
 # ***************************************************************************** 
 tabulateRegulonInteractions <- function(gene, nets = varNames, mi = 0, pval = 1){
-	if (is.character(gene)){
-		if (is.na(strtoi(gene)))
-			gene =  geneSymbolToEntrezId(gene)
-		else
-			gene = strtoi(gene)
-	}
-	
+	gene = strtoi(as.entrezId(gene))
 	
 	res = unlist(sapply(nets, function(e){
 						if (!(gene %in% get(e)[[1]][,1]))
