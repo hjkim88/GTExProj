@@ -25,17 +25,17 @@
 #
 #   Example
 #               > source("The_directory_of_PrepBeforeReComputeMI.R/PrepBeforeReComputeMI.R")
-#               > prepScript(examplePath="../../ARACNe/GTEx/Aracne_recomp_mi_example.sh",
-#                            inputPath="./results/aracne_ready/",
+#               > prepScript(examplePath="../ARACNe/GTEx/Aracne_recomp_mi_example.sh",
+#                            inputPath="./results/aracne_ready/GTEx2/vst_clean/",
 #                            outputPath="./results/scripts/GTEx2/MI/",
+#                            hubPath="../ARACNe/hubGenes/",
 #                            dos2unixPath="C:/cygwin64/bin/dos2unix.exe")
 ###
 
-
-prepScript <- function(examplePath="../../ARACNe/GTEx/Aracne_recomp_mi_example.sh",
-                       inputPath="./results/aracne_ready/GTEx/vst_clean/",
+prepScript <- function(examplePath="../ARACNe/GTEx/Aracne_recomp_mi_example.sh",
+                       inputPath="./results/aracne_ready/GTEx2/vst_clean/",
                        outputPath="./results/scripts/GTEx2/MI/",
-                       hubPath="../../ARACNe/hubGenes/",
+                       hubPath="../ARACNe/hubGenes/",
                        dos2unixPath="C:/cygwin64/bin/dos2unix.exe") {
   
   ### STEP 1
@@ -44,6 +44,7 @@ prepScript <- function(examplePath="../../ARACNe/GTEx/Aracne_recomp_mi_example.s
   
   ### collect files from the cntPath
   f <- list.files(inputPath)
+  f <- f[which(endsWith(f, ".dat"))]
   
   ### master script's first two lines
   masterScript <- "#!/bin/bash\nqacct -o hk2990\n"
@@ -73,7 +74,7 @@ prepScript <- function(examplePath="../../ARACNe/GTEx/Aracne_recomp_mi_example.s
     
     ### STEP 3
     ### create a fixed mi threshold file for Aracne run
-    temp <- "0.0"
+    temp <- "-99"
     write.table(temp, file=paste0(outputPath, substr(f[i], 1, nchar(f[i])-4), "_mi/", "miThreshold_p1E0_samples", ncol(cnt), ".txt"), sep="", quote=FALSE, row.names=FALSE, col.names=FALSE)
     
     ### dos2unix to the result
