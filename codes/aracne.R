@@ -342,12 +342,12 @@ README = function(){
 	writeLines("number of unique interactions in network varNames[i], i.e., duplicates have been discarded. The")
 	writeLines("entries in the vector are named	after 'varNames'.\n")
 	
-	writeLines("--->  A variable called 'tfNetEnrich' describing the TF-specific regulon conservation across pairs of")
+	writeLines("--->  A variable called 'tfPairEnrich' describing the TF-specific regulon conservation across pairs of")
 	writeLines("interactomes. It comprises the following elements:")
 	writeLines("* tfPairNet[[1]] is a K x K symetric matrix where the entry [i,i] is zero and the entry [i, j] is")
-	writeLines("  the index within tfNetEnrich[[2]] where the results of the pairwise comparison between the i-th")
+	writeLines("  the index within tfPairEnrich[[2]] where the results of the pairwise comparison between the i-th")
 	writeLines("  and the j-th interactome are stored (i and j are indices within the varNames variable).")
-	writeLines("* tfNetEnrich[[2]] is a list with choose(K, 2) elements, each corresponding to a pairwise")
+	writeLines("* tfPairEnrich[[2]] is a list with choose(K, 2) elements, each corresponding to a pairwise")
 	writeLines("  interactome comparison. Each element is a N x 5 matrix M where N is the # number of TFs that appear")
 	writeLines("  as hubs both in the i-th and the j-th interactome. Each row correponds to a TF A and contains the")
 	writeLines("  following 5 columns:")
@@ -370,12 +370,12 @@ README = function(){
 	writeLines("  j-th interactome.")
 	writeLines("Notice that Y, Z, W are normalized based on the size of the intersections of the 2 interactomes.\n")
 	
-	writeLines("--->  A variable called 'tfNetProb' describing the another TF-specific regulon conservation across")
+	writeLines("--->  A variable called 'tfPairProb' describing the another TF-specific regulon conservation across")
 	writeLines("pairs of interactomes. It comprises the following elements:")
-	writeLines("* tfNetProb[[1]] is a K x K symetric matrix where the entry [i,i] is zero and the entry [i, j] is")
-	writeLines("  the index within tfNetProb[[2]] where the results of the pairwise comparison between the i-th")
+	writeLines("* tfPairProb[[1]] is a K x K symetric matrix where the entry [i,i] is zero and the entry [i, j] is")
+	writeLines("  the index within tfPairProb[[2]] where the results of the pairwise comparison between the i-th")
 	writeLines("  and the j-th interactome are stored (i and j are indices within the varNames variable).")
-	writeLines("* tfNetProb[[2]] is a list with choose(K, 2) elements, each corresponding to a pairwise")
+	writeLines("* tfPairProb[[2]] is a list with choose(K, 2) elements, each corresponding to a pairwise")
 	writeLines("  interactome comparison. Each element is a N x 5 matrix M where N is the # number of TFs that appear")
 	writeLines("  as hubs both in the i-th and the j-th interactome. Each row correponds to a TF A and contains the")
 	writeLines("  following 5 columns:")
@@ -386,9 +386,9 @@ README = function(){
 	writeLines("  ** The size of the regulon of A in the j-th interactome.")
 	writeLines("  Within the matrix M, rows are ordered in increasing value of the 2nd column.\n")
 	
-	writeLines("--->  A variable called 'tfPairEnrich' has regulon conservation info between every possible")
-	writeLines("hub pair in each interactome (tissue). This is different from tfNetEnrich,")
-	writeLines("since this occured in each interactome of different hubs while the tfNetEnrich")
+	writeLines("--->  A variable called 'tfNetEnrich' has regulon conservation info between every possible")
+	writeLines("hub pair in each interactome (tissue). This is different from tfPairEnrich,")
+	writeLines("since this occured in each interactome of different hubs while the tfPairEnrich")
 	writeLines("took place in different interactomes of regulons of one same hub gene.")
 	writeLines("It has a list with length of \"varNames\", which means the length of")
 	writeLines("existing interactomes. And each element in the list is another list that has length of")
@@ -871,7 +871,7 @@ panNetwork <- function(){
 # and fair way to assess the intersection taking into account the sizes of A, B, 
 # N1, N2, and I.
 # *****************************************************************************
-tfNetEnrichment <- function(norm_method = "interactions"){
+tfPairEnrichment <- function(norm_method = "interactions"){
 	
 	# The results objects
 	mat = matrix(0, nrow=length(varNames), ncol=length(varNames))
@@ -979,7 +979,7 @@ tfNetEnrichment <- function(norm_method = "interactions"){
 #   * C(a, b) = choose(a,b) = P(a, b) / P(b, b)
 #   * C() = Combination, P() = Permutation
 ###
-tfNetProbability <- function() {
+tfPairProbability <- function() {
   
   # The results objects
   mat = matrix(0, nrow=length(varNames), ncol=length(varNames))
@@ -1080,8 +1080,8 @@ tfNetProbability <- function() {
 # *****************************************************************************
 #
 # The result of the function has regulon conservation info between every possible
-# hub pair in each interactome (tissue). This is different from tfNetEnrichment(),
-# since this occurs in each interactome of different hubs while the tfNetEnrichment()
+# hub pair in each interactome (tissue). This is different from tfPairEnrichment(),
+# since this occurs in each interactome of different hubs while the tfPairEnrichment()
 # takes place in different interactomes of regulons of one same hub gene.
 #
 # This function returns a list with length of "varNames", which means the length of
@@ -1090,20 +1090,14 @@ tfNetProbability <- function() {
 # a matrix that contains the regulon conservation info.
 #
 # Detailed descriptions of the result are:
-# * tfPairEnrich is a list object such that:
-#   - length(tfPairEnrich) = length(varNames).
-#   - names(tfPairEnrich) = varNames
-# * Let net_name be a value from varNames (e.g., net_name = “Liver”) and let  X = get(net_name) . Then tfPairEnrich[[net]] is a named list L with one entry for every hub in X (i.e., length(L) = nrow(X[[1]])) such that:
-#   -	names(L) = rownames(X[[1]])
-#   -	Let G be the Entrez ID of the i-th hub in X, i.e., G = rownames(X[[1]][i]). Then L[[i]] is a matrix M with 5 columns and one row for every hub gene in X except G, such that:
-#       >> rownames(M) = rownames(X[[1]])[-i]. I.e., the row names of M are the Entrez Ids of the hubs in X, other than G.
-#       >> colnames(M) = c(“hub_gene”, “-log10_pval”, “common”, “regulon1”, “regulon2”). These are the same column names as those used for the matrices in tfNetEnrich[[2]].
-# * Specifically, if H = rownames(M)[i], i.e., H is the Entrez Id of a hub other than G, then:
-#   - M[i, “hub_gene”] = H
-#   - M[i, “-log10_pval”] = -log10(p-value) of the FET statistic representing the intersection of regulon(G) and regulon(H) in the X interactome.
-#   - M[i, “common”] = size of the intersection of regulon(G) and regulon(H).
-#   - M[i, “regulon1”] = size of regulon(G).
-#   - M[i, “regulon2”] = size of regulon(H).
+# * tfNetEnrich is a list object such that:
+#   - length(tfNetEnrich) = length(varNames).
+#   - names(tfNetEnrich) = varNames
+# * Let net_name be a value from varNames (e.g., net_name = "Liver") and let  X = get(net_name) . 
+#	Then tfNetEnrich[[net]] is a a symmetric NxN matrix M, where N is the number of hubs
+# in the interactome “net” and M[hub1, hub2] = M[hub2, hub1] = -log10(p),
+# where p is the p-value of the FET for the intersection of the regulons of hub1 and hub2.
+# Also, rownames(M) = colnames(M) = rownames(get(net)[[1]]) and M[i,i] = Inf.
 #
 # * When computing Fisher's exact test we use the following 2 x 2 contingency matrix:
 #
@@ -1121,72 +1115,99 @@ tfNetProbability <- function() {
 #   The p-value of the FET will be one-sided p-value with alternative = "greater" option,
 #   which means it is a test of the odds ratio being bigger than 1.
 #
+#   * The input parameter "partialFileDir" is set to NULL
+#     If it is not null, a result of every tissue will be saved in RDA partially
+#     Plus, it is before filtering the hubs (p-value cutoff does not apply)
+#     This can help recover the process later, since it is a long-running process
+#     If a system failure happens, we can recover the results from those RDA files
+#
 # *****************************************************************************
-tfPairEnrichment <- function() {
-  
-  ### calculate the total number of genes for each interactome
-  ### this will be used in FET calculation later
-  totalGeneCounts <- geneCounts("single")
-  
-  ### create an empty list
-  tfPairEnrich <- list()
-  
-  ### the process runs on every tissue of the varNames
-  for(i in 1:length(varNames)) {
-    
-    ### create an empty list for the i-th element of the bigger list
-    tfPairEnrich[[i]] <- list()
-    
-    ### get the Aracne network of the i-th tissue of the varNames
-    X <- get(varNames[i])
-    
-    ### the process runs on every hub in a given interactome
-    for(j in 1:nrow(X[[1]])) {
-      
-      ### create an empty matrix with 5 columns and one row for every hub gene in X except the j-th
-      tfPairEnrich[[i]][[j]] <- matrix(NA, nrow(X[[1]])-1, 5)
-      
-      ### set rownames and colnames of the matrix
-      rownames(tfPairEnrich[[i]][[j]]) <- rownames(X[[1]])[-j]
-      colnames(tfPairEnrich[[i]][[j]]) <- c("hub_gene", "-log10_pval", "common", "regulon1", "regulon2")
-      
-      ### the process runs on every hub gene in X except the j-th
-      for(k in 1:nrow(tfPairEnrich[[i]][[j]])) {
-        
-        ### set the first column - the Entrez ID of the hub
-        tfPairEnrich[[i]][[j]][k,"hub_gene"] <- rownames(tfPairEnrich[[i]][[j]])[k]
-        
-        ### set the second column - p-value of FET between two regulons (conservativeness)
-        common <- length(intersect(rownames(X[[2]][[X[[1]][j,2]]]), rownames(X[[2]][[rownames(tfPairEnrich[[i]][[j]])[k]]])))
-        r1_minus_r2 <- X[[1]][j,3] - common
-        r2_minus_r1 <- X[[1]][rownames(tfPairEnrich[[i]][[j]])[k],3] - common
-        remainder <- totalGeneCounts[i] - (common + r1_minus_r2 + r2_minus_r1)
-        tfPairEnrich[[i]][[j]][k,"-log10_pval"] <- -log10(fisher.test(rbind(c(common, r1_minus_r2), c(r2_minus_r1, remainder)), alternative = "greater")$p.value)
-        
-        ### set the third column - the number of shared genes between the two regulons
-        tfPairEnrich[[i]][[j]][k,"common"] <- common
-        
-        ### set the fourth column - the number of genes in the first regulon
-        tfPairEnrich[[i]][[j]][k,"regulon1"] <- X[[1]][j,3]
-        
-        ### set the fifth column - the number of genes in the other (second) regulon
-        tfPairEnrich[[i]][[j]][k,"regulon2"] <- X[[1]][rownames(tfPairEnrich[[i]][[j]])[k],3]
-        
-      }
-      
-    }
-    
-    ### set the names of the list as hub names
-    names(tfPairEnrich[[i]]) <- rownames(X[[1]])
-    
-  }
-  
-  ### set the names of the list as tissue names
-  names(tfPairEnrich) <- varNames
-  
-  ### return the result
-  return(tfPairEnrich)
-  
+tfNetEnrichment <- function(partialFileDir=NULL) {
+	
+	### calculate the total number of genes for each interactome
+	### this will be used in FET calculation later
+	totalGeneCounts <- geneCounts("single")
+	
+	### create the results list (a named list),  with one entry per interactome
+	tfNetEnrich <- vector("list", length = length(varNames))
+	names(tfNetEnrich) <- varNames
+	
+	### the process runs on every interactome in varNames
+	for(net in varNames) {
+	  
+		### write a log for each process run
+	  logLines(paste("Processing interactome ->", net))
+		
+		### get the interactome object
+		X <- get(net)
+		
+		### create an empty matrix for current interactome
+		tfNetEnrich[[net]] <- matrix(NA, nrow = nrow(X[[1]]), ncol = nrow(X[[1]]))
+		rownames(tfNetEnrich[[net]]) <- rownames(X[[1]])
+		colnames(tfNetEnrich[[net]]) <- rownames(X[[1]])
+		
+		### the process runs on every hub in a given interactome
+		for(j in 1:(nrow(tfNetEnrich[[net]])-1)) {
+		  
+		  ### write a log for each process run
+			logLines(paste("\tProcessing hub # ->", j))
+		  
+		  ### get the given hub
+			hub1 = rownames(tfNetEnrich[[net]])[j]
+			
+			### make an empty vector to store p-value of FET
+			### this will be forwarded to the matrix later
+			### since direct save to a matrix takes ridiculously slow
+			buf_vec <- NULL
+			
+			### Compare hub1 with all other hubs in the interactome
+			for(k in (j+1):ncol(tfNetEnrich[[net]])) {
+			  
+			  ### get a second hub for comparison
+			  hub2 <- colnames(tfNetEnrich[[net]])[k]
+			  
+				### set the second column - p-value of FET between two regulons (conservativeness)
+				reg1 <- rownames(X[[2]][[hub1]])
+				reg2 <- rownames(X[[2]][[hub2]])
+				common <- length(intersect(reg1, reg2))
+				r1_minus_r2 <- length(reg1) - common
+				r2_minus_r1 <- length(reg2) - common
+				remainder <- totalGeneCounts[net] - (common + r1_minus_r2 + r2_minus_r1)
+				buf_vec <- c(buf_vec, -log10(fisher.test(rbind(c(common, r1_minus_r2), c(r2_minus_r1, remainder)), alternative = "greater")$p.value))
+				
+			}
+			
+			### store the p-value of FET in the matrix
+			### vectorized approach
+			tfNetEnrich[[net]][hub1,(j+1):ncol(tfNetEnrich[[net]])] <- buf_vec
+			
+		}
+		
+		### tfNetEnrich[[net]][i,i] = Inf
+		diag(tfNetEnrich[[net]]) <- Inf
+		
+		### there are some already-calculated stuffs since FET(X,Y) == FET(Y,X)
+		### just copy them into the appropriate places
+		tfNetEnrich[[net]][lower.tri(tfNetEnrich[[net]])] <- t(tfNetEnrich[[net]])[lower.tri(tfNetEnrich[[net]])]
+		
+		### sort the matrix
+		tfNetEnrich[[net]] <- tfNetEnrich[[net]][order(as.integer(rownames(tfNetEnrich[[net]]))), order(as.integer(colnames(tfNetEnrich[[net]])))]
+		
+		### if the partialFileDir is set, save the result (for the current tissue) in RDA
+		if(!is.null(partialFileDir)) {
+		  assign(paste0("tfNetEnrich_", net), tfNetEnrich[[net]], envir = globalenv())
+		  save(list = c(paste0("tfNetEnrich_", net)), file = paste0(partialFileDir, "tfNetEnrich_", net, ".rda"))
+		  rm(list = c(paste0("tfNetEnrich_", net)))
+		}
+		
+		### garbage collection
+		gc()
+		
+	}
+	
+	### return the result
+	return(tfNetEnrich)
+	
 }
 
 
@@ -1452,7 +1473,7 @@ getConservedRegulon <- function(gene, net1_name, net2_name){
 # that asseses the intersection of the regulon of "gene" in A with the regulon of
 # geneID in B, i.e., the enrichment of the first regulon in genes from the 
 # second regulon. For more details about the FET see the comments of the 
-# function tfNetEnrichment.
+# function tfPairEnrichment.
 #
 # ----> If mode == "matrix":
 # Returns the same FEt values but orgnanized in an N x N matrix M with row names
@@ -3785,7 +3806,7 @@ incrementalFETs <- function (varDG, vipers, min = 3, mode = "both", top = 100, r
 saveToRDA <- function (mode = "ARACNe", fName = NULL){
 	
 	if (mode == "ARACNe"){
-		vars = c(varNames, "varNames", "pairWise", "netSizes", "tfNetEnrich", "tfNetProb", "tfPairEnrich", "README")
+		vars = c(varNames, "varNames", "pairWise", "netSizes", "tfPairEnrich", "tfPairProb", "tfNetEnrich", "README")
 		if (is.null(fName))
 			fName = "aracne.rda"
 	}
