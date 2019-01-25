@@ -391,15 +391,17 @@ README = function(){
 	writeLines("since this occured in each interactome of different hubs while the tfPairEnrich")
 	writeLines("took place in different interactomes of regulons of one same hub gene.")
 	writeLines("It has a list with length of \"varNames\", which means the length of")
-	writeLines("existing interactomes. And each element in the list is another list that has length of")
-	writeLines("the number of hubs in a given interactome. In each of this inner list, there is")
-	writeLines("a matrix that contains the regulon conservation info.")
-	writeLines("Each matrix M has a contents like below:")
-	writeLines(" -the first column - the Entrez ID of the hub")
-	writeLines(" -the second column - p-value of FET between two regulons (conservativeness)")
-	writeLines(" -the third column - the number of shared genes between the two regulons")
-	writeLines(" -the fourth column - the number of genes in the first regulon")
-	writeLines(" -the fifth column - the number of genes in the other (second) regulon")
+	writeLines("existing interactomes. And each element in the list, there is a matrix")
+	writeLines("that contains the regulon conservation info.")
+	writeLines("Detailed descriptions of the result are:")
+	writeLines("* tfNetEnrich is a list object such that:")
+	writeLines("- length(tfNetEnrich) = length(varNames).")
+	writeLines("- names(tfNetEnrich) = varNames")
+	writeLines("* Let net_name be a value from varNames and let X = get(net_name)")
+	writeLines("Then tfNetEnrich[[net]] is a a symmetric NxN matrix M, where N is the number of hubs")
+	writeLines("in the interactome “net” and M[hub1, hub2] = M[hub2, hub1] = -log10(p),")
+	writeLines("where p is the p-value of the FET for the intersection of the regulons of hub1 and hub2.")
+	writeLines("Also, rownames(M) = colnames(M) = rownames(get(net)[[1]]) and M[i,i] = Inf.")
 	writeLines("")
 	writeLines("When computing Fisher's exact test we use the following 2 x 2 contingency matrix:")
 	writeLines("")
@@ -1085,9 +1087,8 @@ tfPairProbability <- function() {
 # takes place in different interactomes of regulons of one same hub gene.
 #
 # This function returns a list with length of "varNames", which means the length of
-# existing interactomes. And each element in the list is another list that has length of
-# the number of hubs in a given interactome. In each of this inner list, there is
-# a matrix that contains the regulon conservation info.
+# existing interactomes. And each element in the list, there is a matrix
+# that contains the regulon conservation info.
 #
 # Detailed descriptions of the result are:
 # * tfNetEnrich is a list object such that:
