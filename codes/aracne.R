@@ -399,7 +399,7 @@ README = function(){
 	writeLines("- names(tfNetEnrich) = varNames")
 	writeLines("* Let net_name be a value from varNames and let X = get(net_name)")
 	writeLines("Then tfNetEnrich[[net]] is a a symmetric NxN matrix M, where N is the number of hubs")
-	writeLines("in the interactome “net” and M[hub1, hub2] = M[hub2, hub1] = -log10(p),")
+	writeLines("in the interactome \"net\" and M[hub1, hub2] = M[hub2, hub1] = -log10(p),")
 	writeLines("where p is the p-value of the FET for the intersection of the regulons of hub1 and hub2.")
 	writeLines("Also, rownames(M) = colnames(M) = rownames(get(net)[[1]]) and M[i,i] = Inf.")
 	writeLines("")
@@ -1096,7 +1096,7 @@ tfPairProbability <- function() {
 #   - names(tfNetEnrich) = varNames
 # * Let net_name be a value from varNames (e.g., net_name = "Liver") and let  X = get(net_name) . 
 #	Then tfNetEnrich[[net]] is a a symmetric NxN matrix M, where N is the number of hubs
-# in the interactome “net” and M[hub1, hub2] = M[hub2, hub1] = -log10(p),
+# in the interactome "net" and M[hub1, hub2] = M[hub2, hub1] = -log10(p),
 # where p is the p-value of the FET for the intersection of the regulons of hub1 and hub2.
 # Also, rownames(M) = colnames(M) = rownames(get(net)[[1]]) and M[i,i] = Inf.
 #
@@ -1219,14 +1219,14 @@ tfNetEnrichment <- function(partialFileDir=NULL) {
 # Arguments are:
 # * geneHub: The gene id (either as integer or as string) or the gene symbol of 
 #		the query TF gene. 
-# * mode:	Specifies how much data to return:
-#	* "all": Return the full M x 5 matrix correspondins to the query gene A
-#		from net[[2]][[index(A)]].
-#	* "ids": Return a vector V with the ids of the target genes in the regulon.
 # * net:	The network to use. This is either a string from those named in 
 #		varNames, or the actual ARACNe network variable, or NULL. In the 
 #		first two cases the function retuls the regulon of the TF from the
 #		specified network. Otherwise regulons for all networks are returned.
+# * mode:	Specifies how much data to return:
+#	* "all": Return the full M x 5 matrix correspondins to the query gene A
+#		from net[[2]][[index(A)]].
+#	* "ids": Return a vector V with the ids of the target genes in the regulon.
 # * mi:		MI threshold. Returns only interactions whose MI is at least as 
 #		large as this threshold.
 # * pval:	P-value threshold. Returns only interactions whose P-value is at 
@@ -1237,43 +1237,97 @@ tfNetEnrichment <- function(partialFileDir=NULL) {
 # ARACNe network, each element being the vector V or matrix M described above 
 # for the corresponding network.
 # *****************************************************************************
-getRegulon <- function(geneHub, mode="ids", net = NULL, mi = 0, pval = 1){
+getRegulon <- function(geneHub, net = NULL, mode="ids", mi = 0, pval = 1){
 	geneHub = strtoi(as.entrezId(geneHub))
 	if (is.na(geneHub))
 		return(NULL)
-
-	if (is.null(net))
-		return(sapply(varNames, function(e){return(getRegulon(geneHub, mode, e, mi, pval))}))
 	
-  # Make sure the name of the network exists
-  if (is.character(net))
-    if(net %in% varNames)
-      net = get(net)
-    else
-      return(NULL)
-    
-    x = net[[1]]
-    ind = x[x[,1] == geneHub, 2]
-    if (length(ind) > 0){
-      mat = net[[2]][[ind]]
-      sel = (mat[, "MI"] >= mi) & (mat[, "Pvalue"] <= pval)
-      if (length(sel)== 0 | sum(sel)==0)
-        return(NULL)
-      mat = mat[sel, , drop=FALSE]
-      if (mode == "all"){
-        mat[,1] = abs(mat[,1])
-        return(mat)
-      }
-      if (mode == "ids"){
-        #res = abs(mat[,1])
-        #names(res) = NULL
-        #return(res)
-        return(abs(mat[,1]))
-      }
-    }
-    else
-      return(NULL)
+	if (is.null(net))
+		return(sapply(varNames, function(e){return(getRegulon(geneHub, e, mode, mi, pval))}))
+	
+	# Make sure the name of the network exists
+	if (is.character(net))
+		if(net %in% varNames)
+			net = get(net)
+		else
+			return(NULL)
+	
+	x = net[[1]]
+	ind = x[x[,1] == geneHub, 2]
+	if (length(ind) > 0){
+		mat = net[[2]][[ind]]
+		sel = (mat[, "MI"] >= mi) & (mat[, "Pvalue"] <= pval)
+		if (length(sel)== 0 | sum(sel)==0)
+			return(NULL)
+		mat = mat[sel, , drop=FALSE]
+		if (mode == "all"){
+			mat[,1] = abs(mat[,1])
+			return(mat)
+		}
+		if (mode == "ids"){
+			#res = abs(mat[,1])
+			#names(res) = NULL
+			#return(res)
+			return(abs(mat[,1]))
+		}
+	}
+	else
+		return(NULL)
 }
+
+
+# *****************************************************************************
+# Return genes that are the intersection or union of the regulons of multiple
+# bub genes
+#
+# ARGUMENTS:
+# * gene_hubs:	The query hub genes. This can be a vector of integers
+#		representing entrez ids or a character vector containing gene 
+#		symbols or entrez ids in character string form.
+# * nets:		The networks to search. This variable is a character vector 
+#		containing entries from varNames specifying interactome variables;
+#		or it can be NULL. In the latter case, regulons from all networks in
+#		varNames are used.
+# * mode:	A string assuming one of the following two values:
+#	* "shared":	indicates that the method should return genes that are found 
+#			in the intersection of all regulons of the query hubs in "gene_hubs".
+#	* "all": indicates that the method should return genes that are found in the 
+#			union of all regulons of the query hubs in "gene_hubs".
+#
+# RETURN VALUE
+# Returns a list with one entry for each network in "nets" (the list is named
+# with the corresponding entries from varNames). The list entry for 
+# interactome A contains a character vector with the entrez ids of the 
+# genes that are either in the intersection (if mode == "shared") or the 
+# union (if mode == "all") of the regulons of the hub genes in gene_hubs in 
+# interactome A.
+# *****************************************************************************
+
+getManyRegulons <- function(gene_hubs, nets = NULL, mode = c("shared", "all")){
+	gene_hubs = as.entrezId(gene_hubs)
+	
+	if (is.null(nets))
+		nets = varNames
+	if (!is.character(nets))
+		return(NULL)
+	
+	res = lapply(nets, function(net){
+				net = get(net)
+				
+				regs = sapply(gene_hubs, function(hub){
+							return(getRegulon(hub, net = net))
+						})
+				if (mode[1] == "shared")
+					fun = intersect
+				else
+					fun = union
+				targets = Reduce(fun, regs)
+				return(targets)
+			})
+	names(res) = nets
+	return(res)
+}
+
 
 # *****************************************************************************
 # Run pathway enrichment anaysis for the targets of a hub gene that appear 
@@ -5023,7 +5077,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
   #
   # e.g., params <- list("emat_gtex_names", "gtexRegNames", 50, "zscore", 1000, "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/viper/")
   
-  if(which == "viper_activity_all"){
+  if(which == "viper_activity_all") {
     if(!is.null(params) && length(params) > 5) {
       
       ### load library
