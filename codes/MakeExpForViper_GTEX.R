@@ -146,7 +146,7 @@ norm_counts <- function(fileNamePath="//isilon.c2b2.columbia.edu/ifs/archive/sha
   
   
   ### save the results
-  vars <- c(emat_gtex_names, "emat_gtex_names", "emat_gtex_sampleNum", "emat_gtex_all")
+  vars <- c(emat_gtex_names, "emat_gtex_names")
   save(list = vars, file = outputPath)
   
 }
