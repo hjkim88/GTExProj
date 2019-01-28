@@ -47,40 +47,40 @@ makeAracneReady_TCGA <- function(preprocessedRDAPath="//isilon.c2b2.columbia.edu
   
   
   ### retain only primary tumor & new primary tumor
-  tcga_sample_info <- tcga_sample_info[union(union(which(tcga_sample_info$`Sample Type` == "Primary Tumor"),
-                                                   which(tcga_sample_info$`Sample Type` == "Additional - New Primary")),
-                                             which(tcga_sample_info$`Sample Type` == "Primary Blood Derived Cancer - Peripheral Blood")),]
+  tcga_sample_info <- tcga_sample_info[union(union(which(tcga_sample_info[,"Sample Type"] == "Primary Tumor"),
+                                                   which(tcga_sample_info[,"Sample Type"] == "Additional - New Primary")),
+                                             which(tcga_sample_info[,"Sample Type"] == "Primary Blood Derived Cancer - Peripheral Blood")),]
   
   
   ### remove FFPE samples
-  tcga_sample_info <- tcga_sample_info[which(tcga_sample_info$is_derived_from_ffpe == "NO"),]
+  tcga_sample_info <- tcga_sample_info[which(tcga_sample_info[,"is_derived_from_ffpe"] == "NO"),]
   
   
   ### order the sample info based on Project ID and Case ID
-  tcga_sample_info <- tcga_sample_info[order(tcga_sample_info$`Project ID`,
-                                             tcga_sample_info$`Case ID`),]
+  tcga_sample_info <- tcga_sample_info[order(tcga_sample_info[,"Project ID"],
+                                             tcga_sample_info[,"Case ID"]),]
   
   
   ### if there are multiple samples per one patient in each tissue, select one with the highest RIN
-  unique_tissues <- unique(tcga_sample_info$`Project ID`)
+  unique_tissues <- unique(tcga_sample_info[,"Project ID"])
   rIdx <- NULL
   for(i in 1:length(unique_tissues)) {
     ### get indicies for the given tissue
-    tempIdx <- which(tcga_sample_info$`Project ID` == unique_tissues[i])
+    tempIdx <- which(tcga_sample_info[,"Project ID"] == unique_tissues[i])
     
     ### get duplicated indicies in the given tissue
-    dupIdx <- tempIdx[which(duplicated(tcga_sample_info$`Case ID`[tempIdx]))]
+    dupIdx <- tempIdx[which(duplicated(tcga_sample_info[tempIdx, "Case ID"]))]
     
     ### if there are duplicates, select one with the highest RIN
     ### tie breaker (multiple highest RIN) - select one with the highest lexical order
     if(length(dupIdx) > 0) {
-      dups <- unique(tcga_sample_info$`Case ID`[dupIdx])
+      dups <- unique(tcga_sample_info[dupIdx, "Case ID"])
       
       ### collect indicies except one that will remain
       ### those indicies will be removed away later
       for(j in 1:length(dups)) {
-        dIdx <- which(tcga_sample_info$`Case ID` == dups[j])
-        rIdx <- c(rIdx, dIdx[order(tcga_sample_info$RIN[dIdx])])
+        dIdx <- which(tcga_sample_info[,"Case ID"] == dups[j])
+        rIdx <- c(rIdx, dIdx[order(tcga_sample_info[dIdx, "RIN"])])
         rIdx <- rIdx[-length(rIdx)]
       }
     }
