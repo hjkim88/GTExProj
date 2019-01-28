@@ -28,6 +28,7 @@ createRegulons <- function(expDir="./results/aracne_ready/TCGA/", networkDir="./
   
   ### collect files from the cntPath
   f <- list.files(networkDir)
+  f <- f[which(startsWith(f, "tcga"))]
   
   
   ### set regNames
