@@ -5802,9 +5802,9 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       ### assign viper matrices as R object
       sapply(1:length(f), function(i, f, varNamesVP) {
           assign(varNamesVP[i],
-                 read.table(paste0(params[[1]], f[i]),
+                 as.matrix(read.table(paste0(params[[1]], f[i]),
                  header = TRUE, sep = "\t", row.names = 1,
-                 stringsAsFactors = FALSE, check.names = FALSE),
+                 stringsAsFactors = FALSE, check.names = FALSE)),
                  envir = globalenv())
         }, f=f, varNamesVP=varNamesVP,
         USE.NAMES = FALSE)
