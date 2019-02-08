@@ -2907,8 +2907,7 @@ makeGraphs <- function (which = "mods_events", save = FALSE, fName = NULL,
       ### make one vector for one tissue then combine all of them
       viperMat <- matrix(NA, length(common_hubs), length(viperMatNames))
       rownames(viperMat) <- common_hubs
-      colnames(viperMat) <- sapply(viperMatNames,
-                                   function(x) strsplit(x, split = "_", fixed = TRUE)[[1]][3])
+      colnames(viperMat) <- substring(varNamesVP, 6)
       if(as.character(params[[2]]) == "mean") {
         for(i in 1:length(viperMatNames)) {
           viperMat[,i] <- apply(get(viperMatNames[i])[common_hubs,], 1, mean)
@@ -4770,8 +4769,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
   
   # ******************** which = relatively_exclusive_hubs  *****************************
   # Reports all gene hubs that are relatively exclusive between GTEx and TCGA
-  # Loading All_64_Aracne.rda (64 networks = 36 GTExs + 28 TCGAs) is needed before this analysis
-  # Loading All_64_Genelist.rda (64 gene lists = 36 GTExs + 28 TCGAs) is needed before this analysis
+  # Loading All_62_Aracne.rda (62 networks = 36 GTExs + 26 TCGAs) is needed before this analysis
   #
   # params[[1]]: the index in varNames that separates GTEx and TCGA (e.g., if GTEx is 1:N, enter N)
   # params[[2]]: the number of interactions that should be used for filtering out 
@@ -4889,52 +4887,6 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       shared_hubs$Gene_Symbol <- entrezIDtoSymbol(shared_hubs$Entrez_ID)
       shared_hubs$GTEX_Count <- gtex_shared_hubs[as.character(shared_hubs$Entrez_ID),6]
       shared_hubs$TCGA_Count <- tcga_shared_hubs[as.character(shared_hubs$Entrez_ID),6]
-      
-      
-      ### A function that returns existence of a given gene
-      isGeneExistInExp <- function(id, dSet) {
-        exist <- FALSE
-        
-        if(dSet == "gtex") {
-          for(i in 1:36) {
-            if(id %in% get(geneListNames[i])) {
-              exist <- TRUE
-              break
-            }
-          }
-        } else if(dSet == "tcga") {
-          for(i in 37:64) {
-            if(id %in% get(geneListNames[i])) {
-              exist <- TRUE
-              break
-            }
-          }
-        } else {
-          writeLines("ERROR: You need to put either dSet=\"gtex\" or dSet=\"tcga\"")
-        }
-        
-        return(exist)
-      }
-      
-      ### we only do this to GTEx because pre-processing is different between GTEx and TCGA.
-      ### in GTEx, no pre-processing - keeps pseudo genes
-      ### in TCGA, genes with 0 or 1 values across all the samples were removed
-      ### in TCGA, the number of genes can be different among tissues
-      ### therefore, if a gene did not appear in GTEx but appeared in TCGA,
-      ### we should check if the gene originally does not even exist in GTEx gene expressions
-      ### but in the opposite case, even if the gene does not exist in TCGA gene expressions,
-      ### it might have been removed during the pre-process
-      ### so we do not perform this to TCGA but only to GTEx
-      zeroIdx <- which(shared_hubs$GTEX_Count == 0)
-      existLogic <- 0
-      for(i in 1: length(zeroIdx)) {
-        existLogic[i] <- isGeneExistInExp(shared_hubs$Entrez_ID[zeroIdx[i]], "gtex")
-      }
-      
-      if(length(which(existLogic == 0)) > 0) {
-        shared_hubs <- shared_hubs[-zeroIdx[which(existLogic == 0)],]
-      }
-      
       
       ### save the hub info
       write.table(shared_hubs, file = paste0(params[[5]], "Shared_hubs_GTEx_", params[[3]], "_TCGA_", params[[4]], ".txt"), sep = "\t", row.names = FALSE)
@@ -5246,11 +5198,13 @@ oneOffs<- function (which = "freq_mods", params=NULL){
         f <- 0
         p <- 0
         cnt <- 0
-        for(j in 1:(length(v)-1)) {
-          for(k in (j+1):length(v)) {
-            f[cnt+1] <- findValue(tfPairEnrich[[2]][tfPairEnrich[[1]][v[j],v[k]]][[1]], as.character(gtex_m[i,1]))
-            p[cnt+1] <- findValue(tfPairProb[[2]][tfPairProb[[1]][v[j],v[k]]][[1]], as.character(gtex_m[i,1]))
-            cnt <- cnt+1
+        if(length(v) > 1) {
+          for(j in 1:(length(v)-1)) {
+            for(k in (j+1):length(v)) {
+              f[cnt+1] <- findValue(tfPairEnrich[[2]][tfPairEnrich[[1]][v[j],v[k]]][[1]], as.character(gtex_m[i,1]))
+              p[cnt+1] <- findValue(tfPairProb[[2]][tfPairProb[[1]][v[j],v[k]]][[1]], as.character(gtex_m[i,1]))
+              cnt <- cnt+1
+            }
           }
         }
         
@@ -5319,11 +5273,13 @@ oneOffs<- function (which = "freq_mods", params=NULL){
         f <- 0
         p <- 0
         cnt <- 0
-        for(j in 1:(length(v)-1)) {
-          for(k in (j+1):length(v)) {
-            f[cnt+1] <- findValue(tfPairEnrich[[2]][tfPairEnrich[[1]][v[j],v[k]]][[1]], as.character(tcga_m[i,1]))
-            p[cnt+1] <- findValue(tfPairProb[[2]][tfPairProb[[1]][v[j],v[k]]][[1]], as.character(tcga_m[i,1]))
-            cnt <- cnt+1
+        if(length(v) > 1) {
+          for(j in 1:(length(v)-1)) {
+            for(k in (j+1):length(v)) {
+              f[cnt+1] <- findValue(tfPairEnrich[[2]][tfPairEnrich[[1]][v[j],v[k]]][[1]], as.character(tcga_m[i,1]))
+              p[cnt+1] <- findValue(tfPairProb[[2]][tfPairProb[[1]][v[j],v[k]]][[1]], as.character(tcga_m[i,1]))
+              cnt <- cnt+1
+            }
           }
         }
         
