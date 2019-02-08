@@ -218,26 +218,28 @@ entrezIDtoDescription <- function(geneID){
 #
 # Map Gene Symbols to Gene IDs
 #
-# geneSymbol:	A single string or a vector of strings representing gene symbol(s)
+# geneSymbol:	A single string or a vector of strings representing gene symbol(s).
 # 
 # Returns a vector of the same size as "geneSymbol" where the i-th entry is the 
 # gene ID (as an integer) corresponsing to the i-th gene symbol in "geneSymbol". 
 # The return vector entries are named using the gene symbols. For gene symbols mapped
-# to more than one entrez ids, only the first id is returned. 
+# to more than one entrez ids, only the first id is returned. If the i-th entry is
+# a gene alias, then entrez Id of its corresponding official gene symbol is returned.
+#
 # ATTENTION: 
 # Before used geneSymbol is first stripped of symbols which are not mapped to 
-# at least one  entrez ID. If no gene symbols remain after this stripping, a NULL 
+# at least one entrez ID. If no gene symbols remain after this stripping, a NULL 
 # value is returned.
 # *****************************************************************************
 geneSymbolToEntrezId <- function(geneSymbol){
   # res = as.integer(unlist(mget(geneSymbol, org.Hs.egSYMBOL2EG)))
   
-  keys = keys(org.Hs.eg.db,  keytype="SYMBOL")
+  keys = keys(org.Hs.eg.db,  keytype="ALIAS")
   geneSymbol = geneSymbol[geneSymbol %in% keys]
   if (length(geneSymbol) == 0)
-    return(NULL)
+    return(NA)
   
-  tmp = select(org.Hs.eg.db, keys=geneSymbol, keytype="SYMBOL", columns=c("ENTREZID"))
+  tmp = select(org.Hs.eg.db, keys=geneSymbol, keytype="ALIAS", columns=c("ENTREZID"))
   # Remove duplicate mappings, if any
   t = which(duplicated(tmp[,1]))
   if (length(t) > 0)
@@ -355,11 +357,7 @@ gene.type <-function(gids){
 # *****************************************************************************
 
 check.gene.type <- function (gids, val){
-	if (is.character(gids))
-		if (sum(is.na(strtoi(gids))) > 0)
-			gids = geneSymbolToEntrezId(gids)
-		else
-			gids = strtoi(gids)
+	gids = strtoi(as.entrezId(gids))
 	res = rep(FALSE, length(gids))
 	names(res) = gids
 	for (i in 1:length(gids)){
@@ -1309,10 +1307,6 @@ pathwayAnalysis_CP <- function(geneList,
     install.packages("ggplot2")
     library(ggplot2)
   }
-  if(!require(xlsx)) {
-    install.packages("xlsx")
-    library(xlsx)
-  }
   
   
   ### colect gene list (Entrez IDs)
@@ -1326,36 +1320,37 @@ pathwayAnalysis_CP <- function(geneList,
       ### KEGG Pathway
       kegg_enrich <- enrichKEGG(gene = geneList, organism = org, pvalueCutoff = pv_threshold)
       
-      kegg_enrich@result <- kegg_enrich@result[which(kegg_enrich@result$p.adjust < pv_threshold),]
-      
       if(is.null(kegg_enrich)) {
         writeLines("KEGG Result does not exist")
-      } else if(imgPrint == TRUE){
-        if((displayNum == Inf) || (nrow(kegg_enrich@result) <= displayNum)) {
-          result <- kegg_enrich@result
-          description <- kegg_enrich@result$Description
-        } else {
-          result <- kegg_enrich@result[1:displayNum,]
-          description <- kegg_enrich@result$Description[1:displayNum]
+        return(NULL)
+      } else {
+        kegg_enrich@result <- kegg_enrich@result[which(kegg_enrich@result$p.adjust < pv_threshold),]
+        
+        if(imgPrint == TRUE) {
+          if((displayNum == Inf) || (nrow(kegg_enrich@result) <= displayNum)) {
+            result <- kegg_enrich@result
+            description <- kegg_enrich@result$Description
+          } else {
+            result <- kegg_enrich@result[1:displayNum,]
+            description <- kegg_enrich@result$Description[1:displayNum]
+          }
+          
+          if(nrow(kegg_enrich) > 0) {
+            p[[1]] <- ggplot(result, aes(x=Description, y=Count)) + labs(x="", y="Gene Counts") + 
+              theme_classic(base_size = 16) + geom_bar(aes(fill = p.adjust), stat="identity") + coord_flip() +
+              scale_x_discrete(limits = rev(description)) +
+              guides(fill = guide_colorbar(ticks=FALSE, title="P.Val", barheight=10)) +
+              ggtitle(paste0("KEGG ", title))
+            
+            png(paste0(dir, "kegg_", title, "_CB.png"), width = 2000, height = 1000)
+            print(p[[1]])
+            dev.off()
+          } else {
+            writeLines("KEGG Result does not exist")
+          }
         }
         
-        if(nrow(kegg_enrich) > 0) {
-          p[[1]] <- ggplot(result, aes(x=Description, y=Count)) + labs(x="", y="Gene Counts") + 
-            theme_classic(base_size = 16) + geom_bar(aes(fill = p.adjust), stat="identity") + coord_flip() +
-            scale_x_discrete(limits = rev(description)) +
-            guides(fill = guide_colorbar(ticks=FALSE, title="P.Val", barheight=10)) +
-            ggtitle(paste0("KEGG ", title))
-          
-          png(paste0(dir, "kegg_", title, "_CB.png"), width = 2000, height = 1000)
-          print(p[[1]])
-          dev.off()
-        } else {
-          writeLines("KEGG Result does not exist")
-        }
-      }
-      
-      if(!is.null(kegg_enrich)) {
-        return(kegg_enrich@result)  
+        return(kegg_enrich@result)
       }
     } else if(database == "GO") {
       ### GO Pathway
@@ -1368,36 +1363,37 @@ pathwayAnalysis_CP <- function(geneList,
         writeLines(paste("Unknown org variable:", org))
       }
       
-      go_enrich@result <- go_enrich@result[which(go_enrich@result$p.adjust < pv_threshold),]
-      
       if(is.null(go_enrich)) {
         writeLines("GO Result does not exist")
-      } else if(imgPrint == TRUE) {
-        if((displayNum == Inf) || (nrow(go_enrich@result) <= displayNum)) {
-          result <- go_enrich@result
-          description <- go_enrich@result$Description
-        } else {
-          result <- go_enrich@result[1:displayNum,]
-          description <- go_enrich@result$Description[1:displayNum]
+        return(NULL)
+      } else {
+        go_enrich@result <- go_enrich@result[which(go_enrich@result$p.adjust < pv_threshold),]
+        
+        if(imgPrint == TRUE) {
+          if((displayNum == Inf) || (nrow(go_enrich@result) <= displayNum)) {
+            result <- go_enrich@result
+            description <- go_enrich@result$Description
+          } else {
+            result <- go_enrich@result[1:displayNum,]
+            description <- go_enrich@result$Description[1:displayNum]
+          }
+          
+          if(nrow(go_enrich) > 0) {
+            p[[2]] <- ggplot(result, aes(x=Description, y=Count)) + labs(x="", y="Gene Counts") + 
+              theme_classic(base_size = 16) + geom_bar(aes(fill = p.adjust), stat="identity") + coord_flip() +
+              scale_x_discrete(limits = rev(description)) +
+              guides(fill = guide_colorbar(ticks=FALSE, title="P.Val", barheight=10)) +
+              ggtitle(paste0("GO ", title))
+            
+            png(paste0(dir, "go_", title, "_CB.png"), width = 2000, height = 1000)
+            print(p[[2]])
+            dev.off()
+          } else {
+            writeLines("GO Result does not exist")
+          }
         }
         
-        if(nrow(go_enrich) > 0) {
-          p[[2]] <- ggplot(result, aes(x=Description, y=Count)) + labs(x="", y="Gene Counts") + 
-            theme_classic(base_size = 16) + geom_bar(aes(fill = p.adjust), stat="identity") + coord_flip() +
-            scale_x_discrete(limits = rev(description)) +
-            guides(fill = guide_colorbar(ticks=FALSE, title="P.Val", barheight=10)) +
-            ggtitle(paste0("GO ", title))
-          
-          png(paste0(dir, "go_", title, "_CB.png"), width = 2000, height = 1000)
-          print(p[[2]])
-          dev.off()
-        } else {
-          writeLines("GO Result does not exist")
-        }
-      }
-      
-      if(!is.null(go_enrich)) {
-        return(go_enrich@result)  
+        return(go_enrich@result)
       }
     } else {
       stop("database prameter should be \"GO\" or \"KEGG\"")
@@ -1699,4 +1695,226 @@ mdsPlot <- function(mat, plot_names = FALSE, alt_names = NULL, groups = NULL, di
 	if(save)
 		dev.off()
   
+}
+
+
+# ******************************************************************************
+# Method to read RNA-seq read counts
+#
+# ARGUMENTS
+# * file_names:		character vector; each entry is the full pathname to a tab
+#		delimited text file containing read count data, in the usual format: 
+#		one column for each of the N samples in the file, the first column 
+#		contains gene symbols of gene ids, column headers are sample names. The
+#		header line may contains N or (N+1) entries. If the former, each entry
+#		is a sample name. If the latter, the first header entry is assummed to
+#		be the column name for the gene column (no need to retain it, but the 
+#		code must be prepared to handle this dual possibility for the header line).
+# * entrez_ids:		if the variable is FALSE, the gene identifiers found in the 
+#		gene column are used wihtout change. Otherwise, these identifiers can be
+#		assumed to be gene symbols and must be converted to entrez Ids by using 
+#		the method Utils::geneSymbolToEntrezId(). If a gene symbol cannot be 
+# 	mapped to an entrez Id, then the data matrix row correponding to that gene
+#		is removed. if mulitple symbols map to the same entrez id, then the value of
+#		the argument "combine" (see below) specifies how to combine the rows 
+#		corresponsing to these symbols:
+# * combine:		specifes how to handle a situation when multiple gene identiiers
+#		g1, g2, ..., gk map to the same gene (here we assume that gi are listed in the
+#		order in which they are encountered in the first column of the data file). 
+#		Acceptable values and their meaning are:
+#		- "first":	keep only the data row g1 (the first gene) and remove all other rows.
+#		- "sum":	create one aggregate row by summing the reads for all gi in each sample.
+#		- "min":	keep the minimum read count among all gi within each sample.
+#		- "max":	keep the maximum read count among all gi within each sample.
+#		- "average":average the read counts for all gi within each sample and round 
+#					to the closest integer.
+#		- "abort":	write out on the console an error message stating that there are duplicate
+#					gene identifiers and return NULL.
+# * merge:			boolean value specifying if data matrices should be combined - relevant
+#		only when "file_names" contains more than one entries. If TRUE, all matrices are
+#		merged into one matrix. Otherwise, the function returns a separate matrix for each
+#		file in "file_names". If merge == TRUE and also combine == TRUE, the combination of
+#		gene identifiers is performed first for each file in "file_names" separately, followed
+#		by the data matrix merging operation. If the same sample name appears in more than one
+#		input files, then write out on the console an error message stating that the are duplicate
+#		sample names and return NULL.
+# * merge_mode:		a character vector, specifying how data matrices should be merged (used
+#		when "merge" == TRUE). Possible values are:
+#		- "shared": only retains gene identifiers that are common among all individual data
+#					matrices.
+#		- "all":	retains all identifiers encountered across all data matrices. If an
+#					identifier G is not present in matrix D, then, in the merged matrix, the
+#					value of G in all samples in D is set to the value of argument 
+#					"missing_values".
+# * missing_values:	an integer or NA. Used when merge == TRUE and merge_mode == "all", as 
+#		described above. 
+#
+# RETURN VALUE
+# If "file_names" contains exactly one file name, the return value is a data matrix M x N
+# containing the read counts for each (gene, sample) combination, with one column per sample 
+# and one row per gene. Columns are named with the sample names found in the header of the input 
+# data file. If entrez_ids == FALSE, the row names are the gene identifiers found in the first column of
+# the data file. If entez_ids == TRUE, row names are entrez ids, derived as described above.
+# 
+# If "file_names" contains more than one entries, then the value of the argument "merge" determines
+# what the function returns. If "merge" == FALSE the function returns a list with one entry
+# for each file in "file_names". The i-th entry correposponds to the i-th file name and contains
+# a read count data matrix generated by parsing that file, as described in the previous paragraph. 
+# The list is named and the name of the i-th entry is the file name stem of the i-th entry in 
+# file_names, after the file extension has been removed. E.g., if:
+#		file_names[i] = "/ifs/scratch/af_lab/data/ranseqfile.txt"
+# then
+#		names(results_object)[i] = "ranseqfile"
+# If merge == TRUE, then the function returns a data matrix with columns correponding to the samples
+# in all files in "file_names" and rows corresponding to gene identifiers generated according to the 
+# values of the arguments "entrez_ids", "combine", and "merge_mode", as describe above. Column names 
+# are sample names and row names are gene identifiers, same as in the case where length(file_names) == 1.
+
+readRNAseqData <- function(file_names,
+                           entrez_ids = FALSE,
+                           combine = c("first", "sum", "min", "max", "average", "abort"),
+	                         merge = FALSE,
+	                         merge_mode = c("shared", "all"),
+	                         missing_values = NA) {
+	
+  ### load library
+  if(!require(checkmate)) {
+    install.packages("checkmate")
+    library(checkmate)
+  }
+  
+  ### argument checking
+  assertCharacter(file_names)
+  assertFlag(entrez_ids)
+  assertChoice(combine[1], c("first", "sum", "min", "max", "average", "abort"))
+  assertFlag(merge)
+  assertChoice(merge_mode[1], c("shared", "all"))
+  assertIntegerish(missing_values)
+  
+  ### make an empty list for saving the files
+  file_list <- list()
+  
+  ### load the files
+  for(i in 1:length(file_names)) {
+    ### read each file from the file_names
+    file_list[[i]] <- read.table(file = file_names[i], header = TRUE, sep = "\t",
+                                 stringsAsFactors = FALSE, check.names = FALSE)
+    
+    ### if the found gene identifier is gene symbol and we want to convert it to entrez ids
+    if(entrez_ids) {
+      ### get Entrez IDs for the corresponding gene symbols
+      eIDs <- geneSymbolToEntrezId(file_list[[i]][,1])
+      
+      ### if the column is not gene symbol, there would be no entrez ids returned
+      if(is.null(eIDs) || is.na(eIDs)) {
+        stop("ERROR: The first column is not GENE SYMBOL")
+      }
+      
+      ### remove genes that does not have entrez ids
+      file_list[[i]] <- file_list[[i]][which(file_list[[i]][,1] %in% names(eIDs)),]
+      
+      ### change the the first column to entrez ids
+      file_list[[i]][,1] <- eIDs[file_list[[i]][,1]]
+    }
+    
+    ### if there are other character columns, remove them
+    ### keep only the raw counts except the first (entrez id) column
+    chr_idx <- which(sapply(file_list[[i]][-1], is.character))
+    if(length(chr_idx) > 0) {
+      file_list[[i]] <- file_list[[i]][,-(chr_idx+1)]
+    }
+    
+    ### if there are duplicated gene identifiers
+    if(length(file_list[[i]][,1]) != length(unique(file_list[[i]][,1]))) {
+      ### get duplicated indices (this does not retain the first ones)
+      dups <- which(duplicated(file_list[[i]][,1]))
+      
+      ### get the indicies of first duplicated elements
+      first_dups <- setdiff(which(duplicated(file_list[[i]][,1], fromLast = TRUE)), dups)
+      
+      ### handle the case based on the combine parameter
+      if(combine[1] == "first") {
+        ### there is nothing to do here if you want to keep only the first thing
+      } else if(combine[1] == "sum") {
+        ### sum up the duplicated rows and save them to the first dups
+        for(j in 1:length(first_dups)) {
+          file_list[[i]][first_dups[j],2:ncol(file_list[[i]])] <-
+            apply(file_list[[i]][which(file_list[[i]][,1] == file_list[[i]][first_dups[j],1]),
+                                 2:ncol(file_list[[i]])], 2, sum)
+        }
+      } else if(combine[1] == "min") {
+        ### get min values of the duplicated rows by each sample and save them to the first dups
+        for(j in 1:length(first_dups)) {
+          file_list[[i]][first_dups[j],2:ncol(file_list[[i]])] <-
+            apply(file_list[[i]][which(file_list[[i]][,1] == file_list[[i]][first_dups[j],1]),
+                                 2:ncol(file_list[[i]])], 2, min)
+        }
+      } else if(combine[1] == "max") {
+        ### get max values of the duplicated rows by each sample and save them to the first dups
+        for(j in 1:length(first_dups)) {
+          file_list[[i]][first_dups[j],2:ncol(file_list[[i]])] <-
+            apply(file_list[[i]][which(file_list[[i]][,1] == file_list[[i]][first_dups[j],1]),
+                                 2:ncol(file_list[[i]])], 2, max)
+        }
+      } else if(combine[1] == "average") {
+        ### get rounded average values of the duplicated rows by each sample and save them to the first dups
+        for(j in 1:length(first_dups)) {
+          file_list[[i]][first_dups[j],2:ncol(file_list[[i]])] <-
+            apply(file_list[[i]][which(file_list[[i]][,1] == file_list[[i]][first_dups[j],1]),
+                                 2:ncol(file_list[[i]])], 2, function(x) round(mean(x)))
+        }
+      } else if(combine[1] == "abort") {
+        stop("ERROR: There are duplicated GENE SYMBOLs")
+      }
+      
+      ### remove the duplicates and only keep the first ones
+      file_list[[i]] <- file_list[[i]][-dups,]
+    }
+    
+    ### set the row names with the first column and remove it
+    rownames(file_list[[i]]) <- file_list[[i]][,1]
+    file_list[[i]] <- file_list[[i]][,-1]
+    
+    ### change data.frame to matrix
+    file_list[[i]] <- as.matrix(file_list[[i]])
+  }
+  
+  ### handle the merge case
+  if(merge) {
+    ### if there are duplicated sameple names, print out an error message and stop the process
+    if(length(Reduce(union, lapply(file_list, colnames))) != length(unlist(lapply(file_list, colnames)))) {
+      stop("ERROR: There are duplicated sample names and you are trying to merge them")
+    }
+    
+    if(merge_mode[1] == "shared") {
+      file_list <- Reduce(
+        function(df1, df2) {
+          temp <- merge(df1, df2, by = "row.names", all = FALSE, sort = FALSE)
+          rownames(temp) <- temp[,1]
+          return(temp[,-1])
+        }, file_list)
+    } else if(merge_mode[1] == "all") {
+      file_list <- Reduce(
+        function(df1, df2) {
+          temp <- merge(df1, df2, by = "row.names", all = TRUE, sort = FALSE)
+          rownames(temp) <- temp[,1]
+          return(temp[,-1])
+        }, file_list)
+      
+      ### handle missing values
+      file_list[is.na(file_list)] <- missing_values
+    }
+  }
+  
+  ### organize the result for returning
+  if(is(file_list, 'list') && length(file_list) == 1) {
+    file_list <- file_list[[1]]
+  } else if(!merge) {
+    names(file_list) <- sapply(basename(file_names), function(x) {
+      temp <- strsplit(x, ".", fixed = TRUE)[[1]]
+      return(paste(temp[1:length(temp)-1], collapse = "."))
+    })
+  }
+  
+  return(file_list)
 }
