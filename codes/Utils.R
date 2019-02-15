@@ -2,13 +2,44 @@
 # This file contains common functions used by different pieces of code
 # *****************************************************************************
 
-require("viper", quietly=TRUE)
-require("dendextend", quietly=TRUE)
-require("annotate", quietly=TRUE)
-require("org.Hs.eg.db", quietly=TRUE)
-require("GO.db", quietly=TRUE)
-require("topGO", quietly=TRUE)
-require("xlsx",  quietly=TRUE)
+### load library
+if(!require("xlsx", quietly = TRUE)) {
+  install.packages("xlsx")
+  require(xlsx, quietly = TRUE)
+}
+if(!require("checkmate", quietly = TRUE)) {
+  install.packages("checkmate")
+  require("checkmate", quietly = TRUE)
+}
+if(!require("dendextend", quietly = TRUE)) {
+  install.packages("dendextend")
+  require("dendextend", quietly = TRUE)
+}
+if(!require("viper", quietly = TRUE)) {
+  source("https://bioconductor.org/biocLite.R")
+  biocLite("viper")
+  require("viper", quietly = TRUE)
+}
+if(!require("annotate", quietly = TRUE)) {
+  source("https://bioconductor.org/biocLite.R")
+  biocLite("annotate")
+  require("annotate", quietly = TRUE)
+}
+if(!require("org.Hs.eg.db", quietly = TRUE)) {
+  source("https://bioconductor.org/biocLite.R")
+  biocLite("org.Hs.eg.db")
+  require("org.Hs.eg.db", quietly = TRUE)
+}
+if(!require("GO.db", quietly = TRUE)) {
+  source("https://bioconductor.org/biocLite.R")
+  biocLite("GO.db")
+  require("GO.db", quietly = TRUE)
+}
+if(!require("topGO", quietly = TRUE)) {
+  source("https://bioconductor.org/biocLite.R")
+  biocLite("topGO")
+  require("topGO", quietly = TRUE)
+}
 
 # Load the list that maps gene ids to GO terms
 # FIXME: this is only for human genes, should name the variable more clearly
@@ -1671,7 +1702,10 @@ mdsPlot <- function(mat, plot_names = FALSE, alt_names = NULL, groups = NULL, di
     }  
   } else {
     ###
-    colors = rainbow(length(unique(as.character(groups))))
+	if (length(unique(as.character(groups))) < 6)
+		colors = c("black", "red", "blue", "magenda", "green")[1:length(unique(as.character(groups)))]
+	else
+		colors = rainbow(length(unique(as.character(groups))))
     names(colors) = unique(as.character(groups))
     
     ### make a MDS plot
@@ -1714,7 +1748,7 @@ mdsPlot <- function(mat, plot_names = FALSE, alt_names = NULL, groups = NULL, di
 #		gene column are used wihtout change. Otherwise, these identifiers can be
 #		assumed to be gene symbols and must be converted to entrez Ids by using 
 #		the method Utils::geneSymbolToEntrezId(). If a gene symbol cannot be 
-# 	mapped to an entrez Id, then the data matrix row correponding to that gene
+# 		mapped to an entrez Id, then the data matrix row correponding to that gene
 #		is removed. if mulitple symbols map to the same entrez id, then the value of
 #		the argument "combine" (see below) specifies how to combine the rows 
 #		corresponsing to these symbols:
@@ -1792,7 +1826,7 @@ readRNAseqData <- function(file_names,
   assertIntegerish(missing_values)
   
   ### make an empty list for saving the files
-  file_list <- list()
+  file_list <- vector("list", length(file_names))
   
   ### load the files
   for(i in 1:length(file_names)) {
