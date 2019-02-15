@@ -1,10 +1,11 @@
-require("xlsx",  quietly=TRUE)
 
 # Source the Utils.R file, if not already loaded.
 if (Sys.info()["nodename"] == "C2B2AFPL8"){
   UTILS_FILE = "C:/Users/floratos/workspace/R/labProjects/Common/Utils.R"
 } else if (Sys.info()["nodename"] == "C2B2AFPL9"){
   UTILS_FILE = "C:/Users/floratos/workspace/R/labProjects/Common/Utils.R"
+} else if (Sys.info()["nodename"] == "C2B2AFPL10"){
+	UTILS_FILE = "C:/Users/floratos/workspace/R/labProjects/Common/Utils.R"
 } else if (Sys.info()["nodename"] == "C2B2AFPD9" || Sys.info()["nodename"] == "DESKTOP-F24420B"){
   UTILS_FILE = "./codes/Utils.R"
 } else if (Sys.info()["nodename"] == "afdev5.c2b2.columbia.edu"){
@@ -3464,6 +3465,94 @@ makeGraphs <- function (which = "mods_events", save = FALSE, fName = NULL,
     boxplot(-log10(chr_enrich_all64), las=2, ylab="-log10 chi-square p-value", 
             main="Boxplot of hub chi-square p-values per tissue")
   }
+  
+  # ******************** which = cluster_regulons_with_pathways *****************************
+  # After running which = "cluster_regulons_with_pathways" of oneOffs() function,
+  # we now have distances between every hub pairs of every tissue based on associated pathways.
+  # In the function, we also produced the top hubs with the designated threshold that is
+  # based on the closeness of two regulons, and also generated the most shown pathways based on
+  # their occurrences in each tissue. Now we want to make some plots that which the top
+  # pathways are enriched with which top hubs in each tissue. Additionally, network graphs and
+  # circular plots will be generated based on the distance between two regulons. 
+  #
+  # params[[1]]: The file path of the "All_62_RegulonPathwayInfo.rda" file
+  #              (a character vector of length 1)
+  # params[[2]]: The file path of the "RegulonPathwayAnnotation.rda" file
+  #              (a character vector of length 1)
+  # params[[3]]: The output directory that results will be printed out
+  #              (a character vector of length 1)
+  #
+  # e.g., params <- list("//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_62_RegulonPathwayInfo.rda",
+  #                      "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/RegulonPathwayAnnotation.rda",
+  #                      "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/regulon_pathway/")
+  # e.g., params <- list("./data/RDA_Files/All_62_RegulonPathwayInfo.rda", "./data/RDA_Files/RegulonPathwayAnnotation.rda", "./results/regulon_pathway/")
+  
+  if(which == "cluster_regulons_with_pathways") {
+    
+    ### argument checking
+    assertString(params[[1]])
+    assertString(params[[2]])
+    assertString(params[[3]])
+    
+    ### load the necessary data
+    load(params[[1]])
+    load(params[[2]])
+    
+    ### get the hubs from the top hups info
+    unique_hubs <- lapply(top_hubs, function(x) {
+      y <- union(x[,"Hub1"], x[,"Hub2"])
+      y <- y[order(as.numeric(y))]
+      return(as.character(y))
+    })
+    
+    ### get the pathways from the top pathways info
+    unique_pathways <- lapply(top_pathways, function(x) {
+      y <- names(x)
+      y <- y[order(y)]
+      return(y)
+    })
+    
+    ### calculate the heatmap matrix (rows - top pathways, cols - top hubs)
+    heatmap_pathway_hub <- vector("list", length(varGOnames))
+    names(heatmap_pathway_hub) <- varGOnames
+    for(tissue in varGOnames) {
+      ### create an empty heatmap matrix
+      heatmap_pathway_hub[[tissue]] <- matrix(0, length(unique_pathways[[tissue]]), length(unique_hubs[[tissue]]))
+      rownames(heatmap_pathway_hub[[tissue]]) <- unique_pathways[[tissue]]
+      colnames(heatmap_pathway_hub[[tissue]]) <- unique_hubs[[tissue]]
+      
+      ### get the regulon pathway annotation
+      GOEnrich <- get(tissue)
+      
+      ### if the pathway is enriched by the given hub, 1, otherwise, 0
+      for(pathway in unique_pathways[[tissue]]) {
+        for(hub in unique_hubs[[tissue]]) {
+          if(length(grep(pathway, GOEnrich[[hub]][,"Description"])) > 0) {
+            heatmap_pathway_hub[[tissue]][pathway, hub] <- 1
+          }
+        }
+      }
+      
+      ### change the colnames to gene symbols from entrez ids
+      colnames(heatmap_pathway_hub[[tissue]]) <- entrezIDtoSymbol(colnames(heatmap_pathway_hub[[tissue]]))
+      
+      ### print out the heatmap
+      png(paste0(params[[3]], tissue, "/heatmap_pathway_hub.png"), width = 2500, height = 1500, res = 120)
+      par(oma=c(0,0,0,35))
+      heatmap.3(heatmap_pathway_hub[[tissue]], main = paste0(tissue, "_Heatmap_Pathway_Hub"),
+                xlab = "", ylab = "", col=c("white", "blue"),
+                scale="none", key=F, keysize=0.5, dendrogram = "col", trace = 'none',
+                labRow = rownames(heatmap_pathway_hub[[tissue]]), labCol = colnames(heatmap_pathway_hub[[tissue]]),
+                Rowv = FALSE, Colv = TRUE,
+                cexRow = 1.2, cexCol = 0.8, na.rm = TRUE)
+      dev.off()
+    }
+    
+    ### make network graphs
+    
+    
+  }
+  
   
 	if(save)
 		dev.off()
@@ -7452,14 +7541,14 @@ oneOffs<- function (which = "freq_mods", params=NULL){
   # target genes
   # This will be done to all the existing hubs
   # The results will be text files that have chromosome statistics for every hub and for every tissue
-  # Needs All_64_Aracne_MI_Fixed.rda and all_64_chr_distribution.rda
+  # Needs All_62_ARACNE.rda and All_62_chr_distribution.rda
   # params[[1]]: a character vector of variable names of aracne networks
   # params[[2]]: "all_64_chr_distribution.rda" path - used as background info or for normalization
   # params[[3]]: target MI threshold
   # params[[4]]: target p-value threshold
   # params[[5]]: output file directory
-  # e.g., params=list("varNames", "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/all_64_chr_distribution.rda", 0, 1, "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/chromosome_analysis/")
-  # e.g., params=list("varNames", "./all_64_chr_distribution.rda", 0, 1, "./results/chromosome/")
+  # e.g., params=list("varNames", "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_62_chr_distribution.rda", 0, 1, "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/chromosome_analysis/")
+  # e.g., params=list("varNames", "./All_62_chr_distribution.rda", 0, 1, "./results/chromosome/")
   
   if(which == "all_hub_target_chromosomes"){
     if(!is.null(params) && length(params) > 4) {
@@ -7924,12 +8013,12 @@ oneOffs<- function (which = "freq_mods", params=NULL){
   #
   # geneChrInfo[["Interactome_Name"]] will have an integer vector of length 23
   #
-  # Need "all_64_countmat.rda" for getting gene names of all the expression data
+  # Need "All_62_ARACNE.rda" for getting gene names of all the genes
   #
-  # params[[1]]: file path of "all_64_countmat.rda"
+  # params[[1]]: file path of "All_62_ARACNE.rda"
   # params[[2]]: the output RDA file path
   #
-  # e.g., params <- list("//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/all_64_countmat.rda", "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/all_64_chr_distribution.rda")
+  # e.g., params <- list("//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_62_ARACNE.rda", "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/all_64_chr_distribution.rda")
   
   if(which == "gene_chr_info"){
     if(!is.null(params) && length(params) > 1) {
@@ -7940,59 +8029,34 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       ### create an empty list
       geneChrInfo <- list()
       
-      ### check a given gene list was already used before
-      isExist <- 0
-      check_same_list <- function(chr_vector, idx) {
-        ### iteratively check for every tissue
-        for(i in 1:length(cmatNames)){
-          ### get gene list
-          gList <- rownames(get(cmatNames[i]))
-          
-          ### check if they are identical
-          if((idx != i) && (identical(chr_vector, gList))) {
-            isExist <- i
-            break
-          }
-        }
-        
-        return(isExist)
-      }
+      ### get genes for each tissue
+      geneList <- sapply(varNames, function(x) getInteractomeGenes(x, count = FALSE))
       
       ### iteratively count the chromosome numbers for each tissue
-      for(i in 1:length(cmatNames)) {
-        ### get gene list of a given tissue
-        geneList <- rownames(get(cmatNames[i]))
+      for(i in 1:length(varNames)) {
+        ### get chromosome info of the genes
+        chrInfo <- getChromosome(geneList[[i]])
         
-        ### if the list was appeared before just copy the result
-        idx <- check_same_list(geneList, i)
-        if((idx > 0) && (idx < i)) {
-          ### copy the previous info
-          geneChrInfo[[i]] <- geneChrInfo[[idx]]
-        } else {
-          ### get chromosome info of the genes
-          chrInfo <- getChromosome(geneList)
-          
-          ### make an empty vector
-          geneChrInfo[[i]] <- rep(0, 23)
-          names(geneChrInfo[[i]]) <- paste0(rep("chr", length(geneChrInfo[[i]])), 1:length(geneChrInfo[[i]]))
-          
-          ### count chromosome  numbers
-          for(j in 1:length(chrInfo)) {
-            geneChrInfo[[i]][chrInfo[j]] <- geneChrInfo[[i]][chrInfo[j]] + 1
-          }
+        ### make an empty vector
+        geneChrInfo[[i]] <- rep(0, 23)
+        names(geneChrInfo[[i]]) <- paste0(rep("chr", length(geneChrInfo[[i]])), 1:length(geneChrInfo[[i]]))
+        
+        ### count chromosome  numbers
+        for(j in 1:length(chrInfo)) {
+          geneChrInfo[[i]][chrInfo[j]] <- geneChrInfo[[i]][chrInfo[j]] + 1
         }
         
         ### print progress
-        writeLines(paste(i, "/", length(cmatNames)))
+        writeLines(paste(i, "/", length(varNames)))
       }
       
       ### name the list
-      names(geneChrInfo) <- substring(cmatNames, 6)
+      names(geneChrInfo) <- varNames
       
       ### make a README function for the RDA file
       README <- function(){
         writeLines(paste(rep("#", 100), collapse = ""))
-        writeLines("The \"geneChrInfo\" is a list and its length is 64 (based on the number of interactomes)")
+        writeLines("The \"geneChrInfo\" is a list and its length is 62 (based on the number of interactomes)")
         writeLines("Each element of the list has a vector of length 23 indicating the 23 chromosomes")
         writeLines("Each value in the vector represents the number of genes located in the corresponding chromosome")
         writeLines("E.g., geneChrInfo[[\"gtex_AdiposeSub\"]][2] = the number of genes from GTEx_AdiposeSub expression that are located in the Chromosome 2")
@@ -8005,6 +8069,192 @@ oneOffs<- function (which = "freq_mods", params=NULL){
     } else {
       writeLines("required params do not exist")
     }  
+  }
+  
+  # ******************** which = cluster_regulons_with_pathways *****************************
+  # We ran pathway analysis on every regulon of every tissue of GTEx and TCGA.
+  # The pathways indicate that they are associated with target genes of the hubs.
+  # If we cluster the regulons based on their pathways, we may get hubs/regulons that have
+  # similar biolocial functions. And we could also see the biological functional differences
+  # among tissues or between GTEx and TCGA.
+  # 
+  # This function needs [RegulonPathwayAnnotation.rda] file which contains pathway analysis
+  # results of all the regulons of all the tissues of GTExa and TCGA.
+  #
+  # The distance is calculated based on Jaccard distance
+  # = 1 - Intersection over Union
+  #
+  # params[[1]]: The file path of the "RegulonPathwayAnnotation.rda" file
+  #              (a character vector of length 1)
+  # params[[2]]: A Jaccard distance threshold for selecting top hub pairs
+  #              Should bigger than 0 and smaller or equal than 1
+  #              If NA, then select all the hub pairs
+  #              (a numeric value between 0-1 or NA)
+  # params[[3]]: An integer threshold that determines the most appeared pathways
+  #              e.g., if 50, the top 50 most appeared pathways will be presented
+  #              if NA, then select all the pathways
+  #              (an integer value or NA)
+  # params[[4]]: The output directory that results will be printed out
+  #              (a character vector of length 1)
+  #
+  # e.g., params <- list("//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/RegulonPathwayAnnotation.rda",
+  #                      0.1, 50,
+  #                      "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/regulon_pathway/")
+  # e.g., params <- list("./data/RDA_Files/RegulonPathwayAnnotation.rda", 0.1, 50, "./results/regulon_pathway/")
+  
+  if(which == "cluster_regulons_with_pathways") {
+    
+    ### argument checking
+    assertString(params[[1]])
+    assertNumeric(params[[2]])
+    assertIntegerish(params[[3]])
+    assertString(params[[4]])
+    
+    ### load the pathway analysis results
+    load(params[[1]])
+    
+    ### create an empty matrix for distances among regulons
+    distance_mats <- vector("list", length(varGOnames))
+    names(distance_mats) <- varGOnames
+    
+    ### calculate distances among regulons based on their associated pathways for each tissue
+    for(tissue in names(distance_mats)) {
+      ### write a log to present progress
+      logLines(paste("\nProcessing tissue -> ", tissue))
+      
+      ### get the pathway analysis results for the given tissue
+      pathRes <- get(tissue)
+      
+      ### create an empty distance matrix for the given tissue
+      distance_mats[[tissue]] <- matrix(NA, length(pathRes), length(pathRes))
+      rownames(distance_mats[[tissue]]) <- names(pathRes)
+      colnames(distance_mats[[tissue]]) <- names(pathRes)
+      
+      ### compuate distances based on the Jaccard distance
+      for(i in 1:(nrow(distance_mats[[tissue]])-1)) {
+        for(j in (i+1):ncol(distance_mats[[tissue]])) {
+          distance_mats[[tissue]][i, j] <- 1 - (length(intersect(pathRes[[i]][,1], pathRes[[j]][,1])) /
+            length(union(pathRes[[i]][,1], pathRes[[j]][,1])))
+        }
+      }
+      
+      ### distance_mats[[tissue]][i,i] = 0
+      diag(distance_mats[[tissue]]) <- 0
+      
+      ### there are some already-calculated stuffs since distance_mats[[tissue]][i,j] == distance_mats[[tissue]][j,i] 
+      ### just copy them into the appropriate places
+      distance_mats[[tissue]][lower.tri(distance_mats[[tissue]])] <- t(distance_mats[[tissue]])[lower.tri(distance_mats[[tissue]])]
+    }
+    
+    ### set README function
+    README <- function(){
+      writeLines(paste(rep("#", 100), collapse = ""))
+      writeLines("The \"distance_mats\" is a list with 62 length.")
+      writeLines("In each element of the list, there is a distance matrix for each tissue from GTEx and TCGA.")
+      writeLines("Each matrix represents closeness between two regulons based on shared pathways.")
+      writeLines("The distance is calculated by Jaccard distance.")
+      writeLines("For example, if two regulons share many associated pathways, their distance value")
+      writeLines("would be small, and otherwise, they would be big.")
+      writeLines("If you want to see the pathways themselves, please refer: RegulonPathwayAnnotation.rda.")
+      writeLines(paste(rep("#", 100), collapse = ""))
+    }
+    
+    ### save the distance matrices in RDA file
+    save(list = c("distance_mats", "README"), file = paste0(params[[4]], "All_62_RegulonPathwayDistanceMats.rda"))
+    
+    ### get hubs that have the lowest distance with the threshold
+    top_hubs <- lapply(distance_mats, function(x) {
+      ### there are duplicates and useless (same hub) pairs, so filter them out
+      x[lower.tri(x)] <- 1
+      diag(x) <- 1
+      
+      ### get array indicies of the targets
+      if(is.na(params[[2]])) {
+        arrIndices <- which(x <= Inf, arr.ind = TRUE)
+      } else {
+        arrIndices <- which(x < params[[2]], arr.ind = TRUE)
+      }
+      
+      ### make hub pair info
+      if(nrow(arrIndices) > 0) {
+        hubPair <- matrix(NA, nrow(arrIndices), 4)
+        colnames(hubPair) <- c("Hub1", "Hub2", "Distance", "EmpiricalPVal")
+        hubPair[,"Hub1"] <- as.numeric(rownames(x)[arrIndices[,1]])
+        hubPair[,"Hub2"] <- as.numeric(colnames(x)[arrIndices[,2]])
+        hubPair[,"Distance"] <- x[arrIndices]
+        hubPair <- hubPair[order(hubPair[,"Distance"]),]
+        totalPairNum <- (nrow(x) * ncol(x) - ncol(x)) / 2
+        hubPair[,"EmpiricalPVal"] <- rank(hubPair[,"Distance"], ties.method = "min") / totalPairNum
+        return(hubPair)
+      } else {
+        return(NULL)
+      }
+    })
+    
+    ### print the top hubs filtered by the threshold
+    for(tissue in names(top_hubs)) {
+      dir.create(paste0(params[[4]], tissue), showWarnings = FALSE)
+      write.table(top_hubs[[tissue]], file = paste0(params[[4]], tissue, "/top_hub_pairs_", params[[2]], ".txt"), sep = "\t", row.names = FALSE)
+    }
+    
+    ### the most appeared pathways in each tissue
+    top_pathways <- vector("list", length(varGOnames))
+    names(top_pathways) <- varGOnames
+    for(tissue in varGOnames) {
+      ### get the pathway analysis results for the given tissue
+      pathRes <- get(tissue)
+      
+      ### create an empty pathway count object
+      pathwayCntLen <- length(Reduce(union, lapply(pathRes, function(x) x[,"Description"])))
+      pathwayCnt <- vector("integer", pathwayCntLen)
+      names(pathwayCnt) <- Reduce(union, lapply(pathRes, function(x) x[,"Description"]))
+      
+      ### count pathways (how many times each appeared) for each tissue
+      for(hub in names(pathRes)) {
+        pathwayCnt[pathRes[[hub]][,"Description"]] <- pathwayCnt[pathRes[[hub]][,"Description"]] + 1
+      }
+      
+      ### sort the pathway count in descending order
+      pathwayCnt <- pathwayCnt[order(-pathwayCnt)]
+      
+      ### filter the pathways with the input threshold
+      if(!is.na(params[[3]])) {
+        pathwayCnt <- pathwayCnt[1:params[[3]]]
+      }
+      
+      ### save the result to the list
+      top_pathways[[tissue]] <- pathwayCnt
+    }
+    
+    ### print the top pathways
+    for(tissue in names(top_pathways)) {
+      dir.create(paste0(params[[4]], tissue), showWarnings = FALSE)
+      write.table(data.frame(Pathway=names(top_pathways[[tissue]]), Count=top_pathways[[tissue]]),
+                  file = paste0(params[[4]], tissue, "/top_pathways_", params[[3]], ".txt"),
+                  sep = "\t", row.names = FALSE)
+    }
+    
+    ### set README function
+    README <- function(){
+      writeLines(paste(rep("#", 100), collapse = ""))
+      writeLines("The \"top_hubs\" and the \"top_pathways\" are both list with 62 length.")
+      writeLines("In each element of the \"top_hubs\", there is a table of hub pairs")
+      writeLines(paste0("that have the lowest distance (< ", 0.1, ") values defined by Jaccard index."))
+      writeLines("The first two columns indicate a hub pair (Entrez ID),")
+      writeLines("the third column has the distance value of a given hub pair,")
+      writeLines("and the fourth column means empirical p-values of the corresponding distances.")
+      writeLines(paste0("In each element of the \"top_pathways\", there is an integer vector of length ", 50, "."))
+      writeLines("They are top pathways which were most appeared among all the regulons in each tissue.")
+      writeLines("The first column indicates GO pathway names, and the second column means")
+      writeLines("how many times the given pathway was appeared among all the regulons in the tissue.")
+      writeLines("If you want to see the pathways themselves, please refer: RegulonPathwayAnnotation.rda.")
+      writeLines(paste(rep("#", 100), collapse = ""))
+    }
+    
+    ### save the top_hubs & top_pathways objects
+    save(list = c("top_hubs", "top_pathways", "README"),
+         file = paste0(params[[4]], "All_62_RegulonPathwayInfo.rda"))
+    
   }
   
 }
