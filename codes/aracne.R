@@ -7655,7 +7655,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       dist_sig <- apply(dist_sig[,-c(1,2)], 2, as.numeric)
       rownames(dist_sig) <- union_hub_names
       colnames(dist_sig) <- netNames
-      assign("chr_enrich_all64", dist_sig, envir = globalenv())
+      assign("chr_enrich_all62", dist_sig, envir = globalenv())
       
       ### calculate the chromosome significance
       for(i in 1:length(netNames)) {
@@ -7717,7 +7717,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       }
       
       ### make a vector of variable names for the RDA file
-      chr_varNames <- c("chr_enrich_all64", paste0("chr_", names(chr_count)))
+      chr_varNames <- c("chr_enrich_all62", paste0("chr_", names(chr_count)))
       
       ### make a README function for the RDA file
       README <- function(){
@@ -7725,7 +7725,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
         writeLines("The \"chr_varNames\" has all the variable names of the chromosome info.")
         writeLines("The first one (chr_varNames[1]) has results of the Chi-square test.")
         writeLines("From the second to the last ones (chr_varNames[2:65]), they have results of the tissue-specific Fisher's exact test.")
-        writeLines("The \"chr_enrich_all64\" has a 6033 (hubs) x 64 (tissues) matrix.")
+        writeLines("The \"chr_enrich_all62\" has a 6033 (hubs) x 62 (tissues) matrix.")
         writeLines("A value in a cell in the matrix indicates the p-value of the Chi-square test of the corresponding hub (row) and the corresponding tissue (column).")
         writeLines("The \"chr_TISSUE_NAME\" has a 6033 (hubs) x 23 (chromosomes) matrix. ")
         writeLines("A value in a cell in the matrix indicates the p-value of the Fisher's exact test of the corresponding tissue (TISSUE_NAME in an object), the corresponding hub (row), and the corresponding chromosome (column).")
@@ -7736,7 +7736,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       
       ### make a RDA file with the results
       save(list = c(chr_varNames, "chr_varNames", "README"),
-           file = paste0(params[[5]], "all_64_chrom_enrichment.rda"))
+           file = paste0(params[[5]], "All_62_chrom_enrichment.rda"))
       
     }
   }
@@ -7895,21 +7895,21 @@ oneOffs<- function (which = "freq_mods", params=NULL){
   # 
   # The results will be a text file that has significantly important gene set list,
   # and pathway analysis results of those gene sets
-  # Needs all_64_chrom_enrichment_filtered.rda & all_64_target_chrs.rda
-  # params[[1]]: "all_64_chrom_enrichment_filtered.rda" file path
-  # params[[2]]: "all_64_target_chrs.rda" file path
+  # Needs All_62_chrom_enrichment.rda & All_62_target_chrs.rda
+  # params[[1]]: "All_62_chrom_enrichment.rda" file path
+  # params[[2]]: "All_62_target_chrs.rda" file path
   # params[[3]]: chromosome significance p-value threshold
   # params[[4]]: pathway analysis FDR threshold
   # params[[5]]: output directory
-  # e.g., params=list("//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/all_64_chrom_enrichment_filtered.rda", "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/all_64_target_chrs.rda", 1e-50, 0.05, "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/chromosome_analysis/significant_genesets/")
-  # e.g., params=list("./results/chromosome/all_64_chrom_enrichment_filtered.rda", "./all_64_target_chrs.rda", 1e-50, 0.05, "./results/chromosome/significant_genesets/")
+  # e.g., params=list("//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_62_chrom_enrichment.rda", "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_62_target_chrs.rda", 1e-50, 0.05, "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/chromosome_analysis/significant_genesets/")
+  # e.g., params=list("./results/chromosome/mi_0.2_pv_0.0001/All_62_chrom_enrichment.rda", "./data/RDA_Files/All_62_target_chrs.rda", 1e-50, 0.05, "./results/chromosome/significant_genesets/")
   
   if(which == "significant_chr_genes"){
     if(!is.null(params) && length(params) > 4) {
-      ### load all_64_chrom_enrichment_filtered.rda
+      ### load All_62_chrom_enrichment.rda
       load(as.character(params[[1]]))
       
-      ### load all_64_target_chrs.rda
+      ### load All_62_target_chrs.rda
       load(as.character(params[[2]]))
       
       ### select significant tissue-hub-chromosome cases
@@ -8254,6 +8254,179 @@ oneOffs<- function (which = "freq_mods", params=NULL){
     ### save the top_hubs & top_pathways objects
     save(list = c("top_hubs", "top_pathways", "README"),
          file = paste0(params[[4]], "All_62_RegulonPathwayInfo.rda"))
+    
+  }
+  
+  # ******************** which = jaccard_vs_fet *****************************
+  # Distance between two regulons can be computed in several ways.
+  # We have done it with two ways.
+  # 1. P-value from Fisher's exact test based on target gene conservation 
+  # 2. Jaccard distance between associated pathways with the regulons
+  # In general, if two regulons share similar target genes, then their
+  # associated pathways should be also similar. Therefore, there would be
+  # no big deal between the results with the two measurements, but if there
+  # are any cases that a hub pair have small Jaccard distance but have 
+  # large FET p-value (or other way around), it would be interesting.
+  # 
+  # * You need 22GB memory to run this function.
+  #
+  # params[[1]]: The RDA file path of the Jaccard distanceS
+  #              All_62_RegulonPathwayDistanceMats.rda
+  #              (a character vector of length 1)
+  # params[[2]]: The RDA file path of the FET p-values
+  #              All_62_tfNetEnrich.rda
+  #              (a character vector of length 1)
+  # params[[3]]: The RDA file path of the Aracne networks
+  #              All_62_ARACNE.rda
+  #              (a character vector of length 1)
+  # params[[4]]: The RDA file path of the regulon pathway annotations
+  #              RegulonPathwayAnnotation.rda
+  #              (a character vector of length 1)
+  # params[[5]]: A cut-off for selecting top & bottom hub pairs
+  #              It means percentage, e.g., 10 = top & bottom 10% based on Jaccard or FET
+  #              It will be used to identify weird hub pairs such as very large Jaccard
+  #              distance but small FET P-value (or the other way around)
+  #              (a double between 0-100)
+  # params[[6]]: A cut-off for selecting hub pairs that have large differences between
+  #              Jaccard and FET. e.g., if 100, then selecting top 100 hub pairs
+  #              which have absolute large differences between Jaccard and FET.
+  #              (An integer)
+  # params[[7]]: The output directory that results will be printed out
+  #              (a character vector of length 1)
+  #
+  # e.g., params = list("//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/All_62_RegulonPathwayDistanceMats.rda",
+  #                     "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/All_62_tfNetEnrich.rda",
+  #                     "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/All_62_ARACNE.rda",
+  #                     "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RegulonPathwayAnnotation.rda",
+  #                     0.1, 100,
+  #                     "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/regulon_pathway/")
+  # e.g., params = list("./data/RDA_Files/All_62_RegulonPathwayDistanceMats.rda",
+  #                     "./data/RDA_Files/All_62_tfNetEnrich.rda",
+  #                     "./data/RDA_Files/All_62_ARACNE.rda",
+  #                     "./data/RDA_Files/RegulonPathwayAnnotation.rda",
+  #                     0.1, 100, "./results/regulon_pathway/")
+  
+  if(which == "jaccard_vs_fet") {
+    
+    ### argument checking
+    assertString(params[[1]])
+    assertString(params[[2]])
+    assertString(params[[3]])
+    assertString(params[[4]])
+    assertNumeric(params[[5]])
+    assertIntegerish(params[[6]])
+    assertString(params[[7]])
+    
+    ### load the Jaccard distances and FET p-values
+    load(params[[1]])
+    load(params[[2]])
+    load(params[[3]])
+    load(params[[4]])
+    
+    ### adjust the list names for consistency between distance_mats & tfNetEnrich
+    names(distance_mats) <- sapply(names(distance_mats), function(x) substr(x, 1, nchar(x)-2))
+    
+    for(tissue in names(distance_mats)) {
+      ### progress print
+      logLines(paste("\nProcessing tissue -> ", tissue))
+      
+      ### create a matrix for correlation plot
+      cor_mat <- matrix(NA, nrow(distance_mats[[tissue]]) * (nrow(distance_mats[[tissue]])-1) / 2, 2)
+      colnames(cor_mat) <- c("Jaccard", "FET")
+      
+      ### fill the empty cells
+      cnt <- 1
+      temp <- rep("", nrow(cor_mat))
+      for(i in 1:(nrow(distance_mats[[tissue]])-1)) {
+        hub1 <- rownames(distance_mats[[tissue]])[i]
+        for(j in (i+1):ncol(distance_mats[[tissue]])) {
+          hub2 <- colnames(distance_mats[[tissue]])[j]
+          cor_mat[cnt,"Jaccard"] <- -log10(distance_mats[[tissue]][hub1, hub2])
+          cor_mat[cnt,"FET"] <- tfNetEnrich[[tissue]][hub1, hub2]
+          temp[cnt] <- paste0(hub1, "_", hub2)
+          cnt <- cnt+1
+        }
+      }
+      rownames(cor_mat) <- temp
+      
+      ### remove duplicates
+      cor_mat <- cor_mat[which(!duplicated(cor_mat)),]
+      
+      ### print a correlation plot
+      ggplot(data = as.data.frame(cor_mat), aes(x=Jaccard, y=FET)) +
+        geom_point(color = "black", size = 1) +
+        labs(title=paste0(tissue, "_Correlation_Jaccard_vs_FET")) +
+        xlab("-log10(Jaccard distance)") +
+        ylab("-log10(FET P Val)") +
+        geom_smooth(method = lm, color="blue", se=FALSE) +
+        theme_classic(base_size = 16)
+      ggsave(filename = paste0(params[[7]], tissue, "GO/cor_jaccard_vs_fet.png"),
+             width = 2000, height = 2000)
+      
+      ### change the Inf to a finite number
+      cor_mat[which(cor_mat == Inf)] <- 10**(floor(log10(max(cor_mat[is.finite(cor_mat)])))+1)-1
+      
+      ### select top & bottom hub pairs based on Jaccard & FET
+      cut_off <- floor(nrow(cor_mat) * params[[5]] / 100)
+      top_jaccard <- rownames(cor_mat)[order(-cor_mat[,"Jaccard"])[1:cut_off]]
+      bottom_jaccard <- rownames(cor_mat)[order(cor_mat[,"Jaccard"])[1:cut_off]]
+      top_fet <- rownames(cor_mat)[order(-cor_mat[,"FET"])[1:cut_off]]
+      bottom_fet <- rownames(cor_mat)[order(cor_mat[,"FET"])[1:cut_off]]
+      
+      ### get interesting hub pairs
+      top_top <- intersect(top_jaccard, top_fet)
+      bottom_bottom <- intersect(bottom_jaccard, bottom_fet)
+      top_bottom <- intersect(top_jaccard, bottom_fet)
+      bottom_top <- intersect(bottom_jaccard, top_fet)
+      
+      ### write out the results
+      write.table(data.frame(paste(paste("TOP_TOP=", paste(top_top, collapse = " ")),
+                                   paste("TOP_BOTTOM=", paste(top_bottom, collapse = " ")),
+                                   paste("BOTTOM_TOP=", paste(bottom_top, collapse = " ")),
+                                   paste("BOTTOM_BOTTOM=", paste(bottom_bottom, collapse = " ")),
+                                   sep = "\n")),
+                  file = paste0(params[[7]], tissue, "GO/hub_pairs_jaccard_vs_fet.txt"),
+                  sep = "\t", row.names = FALSE, col.names = FALSE, quote = FALSE)
+      
+      ### get absolute difference between Jaccard and FET
+      abs_diff <- abs(cor_mat[,"Jaccard"] - cor_mat[,"FET"])
+      
+      ### sort the abs_diff in descending order
+      abs_diff <- abs_diff[order(-abs_diff)]
+      
+      ### filter with the cut-off
+      abs_diff <- abs_diff[1:params[[6]]]
+      
+      ### additional info generatation
+      hub1s <- sapply(names(abs_diff), function(x) strsplit(x, split = "_", fixed = TRUE)[[1]][1], USE.NAMES = FALSE)
+      hub2s <- sapply(names(abs_diff), function(x) strsplit(x, split = "_", fixed = TRUE)[[1]][2], USE.NAMES = FALSE)
+      pathways1 <- lapply(get(paste0(tissue, "GO"))[hub1s], rownames)
+      pathways2 <- lapply(get(paste0(tissue, "GO"))[hub2s], rownames)
+      shared_pathways <- vector("list", length(pathways1))
+      for(i in 1:length(shared_pathways)) {
+        shared_pathways[[i]] <- intersect(pathways1[[i]], pathways2[[i]])
+      }
+      targets1 <- lapply(get(tissue)[[2]][hub1s], rownames)
+      targets2 <- lapply(get(tissue)[[2]][hub2s], rownames)
+      shared_targets <- vector("list", length(targets1))
+      for(i in 1:length(shared_targets)) {
+        shared_targets[[i]] <- intersect(targets1[[i]], targets2[[i]])
+      }
+      
+      ### write out the result
+      write.table(data.frame(Hub_Pair=names(abs_diff),
+                             Abs_Diff=abs_diff,
+                             Jaccard=cor_mat[names(abs_diff),"Jaccard"],
+                             FET=cor_mat[names(abs_diff),"FET"],
+                             Hub1_Pathway_Num=sapply(get(paste0(tissue, "GO"))[hub1s], nrow),
+                             Hub2_Pathway_Num=sapply(get(paste0(tissue, "GO"))[hub2s], nrow),
+                             Shared_Pathway_Num=sapply(shared_pathways, length),
+                             Hub1_Target_Num=get(tissue)[[1]][hub1s,3],
+                             Hub2_Target_Num=get(tissue)[[1]][hub2s,3],
+                             Shared_Targets=sapply(shared_targets, length)),
+                  file = paste0(params[[7]], tissue, "GO/abs_diff_jaccard_vs_fet.txt"),
+                  sep = "\t", row.names = FALSE)
+    }
     
   }
   
