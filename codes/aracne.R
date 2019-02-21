@@ -8489,6 +8489,10 @@ oneOffs<- function (which = "freq_mods", params=NULL){
     gtex_total_pathways <- Reduce(union, gtex_union_pathway)
     tcga_total_pathways <- Reduce(union, tcga_union_pathway)
     
+    ### remove NAs
+    gtex_total_pathways <- gtex_total_pathways[which(!is.na(gtex_total_pathways))]
+    tcga_total_pathways <- tcga_total_pathways[which(!is.na(tcga_total_pathways))]
+    
     ### create empty matrices for pathway counts
     gtex_pathway_cnt <- matrix("", length(gtex_total_pathways), 3)
     tcga_pathway_cnt <- matrix("", length(tcga_total_pathways), 3)
@@ -8501,19 +8505,25 @@ oneOffs<- function (which = "freq_mods", params=NULL){
     gtex_pathway_cnt[,"Pathway"] <- gtex_total_pathways
     tcga_pathway_cnt[,"Pathway"] <- tcga_total_pathways
     for(i in 1:nrow(gtex_pathway_cnt)) {
-      temp <- sapply(gtex_union_pathway, function(x) length(grep(gtex_pathway_cnt[i,"Pathway"], x)))
+      temp <- sapply(gtex_union_pathway, function(x) length(which(x == gtex_pathway_cnt[i,"Pathway"])))
       gtex_pathway_cnt[i,"Counts"] <- sum(temp)
       gtex_pathway_cnt[i,"Tissue"] <- paste(names(temp[which(temp == 1)]), collapse = "/")
     }
     for(i in 1:nrow(tcga_pathway_cnt)) {
-      temp <- sapply(tcga_union_pathway, function(x) length(grep(tcga_pathway_cnt[i,"Pathway"], x)))
+      temp <- sapply(tcga_union_pathway, function(x) length(which(x == tcga_pathway_cnt[i,"Pathway"])))
       tcga_pathway_cnt[i,"Counts"] <- sum(temp)
       tcga_pathway_cnt[i,"Tissue"] <- paste(names(temp[which(temp == 1)]), collapse = "/")
     }
     
     ### order the matrices based on the counts in ascending order
-    gtex_pathway_cnt <- gtex_pathway_cnt[order(gtex_pathway_cnt[,"Counts"]),]
-    tcga_pathway_cnt <- tcga_pathway_cnt[order(tcga_pathway_cnt[,"Counts"]),]
+    gtex_pathway_cnt <- gtex_pathway_cnt[order(as.numeric(gtex_pathway_cnt[,"Counts"])),]
+    tcga_pathway_cnt <- tcga_pathway_cnt[order(as.numeric(tcga_pathway_cnt[,"Counts"])),]
+    
+    ### for the writing out, numerize the count column
+    gtex_pathway_cnt <- data.frame(gtex_pathway_cnt)
+    tcga_pathway_cnt <- data.frame(gtex_pathway_cnt)
+    gtex_pathway_cnt[,"Counts"] <- as.numeric(gtex_pathway_cnt[,"Counts"])
+    tcga_pathway_cnt[,"Counts"] <- as.numeric(tcga_pathway_cnt[,"Counts"])
     
     ### write out the matrices
     write.table(gtex_pathway_cnt, file = paste0(params[[3]], "gtex_pathway_counts.txt"),
