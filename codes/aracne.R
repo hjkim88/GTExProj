@@ -8288,7 +8288,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
   #              distance but small FET P-value (or the other way around)
   #              (a double between 0-100)
   # params[[6]]: A cut-off for selecting hub pairs that have large differences between
-  #              Jaccard and FET. e.g., if 100, then selecting top 100 hub pairs
+  #              Jaccard and FET. e.g., if 1000, then selecting top 1000 hub pairs
   #              which have absolute large differences between Jaccard and FET.
   #              (An integer)
   # params[[7]]: The output directory that results will be printed out
@@ -8298,13 +8298,13 @@ oneOffs<- function (which = "freq_mods", params=NULL){
   #                     "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/All_62_tfNetEnrich.rda",
   #                     "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/All_62_ARACNE.rda",
   #                     "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RegulonPathwayAnnotation.rda",
-  #                     0.1, 100,
+  #                     0.1, 1000,
   #                     "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/regulon_pathway/")
   # e.g., params = list("./data/RDA_Files/All_62_RegulonPathwayDistanceMats.rda",
   #                     "./data/RDA_Files/All_62_tfNetEnrich.rda",
   #                     "./data/RDA_Files/All_62_ARACNE.rda",
   #                     "./data/RDA_Files/RegulonPathwayAnnotation.rda",
-  #                     0.1, 100, "./results/regulon_pathway/")
+  #                     0.1, 1000, "./results/regulon_pathway/")
   
   if(which == "jaccard_vs_fet") {
     
@@ -8316,6 +8316,12 @@ oneOffs<- function (which = "freq_mods", params=NULL){
     assertNumeric(params[[5]])
     assertIntegerish(params[[6]])
     assertString(params[[7]])
+    
+    ### load library
+    if(!require(ggplot2, quietly = TRUE)) {
+      install.packages("ggplot2")
+      require(ggplot2, quietly = TRUE)
+    }
     
     ### load the Jaccard distances and FET p-values
     load(params[[1]])
@@ -8361,7 +8367,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
         geom_smooth(method = lm, color="blue", se=FALSE) +
         theme_classic(base_size = 16)
       ggsave(filename = paste0(params[[7]], tissue, "GO/cor_jaccard_vs_fet.png"),
-             width = 2000, height = 2000)
+             width = 20, height = 20)
       
       ### change the Inf to a finite number
       cor_mat[which(cor_mat == Inf)] <- 10**(floor(log10(max(cor_mat[is.finite(cor_mat)])))+1)-1
@@ -8426,7 +8432,94 @@ oneOffs<- function (which = "freq_mods", params=NULL){
                              Shared_Targets=sapply(shared_targets, length)),
                   file = paste0(params[[7]], tissue, "GO/abs_diff_jaccard_vs_fet.txt"),
                   sep = "\t", row.names = FALSE)
+      
+      ### garbage collection
+      rm(list = tissue)
+      rm(list = paste0(tissue, "GO"))
+      tfNetEnrich <- tfNetEnrich[-which(names(tfNetEnrich) == tissue)]
+      distance_mats <- distance_mats[-which(names(distance_mats) == tissue)]
+      gc()
     }
+    
+  }
+  
+  # ******************** which = count_regulon_pathways *****************************
+  # Before, We ran pathway analysis on every regulon of all the interactomes.
+  # Now we want to know interesting pathways that appeared in only one interactome.
+  # Therefore, we counted how many times they appeared in GTEx and in TCGA respectively.
+  #
+  # params[[1]]: The RDA file path of the regulon pathway annotations
+  #              RegulonPathwayAnnotation.rda
+  #              (a character vector of length 1)
+  #              
+  # params[[2]]: The number that indicate a separation between GTEx and TCGA for varGOnames
+  #              e.g., In varGOnames, 1:36 are GTEx tissues and 37:62 are TCGA tissues,
+  #                    then params[[2]] should be 36
+  #
+  # params[[3]]: The output directory that results will be printed out
+  #              (a character vector of length 1)
+  #
+  # e.g., params <- list("//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/RegulonPathwayAnnotation.rda",
+  #                      36, "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/regulon_pathway/")
+  # e.g., params <- list("./data/RDA_Files/RegulonPathwayAnnotation.rda", 36, "./results/regulon_pathway/")
+  
+  if(which == "count_regulon_pathways") {
+    
+    ### argument checking
+    assertString(params[[1]])
+    assertIntegerish(params[[2]])
+    assertString(params[[3]])
+    
+    ### load the pathway analysis results
+    load(params[[1]])
+    
+    ### create a list of vectors of the union set of all the pathways for each tissue
+    gtex_union_pathway <- lapply(varGOnames[1:params[[2]]], function(x) {
+      pathRes <- get(x)
+      return(Reduce(union, lapply(pathRes, function(y) y[,"Description"])))
+    })
+    names(gtex_union_pathway) <- sapply(varGOnames[1:params[[2]]], function(x) substr(x, 1, nchar(x)-2))
+    tcga_union_pathway <- lapply(varGOnames[(params[[2]]+1):length(varGOnames)], function(x) {
+      pathRes <- get(x)
+      return(Reduce(union, lapply(pathRes, function(y) y[,"Description"])))
+    })
+    names(tcga_union_pathway) <- sapply(varGOnames[(params[[2]]+1):length(varGOnames)], function(x) substr(x, 1, nchar(x)-2))
+    
+    ### get the total pathway names in GTEx and in TCGA
+    gtex_total_pathways <- Reduce(union, gtex_union_pathway)
+    tcga_total_pathways <- Reduce(union, tcga_union_pathway)
+    
+    ### create empty matrices for pathway counts
+    gtex_pathway_cnt <- matrix("", length(gtex_total_pathways), 3)
+    tcga_pathway_cnt <- matrix("", length(tcga_total_pathways), 3)
+    rownames(gtex_pathway_cnt) <- gtex_total_pathways
+    rownames(tcga_pathway_cnt) <- tcga_total_pathways
+    colnames(gtex_pathway_cnt) <- c("Pathway", "Counts", "Tissue")
+    colnames(tcga_pathway_cnt) <- c("Pathway", "Counts", "Tissue")
+    
+    ### fill out the matrices
+    gtex_pathway_cnt[,"Pathway"] <- gtex_total_pathways
+    tcga_pathway_cnt[,"Pathway"] <- tcga_total_pathways
+    for(i in 1:nrow(gtex_pathway_cnt)) {
+      temp <- sapply(gtex_union_pathway, function(x) length(grep(gtex_pathway_cnt[i,"Pathway"], x)))
+      gtex_pathway_cnt[i,"Counts"] <- sum(temp)
+      gtex_pathway_cnt[i,"Tissue"] <- paste(names(temp[which(temp == 1)]), collapse = "/")
+    }
+    for(i in 1:nrow(tcga_pathway_cnt)) {
+      temp <- sapply(tcga_union_pathway, function(x) length(grep(tcga_pathway_cnt[i,"Pathway"], x)))
+      tcga_pathway_cnt[i,"Counts"] <- sum(temp)
+      tcga_pathway_cnt[i,"Tissue"] <- paste(names(temp[which(temp == 1)]), collapse = "/")
+    }
+    
+    ### order the matrices based on the counts in ascending order
+    gtex_pathway_cnt <- gtex_pathway_cnt[order(gtex_pathway_cnt[,"Counts"]),]
+    tcga_pathway_cnt <- tcga_pathway_cnt[order(tcga_pathway_cnt[,"Counts"]),]
+    
+    ### write out the matrices
+    write.table(gtex_pathway_cnt, file = paste0(params[[3]], "gtex_pathway_counts.txt"),
+                sep = "\t", row.names = FALSE)
+    write.table(tcga_pathway_cnt, file = paste0(params[[3]], "tcga_pathway_counts.txt"),
+                sep = "\t", row.names = FALSE)
     
   }
   
