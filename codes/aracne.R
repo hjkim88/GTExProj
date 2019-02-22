@@ -8520,10 +8520,12 @@ oneOffs<- function (which = "freq_mods", params=NULL){
     tcga_pathway_cnt <- tcga_pathway_cnt[order(as.numeric(tcga_pathway_cnt[,"Counts"])),]
     
     ### for the writing out, numerize the count column
-    gtex_pathway_cnt <- data.frame(gtex_pathway_cnt)
-    tcga_pathway_cnt <- data.frame(gtex_pathway_cnt)
-    gtex_pathway_cnt[,"Counts"] <- as.numeric(gtex_pathway_cnt[,"Counts"])
-    tcga_pathway_cnt[,"Counts"] <- as.numeric(tcga_pathway_cnt[,"Counts"])
+    gtex_pathway_cnt <- data.frame(Pathway=gtex_pathway_cnt[,"Pathway"],
+                                   Counts=as.numeric(gtex_pathway_cnt[,"Counts"]),
+                                   Tissue=gtex_pathway_cnt[,"Tissue"])
+    tcga_pathway_cnt <- data.frame(Pathway=tcga_pathway_cnt[,"Pathway"],
+                                   Counts=as.numeric(tcga_pathway_cnt[,"Counts"]),
+                                   Tissue=tcga_pathway_cnt[,"Tissue"])
     
     ### write out the matrices
     write.table(gtex_pathway_cnt, file = paste0(params[[3]], "gtex_pathway_counts.txt"),
