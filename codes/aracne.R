@@ -8476,12 +8476,12 @@ oneOffs<- function (which = "freq_mods", params=NULL){
     ### create a list of vectors of the union set of all the pathways for each tissue
     gtex_union_pathway <- lapply(varGOnames[1:params[[2]]], function(x) {
       pathRes <- get(x)
-      return(Reduce(union, lapply(pathRes, function(y) y[,"Description"])))
+      return(Reduce(union, lapply(pathRes, function(y) y[,"ID"])))
     })
     names(gtex_union_pathway) <- sapply(varGOnames[1:params[[2]]], function(x) substr(x, 1, nchar(x)-2))
     tcga_union_pathway <- lapply(varGOnames[(params[[2]]+1):length(varGOnames)], function(x) {
       pathRes <- get(x)
-      return(Reduce(union, lapply(pathRes, function(y) y[,"Description"])))
+      return(Reduce(union, lapply(pathRes, function(y) y[,"ID"])))
     })
     names(tcga_union_pathway) <- sapply(varGOnames[(params[[2]]+1):length(varGOnames)], function(x) substr(x, 1, nchar(x)-2))
     
@@ -8489,28 +8489,26 @@ oneOffs<- function (which = "freq_mods", params=NULL){
     gtex_total_pathways <- Reduce(union, gtex_union_pathway)
     tcga_total_pathways <- Reduce(union, tcga_union_pathway)
     
-    ### remove NAs
-    gtex_total_pathways <- gtex_total_pathways[which(!is.na(gtex_total_pathways))]
-    tcga_total_pathways <- tcga_total_pathways[which(!is.na(tcga_total_pathways))]
-    
     ### create empty matrices for pathway counts
-    gtex_pathway_cnt <- matrix("", length(gtex_total_pathways), 3)
-    tcga_pathway_cnt <- matrix("", length(tcga_total_pathways), 3)
+    gtex_pathway_cnt <- matrix("", length(gtex_total_pathways), 4)
+    tcga_pathway_cnt <- matrix("", length(tcga_total_pathways), 4)
     rownames(gtex_pathway_cnt) <- gtex_total_pathways
     rownames(tcga_pathway_cnt) <- tcga_total_pathways
-    colnames(gtex_pathway_cnt) <- c("Pathway", "Counts", "Tissue")
-    colnames(tcga_pathway_cnt) <- c("Pathway", "Counts", "Tissue")
+    colnames(gtex_pathway_cnt) <- c("GOID", "Pathway", "Counts", "Tissue")
+    colnames(tcga_pathway_cnt) <- c("GOID", "Pathway", "Counts", "Tissue")
     
     ### fill out the matrices
-    gtex_pathway_cnt[,"Pathway"] <- gtex_total_pathways
-    tcga_pathway_cnt[,"Pathway"] <- tcga_total_pathways
+    gtex_pathway_cnt[,"GOID"] <- gtex_total_pathways
+    tcga_pathway_cnt[,"GOID"] <- tcga_total_pathways
+    gtex_pathway_cnt[,"Pathway"] <- goTermMap[gtex_pathway_cnt[,"GOID"]]
+    tcga_pathway_cnt[,"Pathway"] <- goTermMap[tcga_pathway_cnt[,"GOID"]]
     for(i in 1:nrow(gtex_pathway_cnt)) {
-      temp <- sapply(gtex_union_pathway, function(x) length(which(x == gtex_pathway_cnt[i,"Pathway"])))
+      temp <- sapply(gtex_union_pathway, function(x) length(which(x == gtex_pathway_cnt[i,"GOID"])))
       gtex_pathway_cnt[i,"Counts"] <- sum(temp)
       gtex_pathway_cnt[i,"Tissue"] <- paste(names(temp[which(temp == 1)]), collapse = "/")
     }
     for(i in 1:nrow(tcga_pathway_cnt)) {
-      temp <- sapply(tcga_union_pathway, function(x) length(which(x == tcga_pathway_cnt[i,"Pathway"])))
+      temp <- sapply(tcga_union_pathway, function(x) length(which(x == tcga_pathway_cnt[i,"GOID"])))
       tcga_pathway_cnt[i,"Counts"] <- sum(temp)
       tcga_pathway_cnt[i,"Tissue"] <- paste(names(temp[which(temp == 1)]), collapse = "/")
     }
@@ -8520,10 +8518,12 @@ oneOffs<- function (which = "freq_mods", params=NULL){
     tcga_pathway_cnt <- tcga_pathway_cnt[order(as.numeric(tcga_pathway_cnt[,"Counts"])),]
     
     ### for the writing out, numerize the count column
-    gtex_pathway_cnt <- data.frame(Pathway=gtex_pathway_cnt[,"Pathway"],
+    gtex_pathway_cnt <- data.frame(GOID=gtex_pathway_cnt[,"GOID"],
+                                   Pathway=gtex_pathway_cnt[,"Pathway"],
                                    Counts=as.numeric(gtex_pathway_cnt[,"Counts"]),
                                    Tissue=gtex_pathway_cnt[,"Tissue"])
-    tcga_pathway_cnt <- data.frame(Pathway=tcga_pathway_cnt[,"Pathway"],
+    tcga_pathway_cnt <- data.frame(GOID=tcga_pathway_cnt[,"GOID"],
+                                   Pathway=tcga_pathway_cnt[,"Pathway"],
                                    Counts=as.numeric(tcga_pathway_cnt[,"Counts"]),
                                    Tissue=tcga_pathway_cnt[,"Tissue"])
     
