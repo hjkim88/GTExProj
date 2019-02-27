@@ -57,8 +57,8 @@ goEvidenceTypes = c("inferred from mutant phenotype", "inferred from genetic int
 		"non-traceable author statement", "no biological data available", "inferred by curator")
 names(goEvidenceTypes) = c("IMP", "IGI", "IPI", "ISS", "IDA", "IEP", "IEA", "TAS", "NAS", "ND", "IC")
 
-# Convenience variable: a named vector mappung GO terms (the vector names) to 
-# their correponding term description (the vector values):
+# Convenience variable: a named vector mapping GO terms (the vector names) to 
+# their corresponding term description (the vector values):
 if (!exists("goTermMap"))
 	goTermMap = Term(GOTERM)
 
@@ -315,6 +315,7 @@ getChromosome <- function(genes, numeric = TRUE){
 # named after the gene IDs of the query genes(s), specifically, names(V) = gids.
 # *****************************************************************************
 is.tf <- function(gids){
+	gids = strtoi(as.entrezId(gids))
 	return(check.gene.type(gids, 1))
 }
 
@@ -331,6 +332,7 @@ is.tf <- function(gids){
 # named after the gene IDs of the query genes(s), specifically, names(V) = gids.
 # *****************************************************************************
 is.cotf <- function(gids){
+	gids = strtoi(as.entrezId(gids))
 	return(check.gene.type(gids, 2))
 }
 
@@ -347,6 +349,7 @@ is.cotf <- function(gids){
 # named after the gene IDs of the query genes(s), specifically, names(V) = gids.
 # *****************************************************************************
 is.sign <- function(gids){
+	gids = strtoi(as.entrezId(gids))
 	return(check.gene.type(gids, 3))
 }
 
@@ -364,6 +367,7 @@ is.sign <- function(gids){
 # vectir is named after the query genes(s), specifically, names(V) = gids.
 # *****************************************************************************
 gene.type <-function(gids){
+	gids = strtoi(as.entrezId(gids))
 	res = rep(NA, length(gids))
 	res[check.gene.type(gids, 1)] = "TF"
 	res[check.gene.type(gids, 2)] = "co-TF"
@@ -375,9 +379,7 @@ gene.type <-function(gids){
 # *****************************************************************************
 # Helper function, does the dirty work for the funcitons is.tf, is.cotf, is.sign.
 #
-# gids:	A single integer, or a vector of integers, or a single strings, or
-#			a vector of strings. In each case, integers or strings are 
-#			Entrez gene ids.
+# gids:	A character vector containing Entrez IDs 
 # val:	The integer value that codes the gene types in the matrix geneTypeMap:
 #		* for TFs, val = 1.
 #		* for co-TFs, val = 2
@@ -388,7 +390,6 @@ gene.type <-function(gids){
 # *****************************************************************************
 
 check.gene.type <- function (gids, val){
-	gids = strtoi(as.entrezId(gids))
 	res = rep(FALSE, length(gids))
 	names(res) = gids
 	for (i in 1:length(gids)){
@@ -417,7 +418,7 @@ check.gene.type <- function (gids, val){
 # *****************************************************************************
 getTopExpressed <- function(expmat, top = 50){
 	
-	# First "reverse" the values in the expession matris, so that the "rank"
+	# First "reverse" the values in the expession matrix, so that the "rank"
 	# method will work the way we want
 	max_val = max(expmat)
 	expmat = max_val - expmat
@@ -653,35 +654,33 @@ geneToGo <- function(genes){
 
 
 # *****************************************************************************
-# Convenience method. Takes as inpupt any of the following vectors X:
+# Convenience method. Takes as input any of the following vectors X:
 # 1. a vector of character strings representing Entrez IDs, e,g. c("1", "100", ..)
 # 2. a vector of intergers representing Entrez IDs, e.g., c(1, 100, ...)
 # 3. a vector of character strings representing gene symbols, e.g., c("FOXM1",
 #	 "TP53", ...)
 #
-# It retunrs a vector V of character strings representing Entrez IDs. For each
+# It returns a vector V of character strings representing Entrez IDs. For each
 # of the 3 vectors X describe above, the vector V is as follows:
 # 1. V[i] = X[i]
 # 2. V[i] = toStrings(X[i])
 # 3. V[i] = entrez ID correponding to gene symbol X[i]
 # *****************************************************************************
 as.entrezId <- function(genes){
-	return(sapply(genes, function(gid){
-				if (is.character(gid))
-					if(is.na(strtoi(gid)))
-						return(as.character(geneSymbolToEntrezId(gid)))
-					else
-						return (gid)
-				return(as.character(gid))
-			}))
+	if (is.numeric(genes[1]))
+		return(as.character(genes))
+	else if (is.na(strtoi(genes[1])))
+		return(as.character(geneSymbolToEntrezId(genes)))
+	else
+		return(genes)
 }
 
 
 # *********************************************************************************
-# I did not write this code. The code is written by Davis McCarthy
-# It helps users to organize many ggplots in one figure 
-# You could add ggplots themselves consecutively or make a list and add it
-# You could put options like layout, colum numbers, file name, and title
+# I did not write this code. The code is written by Davis McCarthy.
+# It helps users to organize many ggplots in one figure. 
+# You could add ggplots themselves consecutively or make a list and add it.
+# You could put options like layout, colum numbers, file name, and title.
 #
 # ggplot objects can be passed in ..., or to plotlist (as a list of ggplot objects)
 # - cols:   Number of columns in layout
@@ -1467,11 +1466,11 @@ fet.set <- function(s1, s2, total, alternative = "greater"){
 # length(genes) rows and 4 columns:
 # "Chr": an integer in the range 1-23, representing the chromosome where the gene is located
 #        (you can map both X and Y chromosomes to 23)
-# "First": an integer representing the genomic location of the gene’s start site
+# "First": an integer representing the genomic location of the gene's start site
 #        on the chromosome. In case a gene has multiple start sites, use the earliest one
 #        (for gens on the FWD strand this is the one with the smallest absolute coordinate
 #        while for genes on the REV strand this is the one with the highest absolute coordinate)
-# "Last": an integer representing the genomic location of the gene’s end site
+# "Last": an integer representing the genomic location of the gene's end site
 #        on the chromosome. In case a gene has multiple end sites, use the earliest one
 #        (for gens on the FWD strand this is the one with the smallest absolute coordinate
 #        while for genes on the REV strand this is the one with the highest absolute coordinate)
@@ -1736,23 +1735,23 @@ mdsPlot <- function(mat, plot_names = FALSE, alt_names = NULL, groups = NULL, di
 # Method to read RNA-seq read counts
 #
 # ARGUMENTS
-# * file_names:		character vector; each entry is the full pathname to a tab
-#		delimited text file containing read count data, in the usual format: 
+# * file_names:		character vector; each entry is the full pathname to a 
+#		tab-delimited text file containing read count data, in the usual format: 
 #		one column for each of the N samples in the file, the first column 
-#		contains gene symbols of gene ids, column headers are sample names. The
+#		contains gene symbols or gene ids, column headers are sample names. The
 #		header line may contains N or (N+1) entries. If the former, each entry
 #		is a sample name. If the latter, the first header entry is assummed to
 #		be the column name for the gene column (no need to retain it, but the 
 #		code must be prepared to handle this dual possibility for the header line).
 # * entrez_ids:		if the variable is FALSE, the gene identifiers found in the 
-#		gene column are used wihtout change. Otherwise, these identifiers can be
+#		gene column are used without change. Otherwise, these identifiers can be
 #		assumed to be gene symbols and must be converted to entrez Ids by using 
 #		the method Utils::geneSymbolToEntrezId(). If a gene symbol cannot be 
-# 		mapped to an entrez Id, then the data matrix row correponding to that gene
-#		is removed. if mulitple symbols map to the same entrez id, then the value of
+# 	mapped to an entrez Id, then the data matrix row correponding to that gene
+#		is removed. If mulitple symbols map to the same entrez id, then the value of
 #		the argument "combine" (see below) specifies how to combine the rows 
 #		corresponsing to these symbols:
-# * combine:		specifes how to handle a situation when multiple gene identiiers
+# * combine:		specifes how to handle a situation where multiple gene identifiers
 #		g1, g2, ..., gk map to the same gene (here we assume that gi are listed in the
 #		order in which they are encountered in the first column of the data file). 
 #		Acceptable values and their meaning are:
@@ -1764,13 +1763,13 @@ mdsPlot <- function(mat, plot_names = FALSE, alt_names = NULL, groups = NULL, di
 #					to the closest integer.
 #		- "abort":	write out on the console an error message stating that there are duplicate
 #					gene identifiers and return NULL.
-# * merge:			boolean value specifying if data matrices should be combined - relevant
-#		only when "file_names" contains more than one entries. If TRUE, all matrices are
+# * merge:	boolean value specifying if data matrices should be combined - relevant
+#		only when "file_names" contains more than one entry. If TRUE, all matrices are
 #		merged into one matrix. Otherwise, the function returns a separate matrix for each
 #		file in "file_names". If merge == TRUE and also combine == TRUE, the combination of
 #		gene identifiers is performed first for each file in "file_names" separately, followed
 #		by the data matrix merging operation. If the same sample name appears in more than one
-#		input files, then write out on the console an error message stating that the are duplicate
+#		input file, then write out on the console an error message stating that the are duplicate
 #		sample names and return NULL.
 # * merge_mode:		a character vector, specifying how data matrices should be merged (used
 #		when "merge" == TRUE). Possible values are:
@@ -1790,7 +1789,7 @@ mdsPlot <- function(mat, plot_names = FALSE, alt_names = NULL, groups = NULL, di
 # data file. If entrez_ids == FALSE, the row names are the gene identifiers found in the first column of
 # the data file. If entez_ids == TRUE, row names are entrez ids, derived as described above.
 # 
-# If "file_names" contains more than one entries, then the value of the argument "merge" determines
+# If "file_names" contains more than one entry, then the value of the argument "merge" determines
 # what the function returns. If "merge" == FALSE the function returns a list with one entry
 # for each file in "file_names". The i-th entry correposponds to the i-th file name and contains
 # a read count data matrix generated by parsing that file, as described in the previous paragraph. 
@@ -1802,7 +1801,7 @@ mdsPlot <- function(mat, plot_names = FALSE, alt_names = NULL, groups = NULL, di
 # If merge == TRUE, then the function returns a data matrix with columns correponding to the samples
 # in all files in "file_names" and rows corresponding to gene identifiers generated according to the 
 # values of the arguments "entrez_ids", "combine", and "merge_mode", as describe above. Column names 
-# are sample names and row names are gene identifiers, same as in the case where length(file_names) == 1.
+# are sample names and row names are gene identifiers, the same as in the case where length(file_names) == 1.
 
 readRNAseqData <- function(file_names,
                            entrez_ids = FALSE,
@@ -1834,6 +1833,14 @@ readRNAseqData <- function(file_names,
     file_list[[i]] <- read.table(file = file_names[i], header = TRUE, sep = "\t",
                                  stringsAsFactors = FALSE, check.names = FALSE)
     
+    ### if there is no header line for the gene column, then it automatically
+    ### set the first column as rownames. Copy the rownames to the first column
+    ### so that the further analysis can be done accurately.
+    if(!identical(rownames(file_list[[i]]), as.character(1:nrow(file_list[[i]])))) {
+      file_list[[i]] <- data.frame(Gene=rownames(file_list[[i]]), file_list[[i]],
+                                   stringsAsFactors = FALSE, check.names = FALSE)
+    }
+    
     ### if the found gene identifier is gene symbol and we want to convert it to entrez ids
     if(entrez_ids) {
       ### get Entrez IDs for the corresponding gene symbols
@@ -1844,7 +1851,7 @@ readRNAseqData <- function(file_names,
         stop("ERROR: The first column is not GENE SYMBOL")
       }
       
-      ### remove genes that does not have entrez ids
+      ### remove genes that do not have entrez ids
       file_list[[i]] <- file_list[[i]][which(file_list[[i]][,1] %in% names(eIDs)),]
       
       ### change the the first column to entrez ids
@@ -1915,7 +1922,7 @@ readRNAseqData <- function(file_names,
   
   ### handle the merge case
   if(merge) {
-    ### if there are duplicated sameple names, print out an error message and stop the process
+    ### if there are duplicated sample names, print out an error message and stop the process
     if(length(Reduce(union, lapply(file_list, colnames))) != length(unlist(lapply(file_list, colnames)))) {
       stop("ERROR: There are duplicated sample names and you are trying to merge them")
     }
