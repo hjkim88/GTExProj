@@ -3234,7 +3234,7 @@ makeGraphs <- function (which = "mods_events", save = FALSE, fName = NULL,
   # params[[4]]: target p-value threshold
   # params[[5]]: Normalization by chromosome length or by number of genes ["chrLen" or "geneNum"]
   # params[[6]]: output file path
-  # params[[7]]: "Gene_num_chr.rda" path - if params[[3]] == geneNum otherwise, NULL
+  # params[[7]]: "Gene_num_chr.rda" path - if params[[5]] == geneNum otherwise, NULL
   # e.g., params=list("varNames", 1081, 0, 1, "geneNum", "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/chromosome_analysis/1081_target_chrs_norm.pdf", "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/Gene_num_chr.rda")
   
   if (which == "hub_target_chromosomes"){
@@ -3456,13 +3456,13 @@ makeGraphs <- function (which = "mods_events", save = FALSE, fName = NULL,
   # is the p-value of the chi-square test assessing if the targets in the regulon of H are 
   # localized preferentially on a specific interactome.  
   #
-  # The call requires that hte object "chr_enrich_all64") has been loaded to memory
+  # The call requires that the object "chr_enrich_all62") has been loaded to memory
   
   if (which == "global_chromosome_target_enrichment"){
-    if (!exists("chr_enrich_all64"))
-      stop("Object \"chr_enrich_all64\" not loaded.")
+    if (!exists("chr_enrich_all62"))
+      stop("Object \"chr_enrich_all62\" not loaded.")
     par(mar=c(8,4,4,5)+.1)
-    boxplot(-log10(chr_enrich_all64), las=2, ylab="-log10 chi-square p-value", 
+    boxplot(-log10(chr_enrich_all62), las=2, ylab="-log10 chi-square p-value", 
             main="Boxplot of hub chi-square p-values per tissue")
   }
   
@@ -7724,7 +7724,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
         writeLines(paste(rep("#", 100), collapse = ""))
         writeLines("The \"chr_varNames\" has all the variable names of the chromosome info.")
         writeLines("The first one (chr_varNames[1]) has results of the Chi-square test.")
-        writeLines("From the second to the last ones (chr_varNames[2:65]), they have results of the tissue-specific Fisher's exact test.")
+        writeLines("From the second to the last ones (chr_varNames[2:63]), they have results of the tissue-specific Fisher's exact test.")
         writeLines("The \"chr_enrich_all62\" has a 6033 (hubs) x 62 (tissues) matrix.")
         writeLines("A value in a cell in the matrix indicates the p-value of the Chi-square test of the corresponding hub (row) and the corresponding tissue (column).")
         writeLines("The \"chr_TISSUE_NAME\" has a 6033 (hubs) x 23 (chromosomes) matrix. ")
@@ -8532,6 +8532,417 @@ oneOffs<- function (which = "freq_mods", params=NULL){
                 sep = "\t", row.names = FALSE)
     write.table(tcga_pathway_cnt, file = paste0(params[[3]], "tcga_pathway_counts.txt"),
                 sep = "\t", row.names = FALSE)
+    
+  }
+  
+  # ******************** which = make_raw_count_rda *****************************
+  # Create a RDA file that contains raw count matrices of all the GTEx and
+  # TCGA tissues. The Aracne-ready files are normalized, cleaned (removed genes
+  # that have 0 or 1 across all samples), and even do not contain complete set
+  # of samples (Because 100 <= the number of samples <= 200 is ideal for
+  # running Aracne run). Therefore, the files are not suitable for DE analysis
+  # between GTEx and TCGA. Here, this function intends to generate raw count
+  # matrices for a tissue that already has an Aracne network. There will be
+  # no cleaning, no normalization, and no sample selection. The row names
+  # will be Entrez IDs.
+  #
+  # params[[1]]: The directory path of the GTEx raw count files
+  #              (a character vector of length 1)
+  #              
+  # params[[2]]: The RDA file path of the TCGA raw counts
+  #              (a character vector of length 1)
+  #
+  # params[[3]]: The result TCGA raw count RDA file path
+  #              (a character vector of length 1)
+  #
+  # e.g., params <- list("//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/ExpressionMatrices/GTEx_processed/separated_counts/not_cleaned/",
+  #                      "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/TCGA_33_RAW_COUNTS.rda",
+  #                      "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_62_raw_counts.rda")
+  # e.g., params <- list("./results/separated_counts/", "./data/RDA_Files/TCGA_33_RAW_COUNTS.rda", "./data/RDA_Files/All_62_raw_counts.rda")
+  
+  if(which == "make_raw_count_rda") {
+    
+    ### argument checking
+    assertString(params[[1]])
+    assertString(params[[2]])
+    assertString(params[[3]])
+    
+    ### read GTEx raw counts
+    f <- list.files(params[[1]], full.names = TRUE)
+    gtex_raw_counts <- readRNAseqData(file_names = f)
+    
+    ### shorten the GTEx file names
+    ### E.g. "Brain-CerebellarHemisphere" -> "BrainCerHem" 
+    getShortGTEx <- function(gtex_file_name) {
+      fixed_name <- gsub("\\(", "-", gtex_file_name)
+      fixed_name <- gsub("\\)", "-", fixed_name)
+      fixed_name <- strsplit(fixed_name, "_", fixed = TRUE)[[1]][1]
+      
+      temp <- strsplit(fixed_name, "-", fixed = TRUE)[[1]]
+      
+      if(length(temp) > 1) {
+        temp2 <- unlist(gregexpr("[A-Z]", temp[2]))
+        
+        temp3 <- ""
+        if((length(temp2) > 1) && (abs(temp2[1] - temp2[2]) > 2)) {
+          for(i in 1:2) {
+            temp3 <- paste0(temp3, substr(temp[2], temp2[i], temp2[i]+2))
+          }  
+        } else {
+          temp3 <- substr(temp[2], temp2[1], temp2[1]+2)
+        }
+        
+        fixed_name <- paste0(temp[1], temp3)
+      } else {
+        fixed_name <- temp[1]
+      }
+      
+      return(fixed_name)
+    }
+    
+    ### assign tissues that have equal or more than 100 samples to single variables
+    gtex_rcntmat_names <- NULL
+    for(i in 1:length(gtex_raw_counts)) {
+      if(ncol(gtex_raw_counts[[i]]) >= 100) {
+        gtex_rcntmat_names <- c(gtex_rcntmat_names, paste0("rcntmat_", getShortGTEx(names(gtex_raw_counts)[i])))
+        gtex_raw_counts[[i]] <- gtex_raw_counts[[i]][order(as.numeric(rownames(gtex_raw_counts[[i]]))),]
+        assign(gtex_rcntmat_names[length(gtex_rcntmat_names)], gtex_raw_counts[[i]], envir = globalenv())
+      }
+    }
+    
+    
+    ### load TCGA orignal raw counts
+    load(params[[2]])
+    
+    ### retain only primary tumor & new primary tumor
+    tcga_sample_info <- tcga_sample_info[union(union(which(tcga_sample_info[,"Sample Type"] == "Primary Tumor"),
+                                                     which(tcga_sample_info[,"Sample Type"] == "Additional - New Primary")),
+                                               which(tcga_sample_info[,"Sample Type"] == "Primary Blood Derived Cancer - Peripheral Blood")),]
+    
+    ### remove FFPE samples
+    tcga_sample_info <- tcga_sample_info[which(tcga_sample_info[,"is_derived_from_ffpe"] == "NO"),]
+    
+    ### order the sample info based on Project ID and Case ID
+    tcga_sample_info <- tcga_sample_info[order(tcga_sample_info[,"Project ID"],
+                                               tcga_sample_info[,"Case ID"]),]
+    
+    ### if there are multiple samples per one patient in each tissue, select one with the highest RIN
+    unique_tissues <- unique(tcga_sample_info[,"Project ID"])
+    rIdx <- NULL
+    for(i in 1:length(unique_tissues)) {
+      ### get indicies for the given tissue
+      tempIdx <- which(tcga_sample_info[,"Project ID"] == unique_tissues[i])
+      
+      ### get duplicated indicies in the given tissue
+      dupIdx <- tempIdx[which(duplicated(tcga_sample_info[tempIdx, "Case ID"]))]
+      
+      ### if there are duplicates, select one with the highest RIN
+      ### tie breaker (multiple highest RIN) - select one with the highest lexical order
+      if(length(dupIdx) > 0) {
+        dups <- unique(tcga_sample_info[dupIdx, "Case ID"])
+        
+        ### collect indicies except one that will remain
+        ### those indicies will be removed away later
+        for(j in 1:length(dups)) {
+          dIdx <- which(tcga_sample_info[,"Case ID"] == dups[j])
+          rIdx <- c(rIdx, dIdx[order(tcga_sample_info[dIdx, "RIN"])])
+          rIdx <- rIdx[-length(rIdx)]
+        }
+      }
+    }
+    tcga_sample_info <- tcga_sample_info[-rIdx,]
+    
+    ### make all the raw count matrices have samples only appeared in the tcga_sample_info
+    for(i in 1:length(rcnt_matNames)) {
+      ### get raw count matrix for the given tissue
+      rcnt_mat <- get(rcnt_matNames[i])
+      
+      ### retain samples only appeared in the tcga_sample_info (which means they are filtered)
+      rcnt_mat <- rcnt_mat[,which(colnames(rcnt_mat) %in% rownames(tcga_sample_info))]
+      
+      ### order the samples in lexical order
+      rcnt_mat <- rcnt_mat[,order(colnames(rcnt_mat))]
+      
+      ### change the colnames based on the first 15 characters
+      colnames(rcnt_mat) <- substr(colnames(rcnt_mat), 1, 15)
+      
+      ### save the result back to the variable
+      assign(rcnt_matNames[i], rcnt_mat, envir = globalenv())
+    }
+    
+    ### change the row names based on the first 15 characters
+    rownames(tcga_sample_info) <- substr(rownames(tcga_sample_info), 1, 15)
+    
+    ### a function to transfrom Ensembl IDs to Gene symbols
+    ensemblIDsToGeneSymbols <- function(ensembl_ids){
+      
+      ### load library
+      if(!require(biomaRt, quietly = TRUE)) {
+        if(!requireNamespace("BiocManager", quietly = TRUE))
+          install.packages("BiocManager")
+        BiocManager::install("biomaRt", version = "3.8")
+        require(biomaRt, quietly = TRUE)
+      }
+      
+      ### mapping information between Ensembl ID and Gene symbol
+      mart <- useDataset("hsapiens_gene_ensembl", useEnsembl(biomart="ensembl", version=79))
+      mart <- getBM( 
+        mart = mart, 
+        values = ensembl_ids, 
+        filter = c("ensembl_gene_id"), 
+        attributes = c("ensembl_gene_id", "external_gene_name"),
+        verbose = FALSE
+      ) 
+      
+      ### Create a dictionary from ensembl id to gene symbol
+      ens_to_gene <- as.character(mart$external_gene_name) 
+      names(ens_to_gene) <- as.character(mart$ensembl_gene_id) 
+      
+      ### return corresponding gene symbols
+      return(ens_to_gene[ensembl_ids])
+      
+    }
+    
+    ### mapping information between Gene Symbol and Entrez ID (NCBI ID)
+    map_symbol_eg <- mappedkeys(org.Hs.egSYMBOL2EG)
+    list_symbol2eg <- as.list(org.Hs.egSYMBOL2EG[map_symbol_eg])
+    
+    ### mapping information between Ensembl ID and Entrez ID (NCBI ID)
+    map_ensembl_eg <- mappedkeys(org.Hs.egENSEMBL2EG)
+    list_ensembl2eg <- as.list(org.Hs.egENSEMBL2EG[map_ensembl_eg])
+    
+    ### change Ensembl IDs to Entrez IDs and retain tissues that have equal or more than 100 samples
+    tcga_rcntmat_names <- NULL
+    for(i in 1:length(rcnt_matNames)) {
+      
+      ### get raw counts for the given tissue
+      df <- get(rcnt_matNames[i])
+      
+      ### change Ensembl IDs to Entrez IDs and retain tissues that have equal or more than 100 samples
+      if(ncol(df) >= 100) {
+        ### store the rcntmat names that are needed
+        tcga_rcntmat_names <- c(tcga_rcntmat_names, paste0("rcntmat_", substring(rcnt_matNames[i], 6)))
+        
+        ### get Gencode ID transcript version cleaned
+        ensemblIDs <- sapply(rownames(df), function(x) strsplit(x, ".", fixed = TRUE)[[1]][1])
+        
+        ### annotate gene symbols to the raw counts
+        df <- data.frame(Ensembl_ID=ensemblIDs,
+                         Gene_Symbol=ensemblIDsToGeneSymbols(ensemblIDs),
+                         df,
+                         stringsAsFactors = FALSE, check.names = FALSE)
+        
+        ### remove rows that do not have gene symbols
+        naIdx <- which(is.na(df$Gene_Symbol))
+        if(length(naIdx) > 0) {
+          df <- df[-naIdx,]
+        }
+        
+        ### duplicated gene symbol values
+        dups <- unique(df$Gene_Symbol[duplicated(df$Gene_Symbol)])
+        
+        ### initialize indices which should be retained
+        retain <- rep(TRUE, nrow(df))
+        
+        ### add up all the expressions for one gene symbol and remove the other rows
+        for(dup in dups){
+          ind <- which(df$Gene_Symbol == dup)
+          df[ind[1],3:ncol(df)] <- apply(df[ind,3:ncol(df)], 2, sum)
+          retain[setdiff(ind, ind[1])] <- FALSE
+        }
+        
+        ### remove the other rows
+        df <- df[retain,]
+        
+        ### get Entrez IDs correspond to the gene symbols
+        df <- data.frame(Entrez_ID=as.character(list_symbol2eg[df$Gene_Symbol]),
+                         df,
+                         stringsAsFactors = FALSE, check.names = FALSE)
+        
+        ### remove rows with NULL Entrez_ID
+        nullIdx <- union(which(df$Entrez_ID == "NULL"), which(is.null(df$Entrez_ID)))
+        if(length(nullIdx) > 0) {
+          df <- df[-nullIdx,]
+        }
+        
+        ### get the accurate Entrez ID using Ensembl ID when there are multiple Entrez IDs mapped to one gene symbol
+        entrez_dups <- grep("c", df$Entrez_ID)
+        for(dup in entrez_dups) {
+          df$Entrez_ID[dup] <- list_ensembl2eg[df$Ensembl_ID[dup]][[1]]
+        }
+        
+        ### set rownames with Entrez ID
+        rownames(df) <- df$Entrez_ID
+        
+        ### order based on Entrez ID
+        df <- df[order(as.numeric(as.character(df$Entrez_ID))),]
+        
+        ### assign processed tcga raw counts to a variable
+        assign(tcga_rcntmat_names[length(tcga_rcntmat_names)], as.matrix(df[,-c(1,2,3)]), envir = globalenv())
+        
+      }
+      
+    }
+    
+    ### combine the rcntmat names of GTEx and TCGA
+    rcntmat_names <- c(gtex_rcntmat_names, tcga_rcntmat_names)
+    
+    ### set README function
+    README <- function(){
+      writeLines(paste(rep("#", 100), collapse = ""))
+      writeLines("Create a RDA file that contains raw count matrices of all the GTEx and")
+      writeLines("TCGA tissues. The Aracne-ready files are normalized, cleaned (removed genes")
+      writeLines("that have 0 or 1 across all samples), and even do not contain complete set")
+      writeLines("of samples (Because 100 <= the number of samples <= 200 is ideal for")
+      writeLines("running Aracne run). Therefore, the files are not suitable for DE analysis")
+      writeLines("between GTEx and TCGA. Here, this function intends to generate raw count")
+      writeLines("matrices for a tissue that already has an Aracne network. There will be")
+      writeLines("no cleaning, no normalization, and no sample selection. The row names")
+      writeLines("will be Entrez IDs.")
+      writeLines("The \"rcntmat_names\" has all the variable nams of the raw count matrices.")
+      writeLines(paste(rep("#", 100), collapse = ""))
+    }
+    
+    ### save the processed raw count matrices in a RDA file
+    save(list = c("rcntmat_names", rcntmat_names, "README"), file = params[[3]])
+    
+  }
+  
+  # ******************** which = interesting_regulon_pathways *****************************
+  # We ran pathway analysis on every regulon of every tissue of GTEx and TCGA.
+  # The pathways indicate that they are associated with target genes of the hubs.
+  # Now we want to compare GTEx and TCGA based on the pathways that which pathways
+  # were exclusively showed up in GTEx only or in TCGA only.
+  # And it would be very interesting to also know if the target genes found in those
+  # pathways are differentially expressed between cancer and normal.
+  # Additionally, we should also check if the hubs carrying those pathways are 
+  # differentially activated in terms of Viper activity.
+  # 
+  # This function needs [RegulonPathwayAnnotation.rda] file which contains pathway analysis
+  # results of all the regulons of all the tissues of GTExa and TCGA, and [GTEx_TCGA_Map.rda]
+  # file that has the same tissue mapping info between GTEx and TCGA. Additionally,
+  # [ALL_62_ARACNE_READY_EXPMAT.rda] file and [All_62_ViperMats.rda] file are needed for
+  # the further analyses.
+  #
+  # params[[1]]: The file path of the "RegulonPathwayAnnotation.rda" file
+  #              (a character vector of length 1)
+  # params[[2]]: The file path of the "GTEx_TCGA_Map.rda" file
+  #              (a character vector of length 1)
+  # params[[3]]: The file path of the "ALL_62_ARACNE_READY_EXPMAT.rda" file
+  #              (a character vector of length 1)
+  # params[[4]]: The file path of the "All_62_ViperMats.rda" file
+  #              (a character vector of length 1)
+  # params[[5]]: A cut-off of selecting the top pathways that have different
+  #              counts between cancer and normal samples
+  #              if 0.01, then it selects the top 1% pathways
+  #              if NA, then it selects pathways only appear in GTex or in TCGA
+  #              (a number between 0 and 1 or NA)
+  # params[[6]]: The directory path for the results
+  #              (a character vector of length 1)
+  #
+  # e.g., params <- list("//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/RegulonPathwayAnnotation.rda",
+  #                      "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/GTEx_TCGA_Map.rda",
+  #                      "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/ALL_62_ARACNE_READY_EXPMAT.rda",
+  #                      "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_62_ViperMats.rda",
+  #                      NA,
+  #                      "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/regulon_pathway/GTEx_vs_TCGA/")
+  # e.g., params <- list("./data/RDA_Files/RegulonPathwayAnnotation.rda",
+  #                      "./data/RDA_Files/GTEx_TCGA_Map.rda",
+  #                      "./data/RDA_Files/ALL_62_ARACNE_READY_EXPMAT.rda",
+  #                      "./data/RDA_Files/All_62_ViperMats.rda",
+  #                      NA,
+  #                      "./results/regulon_pathway/GTEx_vs_TCGA/")
+  
+  if(which == "interesting_regulon_pathways") {
+    
+    ### argument checking
+    assertString(params[[1]])
+    assertString(params[[2]])
+    assertString(params[[3]])
+    assertString(params[[4]])
+    assertNumeric(params[[5]])
+    assertString(params[[6]])
+    
+    ### load the data
+    load(params[[1]])
+    load(params[[2]])
+    load(params[[3]])
+    load(params[[4]])
+    
+    ### for every comparison between GTEx and TCGA, find interesting pathways
+    for(i in 1:nrow(GTEx_TCGA_Map)) {
+      
+      ### get regulon pathways
+      gtex_regulon_pathways <- get(paste0(GTEx_TCGA_Map[i,"GTEx"], "GO"))
+      tcga_regulon_pathways <- get(paste0("tcga_", GTEx_TCGA_Map[i,"TCGA"], "GO"))
+      
+      ### get gene expressions
+      gtex_gexp <- get(paste0("expmat_gtex_", GTEx_TCGA_Map[i,"GTEx"]))
+      tcga_gexp <- get(paste0("expmat_tcga_", GTEx_TCGA_Map[i,"TCGA"]))
+      
+      ### get viper activities
+      gtex_viper <- get(paste0("vmat_gtex_", GTEx_TCGA_Map[i,"GTEx"]))
+      tcga_viper <- get(paste0("vmat_tcga_", GTEx_TCGA_Map[i,"TCGA"]))
+      
+      ### create a sub directory for the results
+      subdirPath <- paste0("GTEx_", GTEx_TCGA_Map[i,"GTEx"], "_vs_TCGA_", toupper(GTEx_TCGA_Map[i,"TCGA"]))
+      dir.create(file.path(params[[6]], subdirPath), showWarnings = FALSE)
+      
+      ### get union pathways
+      gtex_pathways <- Reduce(union, lapply(gtex_regulon_pathways, function(x) x[,"ID"]))
+      tcga_pathways <- Reduce(union, lapply(tcga_regulon_pathways, function(x) x[,"ID"]))
+      
+      ### create empty pathway count matrix
+      pathway_cnt <- matrix(0, length(union(gtex_pathways, tcga_pathways)), 3)
+      rownames(pathway_cnt) <- union(gtex_pathways, tcga_pathways)
+      colnames(pathway_cnt) <- c("GTEx", "TCGA", "Abs(Diff)")
+      
+      ### count the pathway occurrence
+      for(j in 1:length(gtex_regulon_pathways)) {
+        for(k in 1:nrow(gtex_regulon_pathways[[j]])) {
+          pathway_cnt[gtex_regulon_pathways[[j]][k,"ID"], "GTEx"] <- pathway_cnt[gtex_regulon_pathways[[j]][k,"ID"], "GTEx"] + 1
+        }
+      }
+      for(j in 1:length(tcga_regulon_pathways)) {
+        for(k in 1:nrow(tcga_regulon_pathways[[j]])) {
+          pathway_cnt[tcga_regulon_pathways[[j]][k,"ID"], "TCGA"] <- pathway_cnt[tcga_regulon_pathways[[j]][k,"ID"], "TCGA"] + 1
+        }
+      }
+      
+      ### calculate the absolute differences
+      pathway_cnt[,"Abs(Diff)"] <- abs(pathway_cnt[,"GTEx"] - pathway_cnt[,"TCGA"])
+      
+      ### order the pathway count matrix based on the absolute difference in descending order
+      pathway_cnt <- pathway_cnt[order(-pathway_cnt[,"Abs(Diff)"]),]
+      
+      ### extract the interesting pathways
+      if(is.na(params[[5]])) {
+        ### params[[5]] == NA: the extreme case
+        interesting_pathways <- rownames(pathway_cnt[union(which(pathway_cnt[,"GTEx"] == 0), which(pathway_cnt[,"TCGA"] == 0)),])
+      } else {
+        ### 0 < params[[5]] < 1: the top different cases
+        interesting_pathways <- rownames(pathway_cnt[1:floor(nrow(pathway_cnt)*params[[5]]),])
+      }
+      
+      ### get the counts of the interesting pathways
+      interesting_pathway_cnt <- pathway_cnt[interesting_pathways,]
+      
+      ### order the interesting pathway count info
+      interesting_pathway_cnt <- interesting_pathway_cnt[order(-interesting_pathway_cnt[,"Abs(Diff)"]),]
+      
+      ### write out the interesting pathway count info
+      write.table(data.frame(GO_ID=rownames(interesting_pathway_cnt),
+                             Pathway=goTermMap[rownames(interesting_pathway_cnt)],
+                             interesting_pathway_cnt,
+                             stringsAsFactors = FALSE, check.names = FALSE, row.names = NULL),
+                  file = paste0(params[[6]], subdirPath, "/interesting_pathway_counts_", params[[5]], ".txt"),
+                  sep = "\t", row.names = FALSE)
+      
+      ###
+      
+      
+      
+    }
     
   }
   
