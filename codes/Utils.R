@@ -1959,3 +1959,63 @@ readRNAseqData <- function(file_names,
   
   return(file_list)
 }
+
+####################################################
+### A function to perform DE analysis with limma ###
+####################################################
+#' @title limmaWithComparisons
+#' @param normCnt normalized count matrix
+#' @param grp a character vector of class info of the samples
+#' @param exp_class a string of the experiment group's name
+#' @param ctrl_class a string of the control group's name
+#' @param bat_eff a character vector of batch effect info of the samples
+#' @return data.frame
+#' @export
+#' @author Hyunjin Kim
+####################################################
+limmaWithComparisons <- function(normCnt, grp, exp_class, ctrl_class, bat_eff=NULL) {
+  
+  ### load library
+  if(!require(limma)) {
+    source("https://bioconductor.org/biocLite.R")
+    biocLite("limma")
+    library(limma)
+  }
+  
+  ### sometimes, there are some variables which can not be transformed into R variable names
+  ### so, just to be safe, change all the variables to R-usuable ones
+  grp <- make.names(grp)
+  exp_class <- make.names(exp_class)
+  ctrl_class <- make.names(ctrl_class)
+  
+  ### make a design matrix for DE analysis
+  sampleType <- relevel(as.factor(grp), ref = ctrl_class)
+  if(is.null(bat_eff)) {
+    design <- model.matrix(~0+sampleType)
+    colnames(design) <- levels(sampleType)
+  } else {
+    bat_eff <- make.names(bat_eff)
+    bat_eff <- as.factor(bat_eff)
+    design <- model.matrix(~0+sampleType+bat_eff)
+    colnames(design) <- c(levels(sampleType), levels(bat_eff)[-1])
+  }
+  
+  ### fir the linear model
+  fit <- lmFit(normCnt, design)
+  
+  ### extract specific comparison of interest
+  contrastMat <- makeContrasts(contrasts=paste(exp_class,ctrl_class,sep="-"), levels=design)
+  
+  ### fit the contrasts
+  fit2 <- contrasts.fit(fit, contrastMat)
+  fit2 <- eBayes(fit2)
+  
+  ### get the differentially expressed genes
+  result <- topTable(fit2, adjust.method="BH", number=Inf)
+  
+  ### order based on adj.p.val
+  result <- result[order(result$adj.P.Val),]
+  
+  return(result)
+}
+
