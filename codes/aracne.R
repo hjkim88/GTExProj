@@ -6581,7 +6581,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
         ### only have info of the common hubs
         gtex_viper <- gtex_viper[common_hubs,]
         tcga_viper <- tcga_viper[common_hubs,]
-        
+         
         if(as.character(params[[5]] == "mean")) {
           ### VIPER NES mean difference of each hub
           mean_diff <- apply(gtex_viper, 1, mean) - apply(tcga_viper, 1, mean)
@@ -8555,10 +8555,10 @@ oneOffs<- function (which = "freq_mods", params=NULL){
   # params[[3]]: The result TCGA raw count RDA file path
   #              (a character vector of length 1)
   #
-  # e.g., params <- list("//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/ExpressionMatrices/GTEx_processed/separated_counts/not_cleaned/",
+  # e.g., params = list("//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/ExpressionMatrices/GTEx_processed/separated_counts/not_cleaned/",
   #                      "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/TCGA_33_RAW_COUNTS.rda",
   #                      "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_62_raw_counts.rda")
-  # e.g., params <- list("./results/separated_counts/", "./data/RDA_Files/TCGA_33_RAW_COUNTS.rda", "./data/RDA_Files/All_62_raw_counts.rda")
+  # e.g., params = list("./results/separated_counts/", "./data/RDA_Files/TCGA_33_RAW_COUNTS.rda", "./data/RDA_Files/All_62_raw_counts.rda")
   
   if(which == "make_raw_count_rda") {
     
@@ -8569,6 +8569,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
     
     ### read GTEx raw counts
     f <- list.files(params[[1]], full.names = TRUE)
+    f <- f[which(endsWith(f, ".txt"))]
     gtex_raw_counts <- readRNAseqData(file_names = f)
     
     ### shorten the GTEx file names
@@ -8821,14 +8822,13 @@ oneOffs<- function (which = "freq_mods", params=NULL){
   # This function needs [RegulonPathwayAnnotation.rda] file which contains pathway analysis
   # results of all the regulons of all the tissues of GTExa and TCGA, and [GTEx_TCGA_Map.rda]
   # file that has the same tissue mapping info between GTEx and TCGA. Additionally,
-  # [ALL_62_ARACNE_READY_EXPMAT.rda] file and [All_62_ViperMats.rda] file are needed for
-  # the further analyses.
+  # [All_62_raw_counts] file and [All_62_ViperMats.rda] file are needed for the further analyses.
   #
   # params[[1]]: The file path of the "RegulonPathwayAnnotation.rda" file
   #              (a character vector of length 1)
   # params[[2]]: The file path of the "GTEx_TCGA_Map.rda" file
   #              (a character vector of length 1)
-  # params[[3]]: The file path of the "ALL_62_ARACNE_READY_EXPMAT.rda" file
+  # params[[3]]: The file path of the "All_62_raw_counts" file
   #              (a character vector of length 1)
   # params[[4]]: The file path of the "All_62_ViperMats.rda" file
   #              (a character vector of length 1)
@@ -8840,20 +8840,39 @@ oneOffs<- function (which = "freq_mods", params=NULL){
   # params[[6]]: The directory path for the results
   #              (a character vector of length 1)
   #
-  # e.g., params <- list("//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/RegulonPathwayAnnotation.rda",
-  #                      "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/GTEx_TCGA_Map.rda",
-  #                      "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/ALL_62_ARACNE_READY_EXPMAT.rda",
-  #                      "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_62_ViperMats.rda",
-  #                      NA,
-  #                      "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/regulon_pathway/GTEx_vs_TCGA/")
-  # e.g., params <- list("./data/RDA_Files/RegulonPathwayAnnotation.rda",
-  #                      "./data/RDA_Files/GTEx_TCGA_Map.rda",
-  #                      "./data/RDA_Files/ALL_62_ARACNE_READY_EXPMAT.rda",
-  #                      "./data/RDA_Files/All_62_ViperMats.rda",
-  #                      NA,
-  #                      "./results/regulon_pathway/GTEx_vs_TCGA/")
+  # e.g., params = list("//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/RegulonPathwayAnnotation.rda",
+  #                     "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/GTEx_TCGA_Map.rda",
+  #                     "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_62_raw_counts.rda",
+  #                     "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_62_ViperMats.rda",
+  #                     NA,
+  #                     "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/regulon_pathway/GTEx_vs_TCGA/")
+  # e.g., params = list("./data/RDA_Files/RegulonPathwayAnnotation.rda",
+  #                     "./data/RDA_Files/GTEx_TCGA_Map.rda",
+  #                     "./data/RDA_Files/All_62_raw_counts.rda",
+  #                     "./data/RDA_Files/All_62_ViperMats.rda",
+  #                     NA,
+  #                     "./results/regulon_pathway/GTEx_vs_TCGA/")
   
   if(which == "interesting_regulon_pathways") {
+    
+    ### load library for a beeswarm plot
+    if(!require(ggplot2, quietly = TRUE)) {
+      install.packages("ggplot2")
+      require(ggplot2, quietly = TRUE)
+    }
+    if(!require(ggbeeswarm, quietly = TRUE)) {
+      install.packages("ggbeeswarm")
+      require(ggbeeswarm, quietly = TRUE)
+    }
+    if(!require(ggpubr, quietly = TRUE)) {
+      install.packages("ggpubr")
+      require(ggpubr, quietly = TRUE)
+    }
+    if(!require("fgsea", quietly = TRUE)) {
+      source("https://bioconductor.org/biocLite.R")
+      biocLite("fgsea")
+      require("fgsea", quietly = TRUE)
+    }
     
     ### argument checking
     assertString(params[[1]])
@@ -8877,8 +8896,8 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       tcga_regulon_pathways <- get(paste0("tcga_", GTEx_TCGA_Map[i,"TCGA"], "GO"))
       
       ### get gene expressions
-      gtex_gexp <- get(paste0("expmat_gtex_", GTEx_TCGA_Map[i,"GTEx"]))
-      tcga_gexp <- get(paste0("expmat_tcga_", GTEx_TCGA_Map[i,"TCGA"]))
+      gtex_gexp <- get(paste0("rcntmat_", GTEx_TCGA_Map[i,"GTEx"]))
+      tcga_gexp <- get(paste0("rcntmat_tcga_", GTEx_TCGA_Map[i,"TCGA"]))
       
       ### get viper activities
       gtex_viper <- get(paste0("vmat_gtex_", GTEx_TCGA_Map[i,"GTEx"]))
@@ -8935,12 +8954,135 @@ oneOffs<- function (which = "freq_mods", params=NULL){
                              Pathway=goTermMap[rownames(interesting_pathway_cnt)],
                              interesting_pathway_cnt,
                              stringsAsFactors = FALSE, check.names = FALSE, row.names = NULL),
-                  file = paste0(params[[6]], subdirPath, "/interesting_pathway_counts_", params[[5]], ".txt"),
+                  file = paste0(params[[6]], subdirPath, "/", subdirPath, "_interesting_pathway_counts_", params[[5]], ".txt"),
                   sep = "\t", row.names = FALSE)
       
-      ###
+      ### quality control test
+      ### read count depth of each sample
+      common_genes <- intersect(rownames(gtex_gexp), rownames(tcga_gexp))
+      gtex_gexp_colSums <- apply(gtex_gexp[common_genes,], 2, sum)
+      tcga_gexp_colSums <- apply(tcga_gexp[common_genes,], 2, sum)
       
+      ### make a data frame for a beeswarm plot
+      bsdf <- data.frame(matrix(0, length(gtex_gexp_colSums) + length(tcga_gexp_colSums), 2))
+      colnames(bsdf) <- c("Group", "Read_Depth")
+      bsdf[1:length(gtex_gexp_colSums),"Group"] <- paste0("GTEx_", GTEx_TCGA_Map[i,"GTEx"])
+      bsdf[(length(gtex_gexp_colSums)+1):nrow(bsdf),"Group"] <- paste0("TCGA_", toupper(GTEx_TCGA_Map[i,"TCGA"]))
+      bsdf[1:length(gtex_gexp_colSums),"Read_Depth"] <- gtex_gexp_colSums
+      bsdf[(length(gtex_gexp_colSums)+1):nrow(bsdf),"Read_Depth"] <- tcga_gexp_colSums
       
+      ### draw a beeswarm plot with the read count depth of each sample
+      ggplot(bsdf, aes(x=Group, y=Read_Depth)) +
+        ggtitle(paste("Read Depth of GTEx", GTEx_TCGA_Map[i,"GTEx"], "vs TCGA", toupper(GTEx_TCGA_Map[i,"TCGA"]))) +
+        theme_classic(base_size = 16) +
+        geom_boxplot() +
+        geom_beeswarm(aes(color=Group)) +
+        stat_compare_means()
+      ggsave(filename = paste0(params[[6]], subdirPath, "/", subdirPath, "_read_depth.png"), width = 12, height = 10)
+      
+      ### DE analysis
+      gexp <- cbind(gtex_gexp[common_genes,], tcga_gexp[common_genes,])
+      group <- c(rep("GTEx", ncol(gtex_gexp)), rep("TCGA", ncol(tcga_gexp)))
+      deresult <- deseqWithComparisons(rCnt = gexp, grp = group, exp_class = "GTEx", ctrl_class = "TCGA")
+      
+      ### make a signature vector for GSEA
+      de_sig <- deresult[,"stat"]
+      names(de_sig) <- rownames(deresult)
+      
+      ### make a target gene list (like a pathway gene list in GSEA)
+      target_genes <- vector("list", length = nrow(interesting_pathway_cnt))
+      for(j in 1:nrow(interesting_pathway_cnt)) {
+        ### get all the found target genes of the given pathway across all the regulons in the tissue
+        target_genes[[j]] <- Reduce(union, lapply(c(gtex_regulon_pathways, tcga_regulon_pathways),
+                                      function(x) {
+                                         tIdx <- which(rownames(x) == rownames(interesting_pathway_cnt)[j])
+                                         if(length(tIdx) > 0) {
+                                           return(strsplit(x[tIdx,"geneID"], split = "/", fixed = TRUE)[[1]])
+                                         } else {
+                                           return(NULL)
+                                         }
+                                       }))
+        
+        ### change the gene symbols to entrez ids
+        target_genes[[j]] <- as.character(geneSymbolToEntrezId(target_genes[[j]]))
+      }
+      
+      ### run gene set enrichment test
+      set.seed(1234)
+      fgseaRes <- fgsea(pathways = target_genes, stats = de_sig, nperm = 10000)
+      
+      ### add pathway labels
+      fgseaRes <- data.frame(GO_ID=rownames(interesting_pathway_cnt),
+                             Pathway=goTermMap[rownames(interesting_pathway_cnt)],
+                             fgseaRes,
+                             stringsAsFactors = FALSE, check.names = FALSE, row.names = NULL)
+      
+      ### write out the gsea result
+      write.table(fgseaRes[,-which(colnames(fgseaRes) == "leadingEdge")],
+                  file = paste0(params[[6]], subdirPath, "/", subdirPath, "_GSEA_targets.txt"),
+                  sep = "\t", row.names = FALSE)
+      
+      ### for interesting cases (pval < 0.05), print enrichment plot
+      dir.create(paste0(params[[6]], subdirPath, "/DEG_GSEA_plots"), showWarnings = FALSE)
+      for(j in 1:nrow(fgseaRes)) {
+        if(fgseaRes$pval[j] < 0.05) {
+          png(filename = paste0(params[[6]], subdirPath, "/DEG_GSEA_plots/GO_", substring(fgseaRes$GO_ID[j], 4), ".png"),
+              width = 1500, height = 1000, res = 200)
+          plotEnrichment(target_genes[[j]], de_sig) + labs(title = fgseaRes$Pathway)
+          dev.off()
+        }
+      }
+      
+      ### get t-statistic of VIPER NES difference between GTEx and TCGA
+      common_hubs <- intersect(rownames(gtex_viper), rownames(tcga_viper))
+      t_diff <- sapply(1:length(common_hubs), function(x) {
+        t <- t.test(gtex_viper[x,], tcga_viper[x,])
+        return(t$statistic)
+      })
+      names(t_diff) <- common_hubs
+      
+      ### make a hub set list (like a pathway gene list in GSEA)
+      hub_sets <- vector("list", length = nrow(interesting_pathway_cnt))
+      for(j in 1:nrow(interesting_pathway_cnt)) {
+        temp <- NULL
+        for(k in 1:length(gtex_regulon_pathways)) {
+          if(length(which(rownames(gtex_regulon_pathways[[k]]) == rownames(interesting_pathway_cnt)[j])) > 0) {
+            temp <- c(temp, names(gtex_regulon_pathways)[k])
+          }
+        }
+        for(k in 1:length(tcga_regulon_pathways)) {
+          if(length(which(rownames(tcga_regulon_pathways[[k]]) == rownames(interesting_pathway_cnt)[j])) > 0) {
+            temp <- c(temp, names(tcga_regulon_pathways)[k])
+          }
+        }
+        hub_sets[[j]] <- temp
+      }
+      
+      ### run gene set enrichment test
+      set.seed(1234)
+      fgseaRes2 <- fgsea(pathways = hub_sets, stats = t_diff, nperm = 10000)
+      
+      ### add pathway labels
+      fgseaRes2 <- data.frame(GO_ID=rownames(interesting_pathway_cnt),
+                             Pathway=goTermMap[rownames(interesting_pathway_cnt)],
+                             fgseaRes2,
+                             stringsAsFactors = FALSE, check.names = FALSE, row.names = NULL)
+      
+      ### write out the gsea result
+      write.table(fgseaRes2[,-which(colnames(fgseaRes2) == "leadingEdge")],
+                  file = paste0(params[[6]], subdirPath, "/", subdirPath, "_GSEA_hubs.txt"),
+                  sep = "\t", row.names = FALSE)
+      
+      ### for interesting cases (pval < 0.05), print enrichment plot
+      dir.create(paste0(params[[6]], subdirPath, "/DAH_GSEA_plots"), showWarnings = FALSE)
+      for(j in 1:nrow(fgseaRes2)) {
+        if(fgseaRes2$pval[j] < 0.05) {
+          png(filename = paste0(params[[6]], subdirPath, "/DAH_GSEA_plots/GO_", substring(fgseaRes2$GO_ID[j], 4), ".png"),
+              width = 1500, height = 1000, res = 200)
+          plotEnrichment(hub_sets[[j]], t_diff) + labs(title = fgseaRes2$Pathway)
+          dev.off()
+        }
+      }
       
     }
     
