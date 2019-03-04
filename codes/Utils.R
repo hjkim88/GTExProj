@@ -2019,3 +2019,60 @@ limmaWithComparisons <- function(normCnt, grp, exp_class, ctrl_class, bat_eff=NU
   return(result)
 }
 
+#####################################################
+### A function to perform DE analysis with DESeq2 ###
+#####################################################
+#' @title deseqWithComparisons
+#' @param rCnt raw count matrix
+#' @param grp a character vector of class info of the samples
+#' @param exp_class a string of the experiment group's name
+#' @param ctrl_class a string of the control group's name
+#' @param bat_eff a character vector of batch effect info of the samples
+#' @return data.frame
+#' @export
+#' @author Hyunjin Kim
+####################################################
+deseqWithComparisons <- function(rCnt, grp, exp_class, ctrl_class, bat_eff=NULL) {
+  
+  ### load library
+  if(!require(DESeq2)) {
+    source("https://bioconductor.org/biocLite.R")
+    biocLite("DESeq2")
+    library(DESeq2)
+  }
+  
+  ### make a design matrix for DE analysis
+  sampleType <- as.character(grp)
+  
+  if(is.null(bat_eff)) {
+    Coldata <- data.frame(sampleType)
+  } else {
+    batch_eff <- as.character(bat_eff)
+    Coldata <- data.frame(sampleType, batch_eff)
+  }
+  
+  rownames(Coldata) <- colnames(rCnt)
+  Coldata$sampleType <- relevel(Coldata$sampleType, ref = ctrl_class)
+  
+  ### data preparation for DE analysis
+  if(is.null(bat_eff)) {
+    deSeqData <- DESeqDataSetFromMatrix(countData=rCnt, colData=Coldata, design= ~sampleType)
+  } else {
+    deSeqData <- DESeqDataSetFromMatrix(countData=rCnt, colData=Coldata, design= ~sampleType+batch_eff)
+  }
+  
+  deSeqData <- deSeqData[rowSums(counts(deSeqData))>1,]
+  
+  ### run DE analysis
+  dea <- DESeq(deSeqData)
+  deresults <- results(dea, contrast = c("sampleType", exp_class, ctrl_class))
+  if(length(which(is.na(deresults$pvalue))) > 0) {
+    deresults$pvalue[which(is.na(deresults$pvalue))] <- 1
+  }
+  if(length(which(is.na(deresults$padj))) > 0) {
+    deresults$padj[which(is.na(deresults$padj))] <- 1
+  }
+  deresults <- deresults[order(deresults$padj, na.last = TRUE),]
+  
+  return(data.frame(deresults))
+}
