@@ -9011,9 +9011,19 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       set.seed(1234)
       fgseaRes <- fgsea(pathways = target_genes, stats = de_sig, nperm = 10000)
       
+      ### some target genes may not have any de_sig at all
+      ### only retain target genes that have at least one in intersection
+      exist_idx <- sapply(target_genes, function(x) {
+        if(length(intersect(x, names(de_sig))) > 0) {
+          return(TRUE)
+        } else {
+          return(FALSE)
+        }
+      })
+      
       ### add pathway labels
-      fgseaRes <- data.frame(GO_ID=rownames(interesting_pathway_cnt),
-                             Pathway=goTermMap[rownames(interesting_pathway_cnt)],
+      fgseaRes <- data.frame(GO_ID=rownames(interesting_pathway_cnt)[exist_idx],
+                             Pathway=goTermMap[rownames(interesting_pathway_cnt)[exist_idx]],
                              fgseaRes,
                              stringsAsFactors = FALSE, check.names = FALSE, row.names = NULL)
       
@@ -9028,7 +9038,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
         if(fgseaRes$pval[j] < 0.05) {
           png(filename = paste0(params[[6]], subdirPath, "/DEG_GSEA_plots/GO_", substring(fgseaRes$GO_ID[j], 4), ".png"),
               width = 1500, height = 1000, res = 200)
-          plotEnrichment(target_genes[[j]], de_sig) + labs(title = fgseaRes$Pathway)
+          print(plotEnrichment(target_genes[[j]], de_sig) + labs(title = fgseaRes$Pathway))
           dev.off()
         }
       }
@@ -9062,9 +9072,19 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       set.seed(1234)
       fgseaRes2 <- fgsea(pathways = hub_sets, stats = t_diff, nperm = 10000)
       
+      ### some hub sets may not have any t_diff at all
+      ### only retain hub sets that have at least one in intersection
+      exist_idx <- sapply(hub_sets, function(x) {
+        if(length(intersect(x, names(t_diff))) > 0) {
+          return(TRUE)
+        } else {
+          return(FALSE)
+        }
+      })
+      
       ### add pathway labels
-      fgseaRes2 <- data.frame(GO_ID=rownames(interesting_pathway_cnt),
-                             Pathway=goTermMap[rownames(interesting_pathway_cnt)],
+      fgseaRes2 <- data.frame(GO_ID=rownames(interesting_pathway_cnt)[exist_idx],
+                             Pathway=goTermMap[rownames(interesting_pathway_cnt)[exist_idx]],
                              fgseaRes2,
                              stringsAsFactors = FALSE, check.names = FALSE, row.names = NULL)
       
@@ -9079,7 +9099,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
         if(fgseaRes2$pval[j] < 0.05) {
           png(filename = paste0(params[[6]], subdirPath, "/DAH_GSEA_plots/GO_", substring(fgseaRes2$GO_ID[j], 4), ".png"),
               width = 1500, height = 1000, res = 200)
-          plotEnrichment(hub_sets[[j]], t_diff) + labs(title = fgseaRes2$Pathway)
+          print(plotEnrichment(hub_sets[[j]], t_diff) + labs(title = fgseaRes2$Pathway))
           dev.off()
         }
       }
