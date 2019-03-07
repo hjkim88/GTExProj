@@ -8832,25 +8832,34 @@ oneOffs<- function (which = "freq_mods", params=NULL){
   #              (a character vector of length 1)
   # params[[4]]: The file path of the "All_62_ViperMats.rda" file
   #              (a character vector of length 1)
-  # params[[5]]: A cut-off of selecting the top pathways that have different
+  # params[[5]]: The file path of the "All_62_Aracne_hubs.rda" file
+  #              (a character vector of length 1)
+  # params[[6]]: A cut-off of selecting the top pathways that have different
   #              counts between cancer and normal samples
-  #              if 0.01, then it selects the top 1% pathways
-  #              if NA, then it selects pathways only appear in GTex or in TCGA
-  #              (a number between 0 and 1 or NA)
-  # params[[6]]: The directory path for the results
+  #              if 0.05, then it selects pathways that have regulons enriched with
+  #              the given pathway with the top 5% p-values.
+  #              First, the function seeks for pathways that are exclusively appeared
+  #              only in GTEx or in TCGA, then filter them further with this cut-off.
+  #              The function uses all the regulons in the tissue (both GTEx and TCGA)
+  #              to get the total p-value vector and use the 5% lowest p-value as
+  #              a threshold to filter the exclusive pathways.
+  #              (a number between 0 and 1)
+  # params[[7]]: The directory path for the results
   #              (a character vector of length 1)
   #
   # e.g., params = list("//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/RegulonPathwayAnnotation.rda",
   #                     "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/GTEx_TCGA_Map.rda",
   #                     "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_62_raw_counts.rda",
   #                     "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_62_ViperMats.rda",
-  #                     NA,
+  #                     "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_62_Aracne_hubs.rda",
+  #                     0.05,
   #                     "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/regulon_pathway/GTEx_vs_TCGA/")
   # e.g., params = list("./data/RDA_Files/RegulonPathwayAnnotation.rda",
   #                     "./data/RDA_Files/GTEx_TCGA_Map.rda",
   #                     "./data/RDA_Files/All_62_raw_counts.rda",
   #                     "./data/RDA_Files/All_62_ViperMats.rda",
-  #                     NA,
+  #                     "./data/RDA_Files/All_62_Aracne_hubs.rda",
+  #                     0.05,
   #                     "./results/regulon_pathway/GTEx_vs_TCGA/")
   
   if(which == "interesting_regulon_pathways") {
@@ -8879,14 +8888,19 @@ oneOffs<- function (which = "freq_mods", params=NULL){
     assertString(params[[2]])
     assertString(params[[3]])
     assertString(params[[4]])
-    assertNumeric(params[[5]])
-    assertString(params[[6]])
+    assertString(params[[5]])
+    assertNumeric(params[[6]])
+    assertString(params[[7]])
+    if(is.na(params[[6]]) || params[[6]] <= 0 || params[[6]] > 1) {
+      stop("params[[6]] should be between 0 and 1")
+    }
     
     ### load the data
     load(params[[1]])
     load(params[[2]])
     load(params[[3]])
     load(params[[4]])
+    load(params[[5]])
     
     ### for every comparison between GTEx and TCGA, find interesting pathways
     for(i in 1:nrow(GTEx_TCGA_Map)) {
@@ -8903,9 +8917,13 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       gtex_viper <- get(paste0("vmat_gtex_", GTEx_TCGA_Map[i,"GTEx"]))
       tcga_viper <- get(paste0("vmat_tcga_", GTEx_TCGA_Map[i,"TCGA"]))
       
+      ### get aracne hubs
+      gtex_aracne_hubs <- Aracne_hubs[[GTEx_TCGA_Map[i,"GTEx"]]]
+      tcga_aracne_hubs <- Aracne_hubs[[paste0("tcga_", GTEx_TCGA_Map[i,"TCGA"])]]
+      
       ### create a sub directory for the results
       subdirPath <- paste0("GTEx_", GTEx_TCGA_Map[i,"GTEx"], "_vs_TCGA_", toupper(GTEx_TCGA_Map[i,"TCGA"]))
-      dir.create(file.path(params[[6]], subdirPath), showWarnings = FALSE)
+      dir.create(file.path(params[[7]], subdirPath), showWarnings = FALSE)
       
       ### get union pathways
       gtex_pathways <- Reduce(union, lapply(gtex_regulon_pathways, function(x) x[,"ID"]))
@@ -8935,26 +8953,47 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       pathway_cnt <- pathway_cnt[order(-pathway_cnt[,"Abs(Diff)"]),]
       
       ### extract the interesting pathways
-      if(is.na(params[[5]])) {
-        ### params[[5]] == NA: the extreme case
-        interesting_pathways <- rownames(pathway_cnt[union(which(pathway_cnt[,"GTEx"] == 0), which(pathway_cnt[,"TCGA"] == 0)),])
-      } else {
-        ### 0 < params[[5]] < 1: the top different cases
-        interesting_pathways <- rownames(pathway_cnt[1:floor(nrow(pathway_cnt)*params[[5]]),])
-      }
+      interesting_pathways <- rownames(pathway_cnt[union(which(pathway_cnt[,"GTEx"] == 0), which(pathway_cnt[,"TCGA"] == 0)),])
       
       ### get the counts of the interesting pathways
-      interesting_pathway_cnt <- pathway_cnt[interesting_pathways,]
+      interesting_pathway_cnt <- data.frame(pathway_cnt[interesting_pathways,], Hubs="",
+                                            stringsAsFactors = FALSE, check.names = FALSE)
+      
+      ### determine the threshold p-value
+      total_pvs <- unlist(lapply(c(gtex_regulon_pathways, tcga_regulon_pathways), function(x) x[,"p.adjust"]))
+      total_pvs <- total_pvs[order(total_pvs)]
+      pVal_threshold <- total_pvs[floor(params[[6]] * length(total_pvs))]
+      
+      ### filter the interesting pathways with the p-value threshold
+      for(j in 1:nrow(interesting_pathway_cnt)) {
+        if(interesting_pathway_cnt[j,"GTEx"] == 0) {
+          for(k in 1:length(tcga_regulon_pathways)) {
+            pv <- tcga_regulon_pathways[[k]][rownames(interesting_pathway_cnt)[j],"p.adjust"]
+            if(!is.na(pv) && (pv < pVal_threshold) && (length(which(gtex_aracne_hubs == names(tcga_regulon_pathways)[k])) > 0)) {
+              interesting_pathway_cnt[j,"Hubs"] <- paste(interesting_pathway_cnt[j,"Hubs"], names(tcga_regulon_pathways)[k], sep = "/")
+            }
+          }
+        } else {
+          for(k in 1:length(gtex_regulon_pathways)) {
+            pv <- gtex_regulon_pathways[[k]][rownames(interesting_pathway_cnt)[j],"p.adjust"]
+            if(!is.na(pv) && (pv < pVal_threshold) && (length(which(tcga_aracne_hubs == names(gtex_regulon_pathways)[k])) > 0)) {
+              interesting_pathway_cnt[j,"Hubs"] <- paste(interesting_pathway_cnt[j,"Hubs"], names(gtex_regulon_pathways)[k], sep = "/")
+            }
+          }
+        }
+      }
+      interesting_pathway_cnt[,"Hubs"] <- substring(interesting_pathway_cnt[,"Hubs"], 2)
       
       ### order the interesting pathway count info
       interesting_pathway_cnt <- interesting_pathway_cnt[order(-interesting_pathway_cnt[,"Abs(Diff)"]),]
+      interesting_pathway_cnt <- interesting_pathway_cnt[c(which(interesting_pathway_cnt[,"Hubs"] != ""), which(interesting_pathway_cnt[,"Hubs"] == "")),]
       
       ### write out the interesting pathway count info
       write.table(data.frame(GO_ID=rownames(interesting_pathway_cnt),
                              Pathway=goTermMap[rownames(interesting_pathway_cnt)],
                              interesting_pathway_cnt,
                              stringsAsFactors = FALSE, check.names = FALSE, row.names = NULL),
-                  file = paste0(params[[6]], subdirPath, "/", subdirPath, "_interesting_pathway_counts_", params[[5]], ".txt"),
+                  file = paste0(params[[7]], subdirPath, "/", subdirPath, "_interesting_pathway_counts_", pVal_threshold, ".txt"),
                   sep = "\t", row.names = FALSE)
       
       ### quality control test
@@ -8978,7 +9017,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
         geom_boxplot() +
         geom_beeswarm(aes(color=Group)) +
         stat_compare_means()
-      ggsave(filename = paste0(params[[6]], subdirPath, "/", subdirPath, "_read_depth.png"), width = 12, height = 10)
+      ggsave(filename = paste0(params[[7]], subdirPath, "/", subdirPath, "_read_depth.png"), width = 12, height = 10)
       
       ### DE analysis
       gexp <- cbind(gtex_gexp[common_genes,], tcga_gexp[common_genes,])
@@ -8990,18 +9029,22 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       names(de_sig) <- rownames(deresult)
       
       ### make a target gene list (like a pathway gene list in GSEA)
-      target_genes <- vector("list", length = nrow(interesting_pathway_cnt))
-      for(j in 1:nrow(interesting_pathway_cnt)) {
-        ### get all the found target genes of the given pathway across all the regulons in the tissue
-        target_genes[[j]] <- Reduce(union, lapply(c(gtex_regulon_pathways, tcga_regulon_pathways),
-                                      function(x) {
-                                         tIdx <- which(rownames(x) == rownames(interesting_pathway_cnt)[j])
-                                         if(length(tIdx) > 0) {
-                                           return(strsplit(x[tIdx,"geneID"], split = "/", fixed = TRUE)[[1]])
-                                         } else {
-                                           return(NULL)
-                                         }
-                                       }))
+      target_genes <- vector("list", length = length(which(interesting_pathway_cnt[,"Hubs"] != "")))
+      names(target_genes) <- rownames(interesting_pathway_cnt[which(interesting_pathway_cnt[,"Hubs"] != ""),])
+      for(j in 1:length(target_genes)) {
+        ### get all the found target genes of the given pathway across all the filtered regulons in the tissue
+        tIdx <- strsplit(interesting_pathway_cnt[j,"Hubs"], "/", fixed = TRUE)[[1]]
+        if(interesting_pathway_cnt[j,"GTEx"] == 0) {
+          target_genes[[j]] <- Reduce(union, lapply(tcga_regulon_pathways[tIdx], function(x) {
+            y <- x[rownames(interesting_pathway_cnt)[j],"geneID"]
+            return(strsplit(y, "/", fixed = TRUE)[[1]])
+          }))
+        } else {
+          target_genes[[j]] <- Reduce(union, lapply(gtex_regulon_pathways[tIdx], function(x) {
+            y <- x[rownames(interesting_pathway_cnt)[j],"geneID"]
+            return(strsplit(y, "/", fixed = TRUE)[[1]])
+          }))
+        }
         
         ### change the gene symbols to entrez ids
         target_genes[[j]] <- as.character(geneSymbolToEntrezId(target_genes[[j]]))
@@ -9029,16 +9072,16 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       
       ### write out the gsea result
       write.table(fgseaRes[,-which(colnames(fgseaRes) == "leadingEdge")],
-                  file = paste0(params[[6]], subdirPath, "/", subdirPath, "_GSEA_targets.txt"),
+                  file = paste0(params[[7]], subdirPath, "/", subdirPath, "_GSEA_targets_", pVal_threshold, ".txt"),
                   sep = "\t", row.names = FALSE)
       
       ### for interesting cases (pval < 0.05), print enrichment plot
-      dir.create(paste0(params[[6]], subdirPath, "/DEG_GSEA_plots"), showWarnings = FALSE)
+      dir.create(paste0(params[[7]], subdirPath, "/DEG_GSEA_plots"), showWarnings = FALSE)
       for(j in 1:nrow(fgseaRes)) {
         if(fgseaRes$pval[j] < 0.05) {
-          png(filename = paste0(params[[6]], subdirPath, "/DEG_GSEA_plots/GO_", substring(fgseaRes$GO_ID[j], 4), ".png"),
+          png(filename = paste0(params[[7]], subdirPath, "/DEG_GSEA_plots/GO_", substring(fgseaRes$GO_ID[j], 4), "_", pVal_threshold, ".png"),
               width = 1500, height = 1000, res = 200)
-          print(plotEnrichment(target_genes[[j]], de_sig) + labs(title = fgseaRes$Pathway))
+          print(plotEnrichment(target_genes[[fgseaRes$GO_ID[j]]], de_sig) + labs(title = fgseaRes$Pathway[j]))
           dev.off()
         }
       }
@@ -9052,20 +9095,10 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       names(t_diff) <- common_hubs
       
       ### make a hub set list (like a pathway gene list in GSEA)
-      hub_sets <- vector("list", length = nrow(interesting_pathway_cnt))
-      for(j in 1:nrow(interesting_pathway_cnt)) {
-        temp <- NULL
-        for(k in 1:length(gtex_regulon_pathways)) {
-          if(length(which(rownames(gtex_regulon_pathways[[k]]) == rownames(interesting_pathway_cnt)[j])) > 0) {
-            temp <- c(temp, names(gtex_regulon_pathways)[k])
-          }
-        }
-        for(k in 1:length(tcga_regulon_pathways)) {
-          if(length(which(rownames(tcga_regulon_pathways[[k]]) == rownames(interesting_pathway_cnt)[j])) > 0) {
-            temp <- c(temp, names(tcga_regulon_pathways)[k])
-          }
-        }
-        hub_sets[[j]] <- temp
+      hub_sets <- vector("list", length = length(which(interesting_pathway_cnt[,"Hubs"] != "")))
+      names(hub_sets) <-  rownames(interesting_pathway_cnt[which(interesting_pathway_cnt[,"Hubs"] != ""),])
+      for(j in 1:length(hub_sets)) {
+        hub_sets[[j]] <- strsplit(interesting_pathway_cnt[j,"Hubs"], "/", fixed = TRUE)[[1]]
       }
       
       ### run gene set enrichment test
@@ -9090,16 +9123,16 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       
       ### write out the gsea result
       write.table(fgseaRes2[,-which(colnames(fgseaRes2) == "leadingEdge")],
-                  file = paste0(params[[6]], subdirPath, "/", subdirPath, "_GSEA_hubs.txt"),
+                  file = paste0(params[[7]], subdirPath, "/", subdirPath, "_GSEA_hubs_", pVal_threshold, ".txt"),
                   sep = "\t", row.names = FALSE)
       
       ### for interesting cases (pval < 0.05), print enrichment plot
-      dir.create(paste0(params[[6]], subdirPath, "/DAH_GSEA_plots"), showWarnings = FALSE)
+      dir.create(paste0(params[[7]], subdirPath, "/DAH_GSEA_plots"), showWarnings = FALSE)
       for(j in 1:nrow(fgseaRes2)) {
         if(fgseaRes2$pval[j] < 0.05) {
-          png(filename = paste0(params[[6]], subdirPath, "/DAH_GSEA_plots/GO_", substring(fgseaRes2$GO_ID[j], 4), ".png"),
+          png(filename = paste0(params[[7]], subdirPath, "/DAH_GSEA_plots/GO_", substring(fgseaRes2$GO_ID[j], 4), "_", pVal_threshold, ".png"),
               width = 1500, height = 1000, res = 200)
-          print(plotEnrichment(hub_sets[[j]], t_diff) + labs(title = fgseaRes2$Pathway))
+          print(plotEnrichment(hub_sets[[fgseaRes2$GO_ID[j]]], t_diff) + labs(title = fgseaRes2$Pathway[j]))
           dev.off()
         }
       }
