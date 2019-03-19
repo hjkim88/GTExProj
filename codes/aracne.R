@@ -5,7 +5,7 @@ if (Sys.info()["nodename"] == "C2B2AFPL8"){
 } else if (Sys.info()["nodename"] == "C2B2AFPL9"){
   UTILS_FILE = "C:/Users/floratos/workspace/R/labProjects/Common/Utils.R"
 } else if (Sys.info()["nodename"] == "C2B2AFPL10"){
-	UTILS_FILE = "C:/Users/floratos/workspace/R/labProjects/Common/Utils.R"
+  UTILS_FILE = "C:/Users/floratos/workspace/R/labProjects/Common/Utils.R"
 } else if (Sys.info()["nodename"] == "C2B2AFPD9" || Sys.info()["nodename"] == "DESKTOP-F24420B"){
   UTILS_FILE = "./codes/Utils.R"
 } else if (Sys.info()["nodename"] == "afdev5.c2b2.columbia.edu"){
@@ -20,22 +20,24 @@ if (Sys.info()["nodename"] == "C2B2AFPL8"){
 } else if (Sys.info()["nodename"] == "C2B2AFPL6"){
   UTILS_FILE = "C:/Users/floratos/eclipse-workspace/R/labProjects/Common/Utils.R"
 } else if (Sys.info()["nodename"] == "C2B2AFPL7"){
-	UTILS_FILE = "C:/Users/floratos/workspace/R/labProjects/Common/Utils.R"
+  UTILS_FILE = "C:/Users/floratos/workspace/R/labProjects/Common/Utils.R"
+} else if (Sys.info()["nodename"] == "C2B2AFPD6"){
+  UTILS_FILE = "C:/repository/floratosLabCVS/labProjects/Common/Utils.R"
 } else{
   stop("No UTILS_FILE defined")
 }
 
 source(UTILS_FILE, chdir = TRUE)
 
-# Map of TCGA abbreviations to full tunor name
- tcga_abbr = c("Bladder Urothelial Carcinoma", "Breast invasive carcinoma", "Colon adenocarcinoma", 
- 		"Glioblastoma multiforme", "Head and Neck squamous cell carcinoma", "Kidney renal clear cell carcinoma", 
- 		"Kidney renal papillary cell carcinoma", "Acute Myeloid Leukemia", "Brain Lower Grade Glioma", 
- 		"Liver hepatocellular carcinoma", "Lung adenocarcinoma", "Lung squamous cell carcinoma", 
- 		"Ovarian serous cystadenocarcinoma", "Prostate adenocarcinoma", "Rectum adenocarcinoma", "Sarcoma", 
- 		"Skin Cutaneous Melanoma", "Stomach adenocarcinoma", "Thyroid carcinoma", "Uterine Corpus Endometrial Carcinoma")
- names(tcga_abbr) = c("blca", "brca", "coad", "gbm", "hnsc", "kirc", "kirp", "laml", "lgg", "lihc", "luad", 
- 		"lusc", "ov", "prad", "read", "sarc", "skcm", "stad", "thca", "ucec")
+# Map of TCGA abbreviations to full tumor name
+tcga_abbr = c("Bladder Urothelial Carcinoma", "Breast invasive carcinoma", "Colon adenocarcinoma", 
+              "Glioblastoma multiforme", "Head and Neck squamous cell carcinoma", "Kidney renal clear cell carcinoma", 
+              "Kidney renal papillary cell carcinoma", "Acute Myeloid Leukemia", "Brain Lower Grade Glioma", 
+              "Liver hepatocellular carcinoma", "Lung adenocarcinoma", "Lung squamous cell carcinoma", 
+              "Ovarian serous cystadenocarcinoma", "Prostate adenocarcinoma", "Rectum adenocarcinoma", "Sarcoma", 
+              "Skin Cutaneous Melanoma", "Stomach adenocarcinoma", "Thyroid carcinoma", "Uterine Corpus Endometrial Carcinoma")
+names(tcga_abbr) = c("blca", "brca", "coad", "gbm", "hnsc", "kirc", "kirp", "laml", "lgg", "lihc", "luad", 
+                     "lusc", "ov", "prad", "read", "sarc", "skcm", "stad", "thca", "ucec")
 
 # Names of ARACNe files on disk.
 # fileNames = c("Adipose-Subcutaneous_vst/Adipose-Subcutaneous_vst_6cols.txt", 
@@ -174,126 +176,126 @@ LOGGING_ON = TRUE
 #   ** mat[,1] = the N unique TF ids.
 #   ** mat[,2] = indices 1:N
 #   ** mat[,3] = initialize all values to 0.
-# * Go over the ARACNe network and for each row corresponsing to TF A, increase by one the contents of mat[index(A),3].
+# * Go over the ARACNe network and for each row corresponding to TF A, increase by one the contents of mat[index(A),3].
 # * Create a list L of length N where L[[i]] contains an empty numerical vector of lenght mat[i,3].
 # * Reset mat[,3] to all 0.
-# * Go over the ARACNe network again. For each row corresponsing to TF A, describing and edge (A,B).
+# * Go over the ARACNe network again. For each row corresponding to TF A, describing and edge (A,B).
 #   ** increase by one mat[index(A),3].
 #   ** set L[[index(A)]][mat[index(A),3]] = B.
 # **********************************************************************
 readAracneNetworks <- function(rootDir = "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/CPTAC/ARACNe/"){
-	
-	rootDir = paste(rootDir, "/", sep = "") 	# to be safe...
-	
-	# We use this vector to track duplicate interactions. About 10% of interactions
-	# in each network involve pairs of TFs A, B and appear both as (A, B) and (B, A).
-	# The vector below will help us identify those. They will still be both stored
-	# but the second one will be stored as (B, -A). By making the gene ID of A negative, 
-	# we can still maintain the info we need (abs(A) will still give us the ID of A) 
-	# and at the same time have a way to identify duplicates easily.
-	trackDuplicates = vector(mode = "integer", length = max_geneId)
-	
-	# Read ARACNe networks one by one
-	for(index in 1:length(fileNames)){
-		logLines(paste("\nProcessing network -> ", fileNames[index]))
-		network = as.matrix(read.table(paste(rootDir, fileNames[index], sep=""), header = TRUE))
-		
-		# Reconstitute the TF->TF interactions (y, x) where both x and y are TFs, (x, y)
-		# is reported in the network by (y, x) is not
-		missing = getMissingInteractions(network)
-		colnames(missing) = colnames(network)
-		logLines(paste("\t# of missing TF -> TF interactions =", length(missing[,1])))
-		
-		# Create the final network by adding the missing interactions.
-		network = rbind(network, missing)
-		
-		# Order first by p-value. This will guarantee that later on, when building the list of 
-		# targets for a TF, the targets will be added in order of significance, starting with
-		# the one that has the smallest p-value.
-		network = network[order(network[,6]),]   
-		
-		# Order then by TF gene id. This step is important for our code that computes
-		# duplicates. Specifically, it guarantees that if the gene Id of A is smaller
-		# than the gene Id of B then then interaction (A,B) will be encountered before
-		# the interaction (B,A)
-		network = network[order(network[,1]),] 
-		
-		# Initialize the duplicates tracking array. Ne do not need to do this the
-		# first time around, as the values are already set correctly.
-		if (index != 1)
-			for (i in 1:max_geneId)
-				trackDuplicates[i] = 0
-		
-		uniqueTFs = sort(unique(network[,1]))
-		N = length(uniqueTFs)
-		mat = matrix(nrow = N, ncol = 3)
-		for (i in 1:N){
-			mat[i,1] = uniqueTFs[i]
-			mat[i,2] = i
-			mat[i,3] = 0
-			trackDuplicates[uniqueTFs[i]] = i
-		}
-		
-		# count the number of targets for each TF
-		j = 1
-		mat[1,3] = 1
-		M = length(network[,1])
-		for (i in 2:M){
-			if(network[i,1] != network[i-1,1])
-				j = j+1
-			mat[j, 3] =  mat[j, 3]+1
-		}
-		
-		
-		listOfTargets = list()
-		# for eact TF, create a matrix Tx5 where T is the number of targets of the TF.
-		# each matrix row will represet an edge in the network and will be named by the
-		# gene ID of the target gene
-		for (i in 1:N){
-			listOfTargets[[i]] = matrix(nrow = mat[i,3], ncol=5)
-			colnames(listOfTargets[[i]]) = c("Target", "MI", "MoA", "Likelihood", "Pvalue")
-		}
-		
-		# populate the matrices with the actual targets
-		j = 1
-		k = 1
-		# Fill in the first entry
-		for (r in 1:5)
-			listOfTargets[[1]][1,r] = network[1,r+1]
-		# Fill in the rest of the entries
-		for (i in 2:M){
-			if(network[i,1] != network[i-1,1]){
-				rownames(listOfTargets[[j]]) = abs(listOfTargets[[j]][,1])
-				j = j+1
-				k = 0;
-			}
-			k = k+1
-			for (r in 1:5)
-				listOfTargets[[j]][k, r] = network[i, r+1]
-			
-			# Check if this a duplicate interaction
-			if (network[i,2] <= max_geneId && trackDuplicates[network[i,2]] != 0  &&
-					network[i,1] %in% listOfTargets[[trackDuplicates[network[i,2]]]][,1]){
-				listOfTargets[[j]][k, 1] = -network[i,2]
-			}
-		}
-		rownames(listOfTargets[[j]]) = abs(listOfTargets[[j]][,1])
-		
-		results = list()
-		# Use the gene IDs of the TFs to mame the rows of the 'mat' matrix and 
-		# the elements of 'listOfTargets' list, to facilitate searching 
-		rownames(mat) = mat[,1]
-		names(listOfTargets) = mat[,1]
-		
-		# Order mat so that that TFs with the largest regulons are listed first.
-		mat = mat[order(mat[,3], decreasing=TRUE),]
-		results[[1]] = mat
-		results[[2]] = listOfTargets
-		assign(varNames[index], results, envir = globalenv())
-	}
-
-	assign("netSizes", interactionCounts(), envir = globalenv())
-	assign("pairWise", interactionCounts("pairwise"), envir = globalenv())
+  
+  rootDir = paste(rootDir, "/", sep = "") 	# to be safe...
+  
+  # We use this vector to track duplicate interactions. About 10% of interactions
+  # in each network involve pairs of TFs A, B and appear both as (A, B) and (B, A).
+  # The vector below will help us identify those. They will still be both stored
+  # but the second one will be stored as (B, -A). By making the gene ID of A negative, 
+  # we can still maintain the info we need (abs(A) will still give us the ID of A) 
+  # and at the same time have a way to identify duplicates easily.
+  trackDuplicates = vector(mode = "integer", length = max_geneId)
+  
+  # Read ARACNe networks one by one
+  for(index in 1:length(fileNames)){
+    logLines(paste("\nProcessing network -> ", fileNames[index]))
+    network = as.matrix(read.table(paste(rootDir, fileNames[index], sep=""), header = TRUE))
+    
+    # Reconstitute the TF->TF interactions (y, x) where both x and y are TFs, (x, y)
+    # is reported in the network by (y, x) is not
+    missing = getMissingInteractions(network)
+    colnames(missing) = colnames(network)
+    logLines(paste("\t# of missing TF -> TF interactions =", length(missing[,1])))
+    
+    # Create the final network by adding the missing interactions.
+    network = rbind(network, missing)
+    
+    # Order first by p-value. This will guarantee that later on, when building the list of 
+    # targets for a TF, the targets will be added in order of significance, starting with
+    # the one that has the smallest p-value.
+    network = network[order(network[,6]),]   
+    
+    # Order then by TF gene id. This step is important for our code that computes
+    # duplicates. Specifically, it guarantees that if the gene Id of A is smaller
+    # than the gene Id of B then then interaction (A,B) will be encountered before
+    # the interaction (B,A)
+    network = network[order(network[,1]),] 
+    
+    # Initialize the duplicates tracking array. Ne do not need to do this the
+    # first time around, as the values are already set correctly.
+    if (index != 1)
+      for (i in 1:max_geneId)
+        trackDuplicates[i] = 0
+    
+    uniqueTFs = sort(unique(network[,1]))
+    N = length(uniqueTFs)
+    mat = matrix(nrow = N, ncol = 3)
+    for (i in 1:N){
+      mat[i,1] = uniqueTFs[i]
+      mat[i,2] = i
+      mat[i,3] = 0
+      trackDuplicates[uniqueTFs[i]] = i
+    }
+    
+    # count the number of targets for each TF
+    j = 1
+    mat[1,3] = 1
+    M = length(network[,1])
+    for (i in 2:M){
+      if(network[i,1] != network[i-1,1])
+        j = j+1
+      mat[j, 3] =  mat[j, 3]+1
+    }
+    
+    
+    listOfTargets = list()
+    # for eact TF, create a matrix Tx5 where T is the number of targets of the TF.
+    # each matrix row will represent an edge in the network and will be named by the
+    # gene ID of the target gene
+    for (i in 1:N){
+      listOfTargets[[i]] = matrix(nrow = mat[i,3], ncol=5)
+      colnames(listOfTargets[[i]]) = c("Target", "MI", "MoA", "Likelihood", "Pvalue")
+    }
+    
+    # populate the matrices with the actual targets
+    j = 1
+    k = 1
+    # Fill in the first entry
+    for (r in 1:5)
+      listOfTargets[[1]][1,r] = network[1,r+1]
+    # Fill in the rest of the entries
+    for (i in 2:M){
+      if(network[i,1] != network[i-1,1]){
+        rownames(listOfTargets[[j]]) = abs(listOfTargets[[j]][,1])
+        j = j+1
+        k = 0;
+      }
+      k = k+1
+      for (r in 1:5)
+        listOfTargets[[j]][k, r] = network[i, r+1]
+      
+      # Check if this a duplicate interaction
+      if (network[i,2] <= max_geneId && trackDuplicates[network[i,2]] != 0  &&
+          network[i,1] %in% listOfTargets[[trackDuplicates[network[i,2]]]][,1]){
+        listOfTargets[[j]][k, 1] = -network[i,2]
+      }
+    }
+    rownames(listOfTargets[[j]]) = abs(listOfTargets[[j]][,1])
+    
+    results = list()
+    # Use the gene IDs of the TFs to name the rows of the 'mat' matrix and 
+    # the elements of 'listOfTargets' list, to facilitate searching 
+    rownames(mat) = mat[,1]
+    names(listOfTargets) = mat[,1]
+    
+    # Order mat so that that TFs with the largest regulons are listed first.
+    mat = mat[order(mat[,3], decreasing=TRUE),]
+    results[[1]] = mat
+    results[[2]] = listOfTargets
+    assign(varNames[index], results, envir = globalenv())
+  }
+  
+  assign("netSizes", interactionCounts(), envir = globalenv())
+  assign("pairWise", interactionCounts("pairwise"), envir = globalenv())
 }
 
 
@@ -302,122 +304,122 @@ readAracneNetworks <- function(rootDir = "//isilon.c2b2.columbia.edu/ifs/archive
 # ARACNe network files.
 # *****************************************************************************
 README = function(){
-	writeLines("This workspace contains a number of variable realated to the ARACNe networks generated")
-	writeLines("run the command ls() to see the full listing.")
-	
-	writeLines("---> The number of ARACNe networks: K")
-	
-	writeLines("---> One variable for each ARACNe network was generated. These")
-	writeLines("variables are named with tissue names")
-	writeLines("Specifically, each such variable A is a list with two elements:")
-	writeLines("* A[[1]] is a Nx3 matrix, where N is the number of TF is in the original ARACNe network, i.e., the ")
-	writeLines("   number of unique genes B such that (B, C) is a network edge. Each row R in that matrix corresponds")
-	writeLines("   to a single TF B and contains the following data:")
-	writeLines("   ** A[[1]][R,1] is the Gene ID of gene B.")
-	writeLines("   ** A[[1]][R,2] is the index corresponding to B in the list A[[2]] -- this will be explained below.")
-	writeLines("   ** A[[1]][R,3] is the size of the regulon of B in the network, i.e., the number of its predicted targets.")
-	writeLines("* A[[2]] is a list with N items, again each corresponding to a TF in the ARACNe network. The R-th element")
-	writeLines("   of the list contains information related to the TF B for which A[[1]][,2] = R. The R-th list element ")
-	writeLines("   A[[2]][[R]] is a matrix with dimensions M x 5 where M is the size if the regulon of the TF B. Each ")
-	writeLines("   Row S in that matrix corresponds to a predicted target C of B and contains the following data:")
-	writeLines("   ** A[[2]][[R]][S, 1] is the gene ID of gene C. If C is TF and the interaction (C,B) has been seen")
-	writeLines("      before the value of this cell is -(gene ID of gene C).")
-	writeLines("   ** A[[2]][[R]][S, 2] is the mutual information of the edge (B,C), as computed by ARACNe.          ")
-	writeLines("   ** A[[2]][[R]][S, 3] is the Mechanism of Action of the edge (B,C), as computed by ARACNe.")
-	writeLines("   ** A[[2]][[R]][S, 4] is the Likelihood of the edge (B,C), as computed by ARACNe.")
-	writeLines("   ** A[[2]][[R]][S, 3] is the P-value of the edge (B,C), as computed by ARACNe")
-	writeLines("According to the above scheme, the targets of the TF stored at A[[1]][i,] can be found at the list")
-	writeLines("element A[[2]][[A[[1]][i,2]]]. A few more things to note about variable A:")
-	writeLines("* The matrix A[[1]] is ordered according to TF regulon size, with the largest TFs first. ")
-	writeLines("* The targets contained in the matrix A[[2]][[R]] are listed in decreasing order of significance, based on")
-	writeLines("   P-value, with the lowest P-value listed first.\n")
-	
-	writeLines("--->  A matrix called 'pairWise' of dimensions K x K where, for i <> j, pairWise[i, j] is the")
-	writeLines("number of interactions shared between the i-th and the j-th network. The network names are also listed")
-	writeLines("as column and row headings. When i = h then pairWise[i, i] is the number of interactions in the -th")
-	writeLines("network. In both cases, only unique interactions are counted. I.e., if both (A,B) and (B,A) are ")
-	writeLines("reported for a given network then only one of these is taken into consideration in the interaction")
-	writeLines("counts.\n")
-	
-	writeLines("--->  A vector called 'netSizes' with K entries one for each networks. The i-th entry contains the")
-	writeLines("number of unique interactions in network varNames[i], i.e., duplicates have been discarded. The")
-	writeLines("entries in the vector are named	after 'varNames'.\n")
-	
-	writeLines("--->  A variable called 'tfPairEnrich' describing the TF-specific regulon conservation across pairs of")
-	writeLines("interactomes. It comprises the following elements:")
-	writeLines("* tfPairNet[[1]] is a K x K symetric matrix where the entry [i,i] is zero and the entry [i, j] is")
-	writeLines("  the index within tfPairEnrich[[2]] where the results of the pairwise comparison between the i-th")
-	writeLines("  and the j-th interactome are stored (i and j are indices within the varNames variable).")
-	writeLines("* tfPairEnrich[[2]] is a list with choose(K, 2) elements, each corresponding to a pairwise")
-	writeLines("  interactome comparison. Each element is a N x 5 matrix M where N is the # number of TFs that appear")
-	writeLines("  as hubs both in the i-th and the j-th interactome. Each row correponds to a TF A and contains the")
-	writeLines("  following 5 columns:")
-	writeLines("  ** The gene id of the TF A.")
-	writeLines("  ** The value round(log(P), 0) where P is the p-value of the the Fisher exact test to assess the size")
-	writeLines("     of the intersection of the regulons of A in the i-th and the j-th interactome.")
-	writeLines("  ** The size of the intersection of the 2 regulons.")
-	writeLines("  ** The size of the regulon of A in the i-th interactome.")
-	writeLines("  ** The size of the regulon of A in the j-th interactome.")
-	writeLines("  Within the matrix M, rows are ordered in increasing value of the 2nd column, i.e., the most enriched")
-	writeLines("  TFs (those with the smallest log(P)) are listed first. When computing Fisher's exact test we use the")
-	writeLines("  following 2 x 2 contingency matrix:")
-	writeLines("               X	Y")
-	writeLines("               Z	W")
-	writeLines("where:")
-	writeLines("* X is the size of the interesection of the 2 regulons.")
-	writeLines("* Y is the size of regulon(A) in the i-th interactome minus X.")
-	writeLines("* Z is the size of regulon(A) in the j-th interactome minus X.")
-	writeLines("* W is the total number of interactions in the j-th interactome minus the size of regulon(A) in the")
-	writeLines("  j-th interactome.")
-	writeLines("Notice that Y, Z, W are normalized based on the size of the intersections of the 2 interactomes.\n")
-	
-	writeLines("--->  A variable called 'tfPairProb' describing the another TF-specific regulon conservation across")
-	writeLines("pairs of interactomes. It comprises the following elements:")
-	writeLines("* tfPairProb[[1]] is a K x K symetric matrix where the entry [i,i] is zero and the entry [i, j] is")
-	writeLines("  the index within tfPairProb[[2]] where the results of the pairwise comparison between the i-th")
-	writeLines("  and the j-th interactome are stored (i and j are indices within the varNames variable).")
-	writeLines("* tfPairProb[[2]] is a list with choose(K, 2) elements, each corresponding to a pairwise")
-	writeLines("  interactome comparison. Each element is a N x 5 matrix M where N is the # number of TFs that appear")
-	writeLines("  as hubs both in the i-th and the j-th interactome. Each row correponds to a TF A and contains the")
-	writeLines("  following 5 columns:")
-	writeLines("  ** The gene id of the TF A.")
-	writeLines("  ** The value log(P) where P is the probability that a regulon pair share same target genes")
-	writeLines("  ** The size of the intersection of the 2 regulons.")
-	writeLines("  ** The size of the regulon of A in the i-th interactome.")
-	writeLines("  ** The size of the regulon of A in the j-th interactome.")
-	writeLines("  Within the matrix M, rows are ordered in increasing value of the 2nd column.\n")
-	
-	writeLines("--->  A variable called 'tfNetEnrich' has regulon conservation info between every possible")
-	writeLines("hub pair in each interactome (tissue). This is different from tfPairEnrich,")
-	writeLines("since this occured in each interactome of different hubs while the tfPairEnrich")
-	writeLines("took place in different interactomes of regulons of one same hub gene.")
-	writeLines("It has a list with length of \"varNames\", which means the length of")
-	writeLines("existing interactomes. And each element in the list, there is a matrix")
-	writeLines("that contains the regulon conservation info.")
-	writeLines("Detailed descriptions of the result are:")
-	writeLines("* tfNetEnrich is a list object such that:")
-	writeLines("- length(tfNetEnrich) = length(varNames).")
-	writeLines("- names(tfNetEnrich) = varNames")
-	writeLines("* Let net_name be a value from varNames and let X = get(net_name)")
-	writeLines("Then tfNetEnrich[[net]] is a a symmetric NxN matrix M, where N is the number of hubs")
-	writeLines("in the interactome \"net\" and M[hub1, hub2] = M[hub2, hub1] = -log10(p),")
-	writeLines("where p is the p-value of the FET for the intersection of the regulons of hub1 and hub2.")
-	writeLines("Also, rownames(M) = colnames(M) = rownames(get(net)[[1]]) and M[i,i] = Inf.")
-	writeLines("")
-	writeLines("When computing Fisher's exact test we use the following 2 x 2 contingency matrix:")
-	writeLines("")
-	writeLines("                 Regulon2  No-Regulon2")
-	writeLines("                -----------------------")
-	writeLines("   Regulon1    |     X	          Y")
-	writeLines("   No-Regulon1 |     Z	          W")
-	writeLines("")
-	writeLines("   where:")
-	writeLines("    - X is the size of the interesection of the 2 regulons : the number of shared genes")
-	writeLines("    - Y is the size of the first regulon minus X.")
-	writeLines("    - Z is the size of the other (second) regulon minus X.")
-	writeLines("    - W is the total number of genes in the interactome minus (X plus Y plus Z).")
-	writeLines("The p-value of the FET will be one-sided p-value with alternative = \"greater\" option,")
-	writeLines("which means it is a test of the odds ratio being bigger than 1.\n")
+  writeLines("This workspace contains a number of variable related to the ARACNe networks generated")
+  writeLines("run the command ls() to see the full listing.")
+  
+  writeLines("---> The number of ARACNe networks: K")
+  
+  writeLines("---> One variable for each ARACNe network was generated. These")
+  writeLines("variables are named with tissue names")
+  writeLines("Specifically, each such variable A is a list with two elements:")
+  writeLines("* A[[1]] is a Nx3 matrix, where N is the number of TF is in the original ARACNe network, i.e., the ")
+  writeLines("   number of unique genes B such that (B, C) is a network edge. Each row R in that matrix corresponds")
+  writeLines("   to a single TF B and contains the following data:")
+  writeLines("   ** A[[1]][R,1] is the Gene ID of gene B.")
+  writeLines("   ** A[[1]][R,2] is the index corresponding to B in the list A[[2]] -- this will be explained below.")
+  writeLines("   ** A[[1]][R,3] is the size of the regulon of B in the network, i.e., the number of its predicted targets.")
+  writeLines("* A[[2]] is a list with N items, again each corresponding to a TF in the ARACNe network. The R-th element")
+  writeLines("   of the list contains information related to the TF B for which A[[1]][,2] = R. The R-th list element ")
+  writeLines("   A[[2]][[R]] is a matrix with dimensions M x 5 where M is the size if the regulon of the TF B. Each ")
+  writeLines("   Row S in that matrix corresponds to a predicted target C of B and contains the following data:")
+  writeLines("   ** A[[2]][[R]][S, 1] is the gene ID of gene C. If C is TF and the interaction (C,B) has been seen")
+  writeLines("      before the value of this cell is -(gene ID of gene C).")
+  writeLines("   ** A[[2]][[R]][S, 2] is the mutual information of the edge (B,C), as computed by ARACNe.          ")
+  writeLines("   ** A[[2]][[R]][S, 3] is the Mechanism of Action of the edge (B,C), as computed by ARACNe.")
+  writeLines("   ** A[[2]][[R]][S, 4] is the Likelihood of the edge (B,C), as computed by ARACNe.")
+  writeLines("   ** A[[2]][[R]][S, 3] is the P-value of the edge (B,C), as computed by ARACNe")
+  writeLines("According to the above scheme, the targets of the TF stored at A[[1]][i,] can be found at the list")
+  writeLines("element A[[2]][[A[[1]][i,2]]]. A few more things to note about variable A:")
+  writeLines("* The matrix A[[1]] is ordered according to TF regulon size, with the largest TFs first. ")
+  writeLines("* The targets contained in the matrix A[[2]][[R]] are listed in decreasing order of significance, based on")
+  writeLines("   P-value, with the lowest P-value listed first.\n")
+  
+  writeLines("--->  A matrix called 'pairWise' of dimensions K x K where, for i <> j, pairWise[i, j] is the")
+  writeLines("number of interactions shared between the i-th and the j-th network. The network names are also listed")
+  writeLines("as column and row headings. When i = h then pairWise[i, i] is the number of interactions in the -th")
+  writeLines("network. In both cases, only unique interactions are counted. I.e., if both (A,B) and (B,A) are ")
+  writeLines("reported for a given network then only one of these is taken into consideration in the interaction")
+  writeLines("counts.\n")
+  
+  writeLines("--->  A vector called 'netSizes' with K entries one for each networks. The i-th entry contains the")
+  writeLines("number of unique interactions in network varNames[i], i.e., duplicates have been discarded. The")
+  writeLines("entries in the vector are named	after 'varNames'.\n")
+  
+  writeLines("--->  A variable called 'tfPairEnrich' describing the TF-specific regulon conservation across pairs of")
+  writeLines("interactomes. It comprises the following elements:")
+  writeLines("* tfPairNet[[1]] is a K x K symmetric matrix where the entry [i,i] is zero and the entry [i, j] is")
+  writeLines("  the index within tfPairEnrich[[2]] where the results of the pairwise comparison between the i-th")
+  writeLines("  and the j-th interactome are stored (i and j are indices within the varNames variable).")
+  writeLines("* tfPairEnrich[[2]] is a list with choose(K, 2) elements, each corresponding to a pairwise")
+  writeLines("  interactome comparison. Each element is a N x 5 matrix M where N is the # number of TFs that appear")
+  writeLines("  as hubs both in the i-th and the j-th interactome. Each row corresponds to a TF A and contains the")
+  writeLines("  following 5 columns:")
+  writeLines("  ** The gene id of the TF A.")
+  writeLines("  ** The value round(log(P), 0) where P is the p-value of the the Fisher exact test to assess the size")
+  writeLines("     of the intersection of the regulons of A in the i-th and the j-th interactome.")
+  writeLines("  ** The size of the intersection of the 2 regulons.")
+  writeLines("  ** The size of the regulon of A in the i-th interactome.")
+  writeLines("  ** The size of the regulon of A in the j-th interactome.")
+  writeLines("  Within the matrix M, rows are ordered in increasing value of the 2nd column, i.e., the most enriched")
+  writeLines("  TFs (those with the smallest log(P)) are listed first. When computing Fisher's exact test we use the")
+  writeLines("  following 2 x 2 contingency matrix:")
+  writeLines("               X	Y")
+  writeLines("               Z	W")
+  writeLines("where:")
+  writeLines("* X is the size of the intersection of the 2 regulons.")
+  writeLines("* Y is the size of regulon(A) in the i-th interactome minus X.")
+  writeLines("* Z is the size of regulon(A) in the j-th interactome minus X.")
+  writeLines("* W is the total number of interactions in the j-th interactome minus the size of regulon(A) in the")
+  writeLines("  j-th interactome.")
+  writeLines("Notice that Y, Z, W are normalized based on the size of the intersections of the 2 interactomes.\n")
+  
+  writeLines("--->  A variable called 'tfPairProb' describing the another TF-specific regulon conservation across")
+  writeLines("pairs of interactomes. It comprises the following elements:")
+  writeLines("* tfPairProb[[1]] is a K x K symmetric matrix where the entry [i,i] is zero and the entry [i, j] is")
+  writeLines("  the index within tfPairProb[[2]] where the results of the pairwise comparison between the i-th")
+  writeLines("  and the j-th interactome are stored (i and j are indices within the varNames variable).")
+  writeLines("* tfPairProb[[2]] is a list with choose(K, 2) elements, each corresponding to a pairwise")
+  writeLines("  interactome comparison. Each element is a N x 5 matrix M where N is the # number of TFs that appear")
+  writeLines("  as hubs both in the i-th and the j-th interactome. Each row correponds to a TF A and contains the")
+  writeLines("  following 5 columns:")
+  writeLines("  ** The gene id of the TF A.")
+  writeLines("  ** The value log(P) where P is the probability that a regulon pair share same target genes")
+  writeLines("  ** The size of the intersection of the 2 regulons.")
+  writeLines("  ** The size of the regulon of A in the i-th interactome.")
+  writeLines("  ** The size of the regulon of A in the j-th interactome.")
+  writeLines("  Within the matrix M, rows are ordered in increasing value of the 2nd column.\n")
+  
+  writeLines("--->  A variable called 'tfNetEnrich' has regulon conservation info between every possible")
+  writeLines("hub pair in each interactome (tissue). This is different from tfPairEnrich,")
+  writeLines("since this occurred in each interactome of different hubs while the tfPairEnrich")
+  writeLines("took place in different interactomes of regulons of one same hub gene.")
+  writeLines("It has a list with length of \"varNames\", which means the length of")
+  writeLines("existing interactomes. And each element in the list, there is a matrix")
+  writeLines("that contains the regulon conservation info.")
+  writeLines("Detailed descriptions of the result are:")
+  writeLines("* tfNetEnrich is a list object such that:")
+  writeLines("- length(tfNetEnrich) = length(varNames).")
+  writeLines("- names(tfNetEnrich) = varNames")
+  writeLines("* Let net_name be a value from varNames and let X = get(net_name)")
+  writeLines("Then tfNetEnrich[[net]] is a a symmetric NxN matrix M, where N is the number of hubs")
+  writeLines("in the interactome \"net\" and M[hub1, hub2] = M[hub2, hub1] = -log10(p),")
+  writeLines("where p is the p-value of the FET for the intersection of the regulons of hub1 and hub2.")
+  writeLines("Also, rownames(M) = colnames(M) = rownames(get(net)[[1]]) and M[i,i] = Inf.")
+  writeLines("")
+  writeLines("When computing Fisher's exact test we use the following 2 x 2 contingency matrix:")
+  writeLines("")
+  writeLines("                 Regulon2  No-Regulon2")
+  writeLines("                -----------------------")
+  writeLines("   Regulon1    |     X	          Y")
+  writeLines("   No-Regulon1 |     Z	          W")
+  writeLines("")
+  writeLines("   where:")
+  writeLines("    - X is the size of the intersection of the 2 regulons : the number of shared genes")
+  writeLines("    - Y is the size of the first regulon minus X.")
+  writeLines("    - Z is the size of the other (second) regulon minus X.")
+  writeLines("    - W is the total number of genes in the interactome minus (X plus Y plus Z).")
+  writeLines("The p-value of the FET will be one-sided p-value with alternative = \"greater\" option,")
+  writeLines("which means it is a test of the odds ratio being bigger than 1.\n")
 }
 
 
@@ -433,13 +435,13 @@ README = function(){
 #		after 'varNames'
 # 	-- "pairwise":		Returns a N x N matrix with one row and one column for each
 #		interactome. The [i,j] entry contains the number of interactions shared
-#		by the i-th and j-tj intereactome. The matrix has column and row names,
+#		by the i-th and j-th interactome. The matrix has column and row names,
 #		named after the interactomes
 # 	-- "allUnique":	Returns a vector that contains 2 values
 #		- The number of unique interactions across all networks.
 #		- The number of all interactions across all networks.
 # * filterFUN: Ff nor NULL, 'filterFUN' is expected to be one of the functions 
-# 		is.tf(), is.cotf(), or is.sign(). This fucntion will then be used to filter
+# 		is.tf(), is.cotf(), or is.sign(). This function will then be used to filter
 # 		interactions involving only TF, co-TF, or signaling hubs respectively. If
 # 		filterFUN == NULL, then all interactions are counted.
 # * thresh:	only interactions with p-values <= 'thresh' will be used in the 
@@ -449,184 +451,184 @@ README = function(){
 # Depends on the value of the argument selector, as describe above.
 # *****************************************************************************
 interactionCounts <- function(selector = "single", filterFUN = NULL, thresh = NULL){
-	
-	# Check that argument is OK
-	if (selector != "single" & selector != "pairwise" & selector != "allUnique"){
-		print("The value of the argument should be either 'single' or 'pairwise' or 'allUnique'")
-		stop()
-	}
-	
-	finalCounts = vector(mode="integer", length=length(varNames))
-	fcInd = 1
   
-	if (is.null(filterFUN))
-		filterFUN <- function(e) {return(TRUE)}
-	if (is.null(thresh))
-		thresh = 1
-	
-	if (selector == "single"){
-		# Go over each interactome and count non-duplicate interactions, i.e., 
-		# interactions (A, B) where B is a positive number (A is assummed to
-		# be the TF we are currently traversing).
-		for (i in 1:length(varNames)){
-			count = 0;
-			nList = get(varNames[i])[[2]]
-			for (j in 1:length(nList)){
-				if (filterFUN(names(nList)[j])){
-					x = nList[[j]][,"Target"]
-					y = nList[[j]][x>0, "Pvalue"]
-					count = count + length(y[y <= thresh])
-				}
-			}
-			finalCounts[fcInd] = count
-			fcInd = fcInd + 1
-		}
-		names(finalCounts) = varNames
-		return(finalCounts)
-	}
-	else if (selector == "pairwise"){
-		# Construct the results array and name rows and columns
-		pairCounts = matrix(nrow = length(varNames), ncol = length(varNames))
-		row.names(pairCounts) = varNames
-		colnames(pairCounts) = varNames
-		
-		for (i in 1:length(varNames)){
-			logLines(paste("net1 = ", i))
-			net1 = get(varNames[i])[[1]]
-			net1 = net1[order(net1[,1]),]
-			net1_det = get(varNames[i])[[2]]
-			
-			for (j in (i+1):length(varNames)){
-				if (j > length(varNames))
-					break
-				logLines(paste("\tnet2 = ", j))
-				count = 0
-				net2 = get(varNames[j])[[1]]
-				net2 = net2[order(net2[,1]),]
-				net2_det = get(varNames[j])[[2]]
-				n_1 = 1
-				n_2 = 1
-				# Step down the list of TFs in the two netwroks that are being compared
-				# and look for identical TFs. When such a pair is found we count how many 
-				# interactions they have in common, exluding duplicate interactions
-				while (n_1 <= length(net1[,1]) & n_2 <= length(net2[,1])){
-					if (net1[n_1,1] < net2[n_2, 1])
-						n_1 = n_1 + 1
-					else if (net1[n_1,1] > net2[n_2, 1])
-						n_2 = n_2 + 1
-					else{
-						if (filterFUN(net1[n_1,1])){
-							ind1 = net1[n_1, 2]
-							ind2 = net2[n_2, 2]
-							t1 = net1_det[[ind1]][, "Pvalue"]
-							t2 = net2_det[[ind2]][,"Pvalue"]
-							t1 = t1 <= thresh
-							t2 = t2 <= thresh
-							x = net1_det[[ind1]][t1, "Target"]
-							y = net2_det[[ind2]][t2, "Target"]
-							count = count + length(intersect(x[x>0], y[y>0]))
-						}
-						n_1 = n_1 + 1
-						n_2 = n_2 + 1
-					}
-				}
-				logLines(paste("count = ", count))
-				pairCounts[i,j] = count
-				pairCounts[j,i] = count
-			}
-		}
-		# Finally, count the number of unique interactions in each network and 
-		# populate the diagonal of the results matrix. 
-		x = interactionCounts(thresh = thresh)
-		for (i in 1:length(x))
-			pairCounts[i, i] = x[i]
-		return(pairCounts)
-	}
-	else if (selector == "allUnique"){
-		tfCounts = vector(mode = "integer", length = max_geneId)
-		
-		# Count the number of interactions for each TF, excluding duplicates
-		for (ind in 1:length(varNames)){
-			net = get(varNames[ind])[[1]]
-			netInts = get(varNames[ind])[[2]]
-			L = length(net[,1])
-			for (i in 1:L){
-				if (filterFUN(net[i, 1])){
-					tf_id = net[i,1]
-					tf_ind = net[i,2]
-					t1 = netInts[[tf_ind]][, "Pvalue"]
-					t1 = t1 <= thresh
-					tf_ints = netInts[[tf_ind]][t1,"Target"]
-					count = length(tf_ints[tf_ints>0])
-					tfCounts[tf_id] = tfCounts[tf_id] + count
-				}
-			}
-		}
-		logLines("Done counting the number of targets for all TFs across all nets")
-		
-		# This is the total number of interactions summed up across all networks
-		totCount = sum(tfCounts)
-		
-		# Create the record-keeping apparatus:
-		# - One vector of length N for each TF, when N are the total number of
-		#   targets of TF across all networks.
-		# - One index for each TF, to indicate the next available position in 
-		#   the TFs vector
-		N = length(tfCounts[tfCounts > 0])
-		listOfTargets = list()
-		indVector = vector(mode="integer", length = N)
-		indVector[1:N] = 1
-		j = 1
-		for (i in 1:max_geneId){
-			if (tfCounts[i] > 0){
-				listOfTargets[[j]] = vector(mode="integer", length = tfCounts[i])
-				tfCounts[i] = j
-				j = j + 1
-			}
-		}
-		logLines("Done allocating record-keeping space.")
-		
-		# Now go over all networks again and  populate the TF target vectors
-		for (ind in 1:length(varNames)){
-			net = get(varNames[ind])[[1]]
-			netInts = get(varNames[ind])[[2]]
-			L = length(net[,1])
-			for (i in 1:L){
-				if (filterFUN(net[i, 1])){
-					tf_id = net[i,1]
-					tf_ind = net[i,2]
-					t1 = netInts[[tf_ind]][, "Pvalue"]
-					t1 = t1 <= thresh
-					tf_ints = netInts[[tf_ind]][t1,"Target"]
-					tf_ints = tf_ints[tf_ints>0]
-					# logLines(paste(length(tf_ints)))
-					if (length(tf_ints) > 0){
-						beginIndex = indVector[tfCounts[tf_id]]
-						endIndex = beginIndex + length(tf_ints) - 1
-						listOfTargets[[tfCounts[tf_id]]][beginIndex:endIndex] = tf_ints
-						indVector[tfCounts[tf_id]] = endIndex + 1
-					}
-				}
-			}
-		}
-		
-		# Finally, compute the total number of unique interactions
-		totUniqCount = 0
-		for (i in 1:N)
-			totUniqCount = totUniqCount + length(unique(listOfTargets[[i]]))
-		
-		# Return a vector of size two, containing the total number of unique
-		# interactions and the total number of interactions
-		return(c(totUniqCount, totCount))
-		# return(listOfTargets)
-	}
+  # Check that argument is OK
+  if (selector != "single" & selector != "pairwise" & selector != "allUnique"){
+    print("The value of the argument should be either 'single' or 'pairwise' or 'allUnique'")
+    stop()
+  }
+  
+  finalCounts = vector(mode="integer", length=length(varNames))
+  fcInd = 1
+  
+  if (is.null(filterFUN))
+    filterFUN <- function(e) {return(TRUE)}
+  if (is.null(thresh))
+    thresh = 1
+  
+  if (selector == "single"){
+    # Go over each interactome and count non-duplicate interactions, i.e., 
+    # interactions (A, B) where B is a positive number (A is assummed to
+    # be the TF we are currently traversing).
+    for (i in 1:length(varNames)){
+      count = 0;
+      nList = get(varNames[i])[[2]]
+      for (j in 1:length(nList)){
+        if (filterFUN(names(nList)[j])){
+          x = nList[[j]][,"Target"]
+          y = nList[[j]][x>0, "Pvalue"]
+          count = count + length(y[y <= thresh])
+        }
+      }
+      finalCounts[fcInd] = count
+      fcInd = fcInd + 1
+    }
+    names(finalCounts) = varNames
+    return(finalCounts)
+  }
+  else if (selector == "pairwise"){
+    # Construct the results array and name rows and columns
+    pairCounts = matrix(nrow = length(varNames), ncol = length(varNames))
+    row.names(pairCounts) = varNames
+    colnames(pairCounts) = varNames
+    
+    for (i in 1:length(varNames)){
+      logLines(paste("net1 = ", i))
+      net1 = get(varNames[i])[[1]]
+      net1 = net1[order(net1[,1]),]
+      net1_det = get(varNames[i])[[2]]
+      
+      for (j in (i+1):length(varNames)){
+        if (j > length(varNames))
+          break
+        logLines(paste("\tnet2 = ", j))
+        count = 0
+        net2 = get(varNames[j])[[1]]
+        net2 = net2[order(net2[,1]),]
+        net2_det = get(varNames[j])[[2]]
+        n_1 = 1
+        n_2 = 1
+        # Step down the list of TFs in the two networks that are being compared
+        # and look for identical TFs. When such a pair is found we count how many 
+        # interactions they have in common, excluding duplicate interactions
+        while (n_1 <= length(net1[,1]) & n_2 <= length(net2[,1])){
+          if (net1[n_1,1] < net2[n_2, 1])
+            n_1 = n_1 + 1
+          else if (net1[n_1,1] > net2[n_2, 1])
+            n_2 = n_2 + 1
+          else{
+            if (filterFUN(net1[n_1,1])){
+              ind1 = net1[n_1, 2]
+              ind2 = net2[n_2, 2]
+              t1 = net1_det[[ind1]][, "Pvalue"]
+              t2 = net2_det[[ind2]][,"Pvalue"]
+              t1 = t1 <= thresh
+              t2 = t2 <= thresh
+              x = net1_det[[ind1]][t1, "Target"]
+              y = net2_det[[ind2]][t2, "Target"]
+              count = count + length(intersect(x[x>0], y[y>0]))
+            }
+            n_1 = n_1 + 1
+            n_2 = n_2 + 1
+          }
+        }
+        logLines(paste("count = ", count))
+        pairCounts[i,j] = count
+        pairCounts[j,i] = count
+      }
+    }
+    # Finally, count the number of unique interactions in each network and 
+    # populate the diagonal of the results matrix. 
+    x = interactionCounts(thresh = thresh)
+    for (i in 1:length(x))
+      pairCounts[i, i] = x[i]
+    return(pairCounts)
+  }
+  else if (selector == "allUnique"){
+    tfCounts = vector(mode = "integer", length = max_geneId)
+    
+    # Count the number of interactions for each TF, excluding duplicates
+    for (ind in 1:length(varNames)){
+      net = get(varNames[ind])[[1]]
+      netInts = get(varNames[ind])[[2]]
+      L = length(net[,1])
+      for (i in 1:L){
+        if (filterFUN(net[i, 1])){
+          tf_id = net[i,1]
+          tf_ind = net[i,2]
+          t1 = netInts[[tf_ind]][, "Pvalue"]
+          t1 = t1 <= thresh
+          tf_ints = netInts[[tf_ind]][t1,"Target"]
+          count = length(tf_ints[tf_ints>0])
+          tfCounts[tf_id] = tfCounts[tf_id] + count
+        }
+      }
+    }
+    logLines("Done counting the number of targets for all TFs across all nets")
+    
+    # This is the total number of interactions summed up across all networks
+    totCount = sum(tfCounts)
+    
+    # Create the record-keeping apparatus:
+    # - One vector of length N for each TF, when N are the total number of
+    #   targets of TF across all networks.
+    # - One index for each TF, to indicate the next available position in 
+    #   the TFs vector
+    N = length(tfCounts[tfCounts > 0])
+    listOfTargets = list()
+    indVector = vector(mode="integer", length = N)
+    indVector[1:N] = 1
+    j = 1
+    for (i in 1:max_geneId){
+      if (tfCounts[i] > 0){
+        listOfTargets[[j]] = vector(mode="integer", length = tfCounts[i])
+        tfCounts[i] = j
+        j = j + 1
+      }
+    }
+    logLines("Done allocating record-keeping space.")
+    
+    # Now go over all networks again and  populate the TF target vectors
+    for (ind in 1:length(varNames)){
+      net = get(varNames[ind])[[1]]
+      netInts = get(varNames[ind])[[2]]
+      L = length(net[,1])
+      for (i in 1:L){
+        if (filterFUN(net[i, 1])){
+          tf_id = net[i,1]
+          tf_ind = net[i,2]
+          t1 = netInts[[tf_ind]][, "Pvalue"]
+          t1 = t1 <= thresh
+          tf_ints = netInts[[tf_ind]][t1,"Target"]
+          tf_ints = tf_ints[tf_ints>0]
+          # logLines(paste(length(tf_ints)))
+          if (length(tf_ints) > 0){
+            beginIndex = indVector[tfCounts[tf_id]]
+            endIndex = beginIndex + length(tf_ints) - 1
+            listOfTargets[[tfCounts[tf_id]]][beginIndex:endIndex] = tf_ints
+            indVector[tfCounts[tf_id]] = endIndex + 1
+          }
+        }
+      }
+    }
+    
+    # Finally, compute the total number of unique interactions
+    totUniqCount = 0
+    for (i in 1:N)
+      totUniqCount = totUniqCount + length(unique(listOfTargets[[i]]))
+    
+    # Return a vector of size two, containing the total number of unique
+    # interactions and the total number of interactions
+    return(c(totUniqCount, totCount))
+    # return(listOfTargets)
+  }
 }
 
 
 
 
 # *****************************************************************************
-# Count number of genes in intreractomes.
+# Count number of genes in interactomes.
 #
 # ARGUMENTS:
 # * selector:	What is returned depends on the value of the variable "selector":
@@ -635,176 +637,176 @@ interactionCounts <- function(selector = "single", filterFUN = NULL, thresh = NU
 #		varNames[i], counting both hub genes and targets.
 # 	-- "pairwise":		Returns a N x N matrix with one row and one column for each
 #		interactome (i.e., N = length(varNames)). The [i,j] entry contains the number
-#		 of genes shared by the i-th and j-tj intereactome. The matrix has column 
+#		 of genes shared by the i-th and j-tj interactome. The matrix has column 
 #		and row names named after the interactomes
 #
 # RETURN VALUE:
 # Depends on the value of the argument selector, as describe above.
 # *****************************************************************************
 geneCounts <- function(selector = "single"){
-	intCounts = sapply(varNames, getInteractomeGenes)
-	if (selector == "single"){
-		return(intCounts)
-	}
-	else if (selector == "pairwise"){
-		res = matrix(0, nrow = length(varNames), ncol = length(varNames))
-		rownames(res) = colnames(res) = varNames
-		L = sapply(varNames, function(x){return(getInteractomeGenes(x, count=FALSE))})
-		for (i in 1:(length(varNames) -1)){
-			for (j in (i+1):length(varNames)){
-				res[i, j] = res[j ,i] = length(intersect(L[[i]], L[[j]]))
-			}
-		}
-		for (i in 1:length(varNames))
-			res[i,i] = intCounts[i]
-		return(res)
-	}
-	else
-		stop("Function geneCounts(): No valid value for argument 'selector' provided.")
+  intCounts = sapply(varNames, getInteractomeGenes)
+  if (selector == "single"){
+    return(intCounts)
+  }
+  else if (selector == "pairwise"){
+    res = matrix(0, nrow = length(varNames), ncol = length(varNames))
+    rownames(res) = colnames(res) = varNames
+    L = sapply(varNames, function(x){return(getInteractomeGenes(x, count=FALSE))})
+    for (i in 1:(length(varNames) -1)){
+      for (j in (i+1):length(varNames)){
+        res[i, j] = res[j ,i] = length(intersect(L[[i]], L[[j]]))
+      }
+    }
+    for (i in 1:length(varNames))
+      res[i,i] = intCounts[i]
+    return(res)
+  }
+  else
+    stop("Function geneCounts(): No valid value for argument 'selector' provided.")
 }
 
 
 
 getMissingInteractions <- function(network){
-	
-	# Compile a list of unique TFs in the network
-	uniqueTFs = unique(network[,1])
-	logLines(paste("\tlength(uniqueTFs) = ", length(uniqueTFs)))
-	
-	# Each row corresponds to an EntrezId. The x-th row will be non-zero only
-	# if the gene with EntrezID = x is a TF
-	tfIndices = vector(mode = "integer", length = max_geneId)
-	for (i in 1:length(uniqueTFs))
-		tfIndices[uniqueTFs[i]] = i
-	
-	# Let x, y be TFs with entrez IDs gid_x, gid_y. Let i_x = tfIndices[gid_x]
-	# and i_y = tfIndices[gid_y]. Then pairwiseTFs[i, j] will be set to 1 only
-	# if (x, y) is an interaction in the network
-	pairwiseTFs = matrix(nrow = length(uniqueTFs), ncol = length(uniqueTFs))
-	pairwiseTFs[ , ] = 0
-	
-	# Go over all interaction (x, y) and mark those where both x and y are TFs    
-	countInts = 0
-	L = length(network[, 1])
-	for (i in 1:L){
-		i_x = tfIndices[network[i, 1]]
-		i_y = tfIndices[network[i, 2]]
-		if (i_x != 0 && i_y != 0){
-			countInts = countInts + 1
-			pairwiseTFs[i_x, i_y] = 1
-		} 
-	}
-	
-	# Again, go over all interactions and now record all interactions
-	# (y, x) where x and y are TFs, (x, y) is in the network, and (y, x) is not.
-	# For (y, x) use the numerical values (MI, likelihood, P-value, etc.)
-	# of the (x, y) interaction
-	mat = matrix(nrow = 2*countInts, ncol = 6)
-	mat[ , ] = 0
-	countInts = 0
-	for (i in 1:L){
-		i_x = tfIndices[network[i, 1]]
-		i_y = tfIndices[network[i, 2]]
-		if (i_x != 0 && i_y != 0 && pairwiseTFs[i_y, i_x] != 1){
-			countInts = countInts + 1
-			mat[countInts, 3:6] = network[i, 3:6]
-			mat[countInts, 1] = network[i, 2]
-			mat[countInts, 2] = network[i, 1]
-		}
-	}  
-	
-	# Finally, return only those interactions (y, x) where (x, y) is in the network
-	# but (y, x) is not
-	return(mat[1:countInts,])
+  
+  # Compile a list of unique TFs in the network
+  uniqueTFs = unique(network[,1])
+  logLines(paste("\tlength(uniqueTFs) = ", length(uniqueTFs)))
+  
+  # Each row corresponds to an EntrezId. The x-th row will be non-zero only
+  # if the gene with EntrezID = x is a TF
+  tfIndices = vector(mode = "integer", length = max_geneId)
+  for (i in 1:length(uniqueTFs))
+    tfIndices[uniqueTFs[i]] = i
+  
+  # Let x, y be TFs with entrez IDs gid_x, gid_y. Let i_x = tfIndices[gid_x]
+  # and i_y = tfIndices[gid_y]. Then pairwiseTFs[i, j] will be set to 1 only
+  # if (x, y) is an interaction in the network
+  pairwiseTFs = matrix(nrow = length(uniqueTFs), ncol = length(uniqueTFs))
+  pairwiseTFs[ , ] = 0
+  
+  # Go over all interaction (x, y) and mark those where both x and y are TFs    
+  countInts = 0
+  L = length(network[, 1])
+  for (i in 1:L){
+    i_x = tfIndices[network[i, 1]]
+    i_y = tfIndices[network[i, 2]]
+    if (i_x != 0 && i_y != 0){
+      countInts = countInts + 1
+      pairwiseTFs[i_x, i_y] = 1
+    } 
+  }
+  
+  # Again, go over all interactions and now record all interactions
+  # (y, x) where x and y are TFs, (x, y) is in the network, and (y, x) is not.
+  # For (y, x) use the numerical values (MI, likelihood, P-value, etc.)
+  # of the (x, y) interaction
+  mat = matrix(nrow = 2*countInts, ncol = 6)
+  mat[ , ] = 0
+  countInts = 0
+  for (i in 1:L){
+    i_x = tfIndices[network[i, 1]]
+    i_y = tfIndices[network[i, 2]]
+    if (i_x != 0 && i_y != 0 && pairwiseTFs[i_y, i_x] != 1){
+      countInts = countInts + 1
+      mat[countInts, 3:6] = network[i, 3:6]
+      mat[countInts, 1] = network[i, 2]
+      mat[countInts, 2] = network[i, 1]
+    }
+  }  
+  
+  # Finally, return only those interactions (y, x) where (x, y) is in the network
+  # but (y, x) is not
+  return(mat[1:countInts,])
 }
 
 
 
 panNetwork <- function(){
-	
-	tfCounts = vector(mode = "integer", length = max_geneId)
-	
-	# Count the number of interactions for each TF, excluding duplicates
-	for (ind in 1:length(varNames)){
-		net = get(varNames[ind])[[1]]
-		netInts = get(varNames[ind])[[2]]
-		L = length(net[,1])
-		for (i in 1:L){
-			tf_id = net[i,1]
-			tf_ind = net[i,2]
-			tf_ints = netInts[[tf_ind]][,1]
-			count = length(tf_ints[tf_ints>0])
-			tfCounts[tf_id] = tfCounts[tf_id] + count
-		}
-	}
-	logLines("Done counting the number of targets for all TFs across all nets")
-	
-	# Create the results object, i.e., a list with one entry for each TF. Each entry
-	# comprises a matrix of dimensions M x 6 for each TF, when M is the number of
-	# targets of the TF across all networks. The first column will contain the gene id
-	# of the TF target, columns 2-5 will contain the interaction metrics from the 
-	# ARACNe files, and colunm 6 will contain a number from 1-20 providing the index
-	# in vector varNames[] of the network where the interaction comes from.
-	listOfTargets = list()
-	
-	# Summary object - matrix of size N x 2, where N is the number of TFs, eash entry 
-	# corresponding to one TF. As before:
-	# - mat[i,1] = gene id of i-th TF.
-	# - mat[i,2] = index within the list listOfTargets corresponsing to the i-th TF.
-	N = length(tfCounts[tfCounts > 0])
-	mat = matrix(nrow = N, ncol = 2)
-	
-	# Helper vector, one index for each TF, to indicate the next available position in 
-	# the TFs vector
-	indVector = vector(mode="integer", length = N)
-	indVector[1:N] = 1
-	
-	j = 1
-	for (i in 1:max_geneId){
-		if (tfCounts[i] > 0){
-			mat[j, 1] = i
-			mat[j, 2] = j
-			listOfTargets[[j]] = matrix(nrow = tfCounts[i], ncol = 6)
-			tfCounts[i] = j
-			j = j + 1
-		}
-	}
-	logLines("Done allocating record-keeping space.")
-	
-	# Now go over all networks again and  populate the TF target vectors
-	for (ind in 1:length(varNames)){
-		net = get(varNames[ind])[[1]]
-		netInts = get(varNames[ind])[[2]]
-		L = length(net[,1])
-		logLines(paste("L = ", L))
-		for (i in 1:L){
-			tf_id = net[i,1]
-			tf_ind = net[i,2]
-			tf_ints = netInts[[tf_ind]]
-			tf_ints = tf_ints[tf_ints[,1]>0,, drop=FALSE]
-			if (length(tf_ints[,1]) > 0){
-				beginIndex = indVector[tfCounts[tf_id]]
-				endIndex = beginIndex + length(tf_ints[,1]) - 1
-				listOfTargets[[tfCounts[tf_id]]][beginIndex:endIndex, 1:5] = tf_ints[, 1:5]
-				listOfTargets[[tfCounts[tf_id]]][beginIndex:endIndex, 6] = ind
-				indVector[tfCounts[tf_id]] = endIndex + 1
-			}
-		}
-	}
-	
-	
-	# Order target lists first by p-value and then by ID. This will guarantee that target gene IDs 
-	# appear in increasing order and that, for all interactions involving the same target,
-	# interactions appear in order of significance, i.e., smallest p-value first.
-	for (i in 1:N){
-		listOfTargets[[i]] = listOfTargets[[i]][order(listOfTargets[[i]][,5]),]
-		listOfTargets[[i]] = listOfTargets[[i]][order(listOfTargets[[i]][,1]),]
-	}
-	
-	results = list()
-	results[[1]] = mat
-	results[[2]] = listOfTargets
-	return(results)
+  
+  tfCounts = vector(mode = "integer", length = max_geneId)
+  
+  # Count the number of interactions for each TF, excluding duplicates
+  for (ind in 1:length(varNames)){
+    net = get(varNames[ind])[[1]]
+    netInts = get(varNames[ind])[[2]]
+    L = length(net[,1])
+    for (i in 1:L){
+      tf_id = net[i,1]
+      tf_ind = net[i,2]
+      tf_ints = netInts[[tf_ind]][,1]
+      count = length(tf_ints[tf_ints>0])
+      tfCounts[tf_id] = tfCounts[tf_id] + count
+    }
+  }
+  logLines("Done counting the number of targets for all TFs across all nets")
+  
+  # Create the results object, i.e., a list with one entry for each TF. Each entry
+  # comprises a matrix of dimensions M x 6 for each TF, when M is the number of
+  # targets of the TF across all networks. The first column will contain the gene id
+  # of the TF target, columns 2-5 will contain the interaction metrics from the 
+  # ARACNe files, and column 6 will contain a number from 1-20 providing the index
+  # in vector varNames[] of the network where the interaction comes from.
+  listOfTargets = list()
+  
+  # Summary object - matrix of size N x 2, where N is the number of TFs, eash entry 
+  # corresponding to one TF. As before:
+  # - mat[i,1] = gene id of i-th TF.
+  # - mat[i,2] = index within the list listOfTargets corresponding to the i-th TF.
+  N = length(tfCounts[tfCounts > 0])
+  mat = matrix(nrow = N, ncol = 2)
+  
+  # Helper vector, one index for each TF, to indicate the next available position in 
+  # the TFs vector
+  indVector = vector(mode="integer", length = N)
+  indVector[1:N] = 1
+  
+  j = 1
+  for (i in 1:max_geneId){
+    if (tfCounts[i] > 0){
+      mat[j, 1] = i
+      mat[j, 2] = j
+      listOfTargets[[j]] = matrix(nrow = tfCounts[i], ncol = 6)
+      tfCounts[i] = j
+      j = j + 1
+    }
+  }
+  logLines("Done allocating record-keeping space.")
+  
+  # Now go over all networks again and  populate the TF target vectors
+  for (ind in 1:length(varNames)){
+    net = get(varNames[ind])[[1]]
+    netInts = get(varNames[ind])[[2]]
+    L = length(net[,1])
+    logLines(paste("L = ", L))
+    for (i in 1:L){
+      tf_id = net[i,1]
+      tf_ind = net[i,2]
+      tf_ints = netInts[[tf_ind]]
+      tf_ints = tf_ints[tf_ints[,1]>0,, drop=FALSE]
+      if (length(tf_ints[,1]) > 0){
+        beginIndex = indVector[tfCounts[tf_id]]
+        endIndex = beginIndex + length(tf_ints[,1]) - 1
+        listOfTargets[[tfCounts[tf_id]]][beginIndex:endIndex, 1:5] = tf_ints[, 1:5]
+        listOfTargets[[tfCounts[tf_id]]][beginIndex:endIndex, 6] = ind
+        indVector[tfCounts[tf_id]] = endIndex + 1
+      }
+    }
+  }
+  
+  
+  # Order target lists first by p-value and then by ID. This will guarantee that target gene IDs 
+  # appear in increasing order and that, for all interactions involving the same target,
+  # interactions appear in order of significance, i.e., smallest p-value first.
+  for (i in 1:N){
+    listOfTargets[[i]] = listOfTargets[[i]][order(listOfTargets[[i]][,5]),]
+    listOfTargets[[i]] = listOfTargets[[i]][order(listOfTargets[[i]][,1]),]
+  }
+  
+  results = list()
+  results[[1]] = mat
+  results[[2]] = listOfTargets
+  return(results)
 }
 
 
@@ -816,22 +818,22 @@ panNetwork <- function(){
 # * norm_method:	This arguments determines how the normalization of regulon
 #		sizes is implemented for the the FET calculation. There are two choices
 #		(see below for details):
-#		- "interactions":	nornalize based on the number of shared interactions
+#		- "interactions":	normalize based on the number of shared interactions
 #				between the two interactomes being compared.
 #		- "genes":			normalize based on the number of shared genes
 #				between the two interactomes being compared.
 #
 # RETURN VALUE
 # Return a 'results' object that is a list of 2 members:
-# results[[1]]:	A N x N symetric matrix (N = length(varNames)) where the entry 
+# results[[1]]:	A N x N symmetric matrix (N = length(varNames)) where the entry 
 #	[i,i] is zero and the entry [i, j] is the index within results[[2]] where 
 #	the results of the pairwise comparison between the i-th and the j-th 
 #	interactome are stored (i and j are indices within the varNames
 #	variable).
 # results[[2]]:	A list with choose(length(varNames), 2) elements, each 
-#	corresponding toa pairwise interactome comparison. Each element is a N x 5 
+#	corresponding to a pairwise interactome comparison. Each element is a N x 5 
 # 	matrix M where N is the number of TFs that appear as hubs both in the 
-#	i-th and the j-th interactome. Each row correponds to a TF A and
+#	i-th and the j-th interactome. Each row corresponds to a TF A and
 #	contains the following 5 columns:
 #	* The gene id of the TF A.
 #	* The value round(log(P), 0) where P is the p-value of the the Fisher
@@ -858,7 +860,7 @@ panNetwork <- function(){
 #
 # Notice that Y, Z, W are normalized based on the size of the intersections of
 # the 2 interactomes. This is a little tricky. In the typical FET setup, there
-# is a single usiversal set of objects which is the source of elements for the 
+# is a single universal set of objects which is the source of elements for the 
 # 2 sets whose intersection we are assessing. Here instead, the 2 sets are 
 # regulons A,B (for the same TF) coming from different interactomes N1 and N2 
 # which are not identical. Rather, they have both shared and non-shared 
@@ -875,99 +877,99 @@ panNetwork <- function(){
 # N1, N2, and I.
 # *****************************************************************************
 tfPairEnrichment <- function(norm_method = "interactions"){
-	
-	# The results objects
-	mat = matrix(0, nrow=length(varNames), ncol=length(varNames))
-	enrichmentScores = list()
-	row.names(mat) = varNames
-	colnames(mat) = varNames
-	listLocation = 1
-	
-	for (i in 1:(length(varNames) - 1)){
-		logLines(paste("net1 = ", i))
-		net1 = get(varNames[i])[[1]]
-		net1 = net1[order(net1[,1]),]
-		net1_det = get(varNames[i])[[2]]
-		
-		for (j in (i+1):length(varNames)){
-			logLines(paste("\tnet2 = ", j))
-			count = 0
-			net2 = get(varNames[j])[[1]]
-			net2 = net2[order(net2[,1]),]
-			net2_det = get(varNames[j])[[2]]         
-			
-			# Size of the intersection of the 2 interectomes, needed to normalize
-			# the regulon sizes for FET calcuation below.
-			if (norm_method == "interactions"){
-				sizeInt = pairWise[i, j]
-				size1 = netSizes[i]
-				size2 = netSizes[j]
-			}
-			else if (norm_method == "genes"){
-				if (!exists("pairwiseGeneCounts"))
-					pairwiseGeneCounts = geneCounts("pairwise")
-				sizeInt = pairwiseGeneCounts[i, j]
-				size1 = pairwiseGeneCounts[i, i]
-				size2 = pairwiseGeneCounts[j, j]
-			}
-			
-			enrichmentMat = matrix(nrow = length(intersect(net1[,1], net2[,1])), ncol = 5)
-			
-			n_1 = 1
-			n_2 = 1
-			pos = 1
-			# Step down the list of TFs in the two netwroks that are being compared
-			# and look for identical TFs. When such a pair is found we count how many 
-			# interactions they have in common, excluding duplicate interactions
-			while (n_1 <= length(net1[,1]) & n_2 <= length(net2[,1])){
-				if (net1[n_1,1] < net2[n_2, 1])
-					n_1 = n_1 + 1
-				else if (net1[n_1,1] > net2[n_2, 1])
-					n_2 = n_2 + 1
-				else{
-					ind1 = net1[n_1, 2]
-					ind2 = net2[n_2, 2]
-					reg1 = abs(net1_det[[ind1]][,1])
-					reg2 = abs(net2_det[[ind2]][,1])
-					
-					#Normalized regulon sizes
-					reg1_norm = round(length(reg1) * sizeInt/size1, 0)
-					reg2_norm = round(length(reg2) * sizeInt/size2, 0)
-					common_targets = intersect(reg1, reg2)
-					common = length(common_targets)
-					r1_minus_r2 = max(reg1_norm, common) - common
-					r2_minus_r1 = max(reg2_norm, common) - common
-					remainder = sizeInt - (common + r1_minus_r2 + r2_minus_r1)
-					fet = fisher.test(rbind(c(common, r1_minus_r2), c(r2_minus_r1, remainder)), alternative = "greater")
-					
-					enrichmentMat[pos, 1] = net1[n_1,1]
-					enrichmentMat[pos, 2] = round(log10(fet[[1]]))
-					enrichmentMat[pos, 3] = common
-					enrichmentMat[pos, 4] = length(reg1)
-					enrichmentMat[pos, 5] = length(reg2)
-					
-					pos = pos + 1
-					n_1 = n_1 + 1
-					n_2 = n_2 + 1
-					
-				}
-			}
-			
-			enrichmentMat = enrichmentMat[order(enrichmentMat[,2]),]
-			rownames(enrichmentMat) = enrichmentMat[,1]
-			colnames(enrichmentMat) = c("hub_gene", "log10_pval", "common", "regulon1", "regulon2")
-			
-			# Update the results objects
-			enrichmentScores[[listLocation]] = enrichmentMat
-			mat[i, j] = listLocation
-			mat[j, i] = listLocation
-			listLocation = listLocation + 1
-		}
-	}
-	results = list()
-	results[[1]] = mat
-	results[[2]] = enrichmentScores
-	return(results)
+  
+  # The results objects
+  mat = matrix(0, nrow=length(varNames), ncol=length(varNames))
+  enrichmentScores = list()
+  row.names(mat) = varNames
+  colnames(mat) = varNames
+  listLocation = 1
+  
+  for (i in 1:(length(varNames) - 1)){
+    logLines(paste("net1 = ", i))
+    net1 = get(varNames[i])[[1]]
+    net1 = net1[order(net1[,1]),]
+    net1_det = get(varNames[i])[[2]]
+    
+    for (j in (i+1):length(varNames)){
+      logLines(paste("\tnet2 = ", j))
+      count = 0
+      net2 = get(varNames[j])[[1]]
+      net2 = net2[order(net2[,1]),]
+      net2_det = get(varNames[j])[[2]]         
+      
+      # Size of the intersection of the 2 interactomes, needed to normalize
+      # the regulon sizes for FET calculation below.
+      if (norm_method == "interactions"){
+        sizeInt = pairWise[i, j]
+        size1 = netSizes[i]
+        size2 = netSizes[j]
+      }
+      else if (norm_method == "genes"){
+        if (!exists("pairwiseGeneCounts"))
+          pairwiseGeneCounts = geneCounts("pairwise")
+        sizeInt = pairwiseGeneCounts[i, j]
+        size1 = pairwiseGeneCounts[i, i]
+        size2 = pairwiseGeneCounts[j, j]
+      }
+      
+      enrichmentMat = matrix(nrow = length(intersect(net1[,1], net2[,1])), ncol = 5)
+      
+      n_1 = 1
+      n_2 = 1
+      pos = 1
+      # Step down the list of TFs in the two networks that are being compared
+      # and look for identical TFs. When such a pair is found we count how many 
+      # interactions they have in common, excluding duplicate interactions
+      while (n_1 <= length(net1[,1]) & n_2 <= length(net2[,1])){
+        if (net1[n_1,1] < net2[n_2, 1])
+          n_1 = n_1 + 1
+        else if (net1[n_1,1] > net2[n_2, 1])
+          n_2 = n_2 + 1
+        else{
+          ind1 = net1[n_1, 2]
+          ind2 = net2[n_2, 2]
+          reg1 = abs(net1_det[[ind1]][,1])
+          reg2 = abs(net2_det[[ind2]][,1])
+          
+          #Normalized regulon sizes
+          reg1_norm = round(length(reg1) * sizeInt/size1, 0)
+          reg2_norm = round(length(reg2) * sizeInt/size2, 0)
+          common_targets = intersect(reg1, reg2)
+          common = length(common_targets)
+          r1_minus_r2 = max(reg1_norm, common) - common
+          r2_minus_r1 = max(reg2_norm, common) - common
+          remainder = sizeInt - (common + r1_minus_r2 + r2_minus_r1)
+          fet = fisher.test(rbind(c(common, r1_minus_r2), c(r2_minus_r1, remainder)), alternative = "greater")
+          
+          enrichmentMat[pos, 1] = net1[n_1,1]
+          enrichmentMat[pos, 2] = round(log10(fet[[1]]))
+          enrichmentMat[pos, 3] = common
+          enrichmentMat[pos, 4] = length(reg1)
+          enrichmentMat[pos, 5] = length(reg2)
+          
+          pos = pos + 1
+          n_1 = n_1 + 1
+          n_2 = n_2 + 1
+          
+        }
+      }
+      
+      enrichmentMat = enrichmentMat[order(enrichmentMat[,2]),]
+      rownames(enrichmentMat) = enrichmentMat[,1]
+      colnames(enrichmentMat) = c("hub_gene", "log10_pval", "common", "regulon1", "regulon2")
+      
+      # Update the results objects
+      enrichmentScores[[listLocation]] = enrichmentMat
+      mat[i, j] = listLocation
+      mat[j, i] = listLocation
+      listLocation = listLocation + 1
+    }
+  }
+  results = list()
+  results[[1]] = mat
+  results[[2]] = enrichmentScores
+  return(results)
 }   
 
 
@@ -1017,8 +1019,8 @@ tfPairProbability <- function() {
       net2_det = get(varNames[j])[[2]]         
       size2 = netSizes[j]
       
-      # Size of the intersection of the 2 interectomes, needed to normalize
-      # the regulon sizes for FET calcuation below.
+      # Size of the intersection of the 2 interactomes, needed to normalize
+      # the regulon sizes for FET calculation below.
       sizeInt = pairWise[i, j]
       
       probMat = matrix(nrow = length(intersect(net1[,1], net2[,1])), ncol = 5)
@@ -1026,9 +1028,9 @@ tfPairProbability <- function() {
       n_1 = 1
       n_2 = 1
       pos = 1
-      # Step down the list of TFs in the two netwroks that are being compared
+      # Step down the list of TFs in the two networks that are being compared
       # and look for identical TFs. When such a pair is found we count how many 
-      # interactions they have in common, exluding duplicate interactions
+      # interactions they have in common, excluding duplicate interactions
       while (n_1 <= length(net1[,1]) & n_2 <= length(net2[,1])){
         if (net1[n_1,1] < net2[n_2, 1])
           n_1 = n_1 + 1
@@ -1125,91 +1127,91 @@ tfPairProbability <- function() {
 #
 # *****************************************************************************
 tfNetEnrichment <- function(partialFileDir=NULL) {
-	
-	### calculate the total number of genes for each interactome
-	### this will be used in FET calculation later
-	totalGeneCounts <- geneCounts("single")
-	
-	### create the results list (a named list),  with one entry per interactome
-	tfNetEnrich <- vector("list", length = length(varNames))
-	names(tfNetEnrich) <- varNames
-	
-	### the process runs on every interactome in varNames
-	for(net in varNames) {
-	  
-		### write a log for each process run
-	  logLines(paste("Processing interactome ->", net))
-		
-		### get the interactome object
-		X <- get(net)
-		
-		### create an empty matrix for current interactome
-		tfNetEnrich[[net]] <- matrix(NA, nrow = nrow(X[[1]]), ncol = nrow(X[[1]]))
-		rownames(tfNetEnrich[[net]]) <- rownames(X[[1]])
-		colnames(tfNetEnrich[[net]]) <- rownames(X[[1]])
-		
-		### the process runs on every hub in a given interactome
-		for(j in 1:(nrow(tfNetEnrich[[net]])-1)) {
-		  
-		  ### write a log for each process run
-			logLines(paste("\tProcessing hub # ->", j))
-		  
-		  ### get the given hub
-			hub1 = rownames(tfNetEnrich[[net]])[j]
-			
-			### make an empty vector to store p-value of FET
-			### this will be forwarded to the matrix later
-			### since direct save to a matrix takes ridiculously slow
-			buf_vec <- NULL
-			
-			### Compare hub1 with all other hubs in the interactome
-			for(k in (j+1):ncol(tfNetEnrich[[net]])) {
-			  
-			  ### get a second hub for comparison
-			  hub2 <- colnames(tfNetEnrich[[net]])[k]
-			  
-				### set the second column - p-value of FET between two regulons (conservativeness)
-				reg1 <- rownames(X[[2]][[hub1]])
-				reg2 <- rownames(X[[2]][[hub2]])
-				common <- length(intersect(reg1, reg2))
-				r1_minus_r2 <- length(reg1) - common
-				r2_minus_r1 <- length(reg2) - common
-				remainder <- totalGeneCounts[net] - (common + r1_minus_r2 + r2_minus_r1)
-				buf_vec <- c(buf_vec, -log10(fisher.test(rbind(c(common, r1_minus_r2), c(r2_minus_r1, remainder)), alternative = "greater")$p.value))
-				
-			}
-			
-			### store the p-value of FET in the matrix
-			### vectorized approach
-			tfNetEnrich[[net]][hub1,(j+1):ncol(tfNetEnrich[[net]])] <- buf_vec
-			
-		}
-		
-		### tfNetEnrich[[net]][i,i] = Inf
-		diag(tfNetEnrich[[net]]) <- Inf
-		
-		### there are some already-calculated stuffs since FET(X,Y) == FET(Y,X)
-		### just copy them into the appropriate places
-		tfNetEnrich[[net]][lower.tri(tfNetEnrich[[net]])] <- t(tfNetEnrich[[net]])[lower.tri(tfNetEnrich[[net]])]
-		
-		### sort the matrix
-		tfNetEnrich[[net]] <- tfNetEnrich[[net]][order(as.integer(rownames(tfNetEnrich[[net]]))), order(as.integer(colnames(tfNetEnrich[[net]])))]
-		
-		### if the partialFileDir is set, save the result (for the current tissue) in RDA
-		if(!is.null(partialFileDir)) {
-		  assign(paste0("tfNetEnrich_", net), tfNetEnrich[[net]], envir = globalenv())
-		  save(list = c(paste0("tfNetEnrich_", net)), file = paste0(partialFileDir, "tfNetEnrich_", net, ".rda"))
-		  rm(list = c(paste0("tfNetEnrich_", net)))
-		}
-		
-		### garbage collection
-		gc()
-		
-	}
-	
-	### return the result
-	return(tfNetEnrich)
-	
+  
+  ### calculate the total number of genes for each interactome
+  ### this will be used in FET calculation later
+  totalGeneCounts <- geneCounts("single")
+  
+  ### create the results list (a named list),  with one entry per interactome
+  tfNetEnrich <- vector("list", length = length(varNames))
+  names(tfNetEnrich) <- varNames
+  
+  ### the process runs on every interactome in varNames
+  for(net in varNames) {
+    
+    ### write a log for each process run
+    logLines(paste("Processing interactome ->", net))
+    
+    ### get the interactome object
+    X <- get(net)
+    
+    ### create an empty matrix for current interactome
+    tfNetEnrich[[net]] <- matrix(NA, nrow = nrow(X[[1]]), ncol = nrow(X[[1]]))
+    rownames(tfNetEnrich[[net]]) <- rownames(X[[1]])
+    colnames(tfNetEnrich[[net]]) <- rownames(X[[1]])
+    
+    ### the process runs on every hub in a given interactome
+    for(j in 1:(nrow(tfNetEnrich[[net]])-1)) {
+      
+      ### write a log for each process run
+      logLines(paste("\tProcessing hub # ->", j))
+      
+      ### get the given hub
+      hub1 = rownames(tfNetEnrich[[net]])[j]
+      
+      ### make an empty vector to store p-value of FET
+      ### this will be forwarded to the matrix later
+      ### since direct save to a matrix takes ridiculously slow
+      buf_vec <- NULL
+      
+      ### Compare hub1 with all other hubs in the interactome
+      for(k in (j+1):ncol(tfNetEnrich[[net]])) {
+        
+        ### get a second hub for comparison
+        hub2 <- colnames(tfNetEnrich[[net]])[k]
+        
+        ### set the second column - p-value of FET between two regulons (conservativeness)
+        reg1 <- rownames(X[[2]][[hub1]])
+        reg2 <- rownames(X[[2]][[hub2]])
+        common <- length(intersect(reg1, reg2))
+        r1_minus_r2 <- length(reg1) - common
+        r2_minus_r1 <- length(reg2) - common
+        remainder <- totalGeneCounts[net] - (common + r1_minus_r2 + r2_minus_r1)
+        buf_vec <- c(buf_vec, -log10(fisher.test(rbind(c(common, r1_minus_r2), c(r2_minus_r1, remainder)), alternative = "greater")$p.value))
+        
+      }
+      
+      ### store the p-value of FET in the matrix
+      ### vectorized approach
+      tfNetEnrich[[net]][hub1,(j+1):ncol(tfNetEnrich[[net]])] <- buf_vec
+      
+    }
+    
+    ### tfNetEnrich[[net]][i,i] = Inf
+    diag(tfNetEnrich[[net]]) <- Inf
+    
+    ### there are some already-calculated stuffs since FET(X,Y) == FET(Y,X)
+    ### just copy them into the appropriate places
+    tfNetEnrich[[net]][lower.tri(tfNetEnrich[[net]])] <- t(tfNetEnrich[[net]])[lower.tri(tfNetEnrich[[net]])]
+    
+    ### sort the matrix
+    tfNetEnrich[[net]] <- tfNetEnrich[[net]][order(as.integer(rownames(tfNetEnrich[[net]]))), order(as.integer(colnames(tfNetEnrich[[net]])))]
+    
+    ### if the partialFileDir is set, save the result (for the current tissue) in RDA
+    if(!is.null(partialFileDir)) {
+      assign(paste0("tfNetEnrich_", net), tfNetEnrich[[net]], envir = globalenv())
+      save(list = c(paste0("tfNetEnrich_", net)), file = paste0(partialFileDir, "tfNetEnrich_", net, ".rda"))
+      rm(list = c(paste0("tfNetEnrich_", net)))
+    }
+    
+    ### garbage collection
+    gc()
+    
+  }
+  
+  ### return the result
+  return(tfNetEnrich)
+  
 }
 
 
@@ -1222,10 +1224,10 @@ tfNetEnrichment <- function(partialFileDir=NULL) {
 #		the query TF gene. 
 # * net:	The network to use. This is either a string from those named in 
 #		varNames, or the actual ARACNe network variable, or NULL. In the 
-#		first two cases the function retuls the regulon of the TF from the
+#		first two cases the function returns the regulon of the TF from the
 #		specified network. Otherwise regulons for all networks are returned.
 # * mode:	Specifies how much data to return:
-#	* "all": Return the full M x 5 matrix correspondins to the query gene A
+#	* "all": Return the full M x 5 matrix corresponding to the query gene A
 #		from net[[2]][[index(A)]].
 #	* "ids": Return a vector V with the ids of the target genes in the regulon.
 # * mi:		MI threshold. Returns only interactions whose MI is at least as 
@@ -1239,41 +1241,41 @@ tfNetEnrichment <- function(partialFileDir=NULL) {
 # for the corresponding network.
 # *****************************************************************************
 getRegulon <- function(geneHub, net = NULL, mode="ids", mi = 0, pval = 1){
-	geneHub = strtoi(as.entrezId(geneHub))
-	if (is.na(geneHub))
-		return(NULL)
-	
-	if (is.null(net))
-		return(sapply(varNames, function(e){return(getRegulon(geneHub, e, mode, mi, pval))}))
-	
-	# Make sure the name of the network exists
-	if (is.character(net))
-		if(net %in% varNames)
-			net = get(net)
-		else
-			return(NULL)
-	
-	x = net[[1]]
-	ind = x[x[,1] == geneHub, 2]
-	if (length(ind) > 0){
-		mat = net[[2]][[ind]]
-		sel = (mat[, "MI"] >= mi) & (mat[, "Pvalue"] <= pval)
-		if (length(sel)== 0 | sum(sel)==0)
-			return(NULL)
-		mat = mat[sel, , drop=FALSE]
-		if (mode == "all"){
-			mat[,1] = abs(mat[,1])
-			return(mat)
-		}
-		if (mode == "ids"){
-			#res = abs(mat[,1])
-			#names(res) = NULL
-			#return(res)
-			return(abs(mat[,1]))
-		}
-	}
-	else
-		return(NULL)
+  geneHub = strtoi(as.entrezId(geneHub))
+  if (is.na(geneHub))
+    return(NULL)
+  
+  if (is.null(net))
+    return(sapply(varNames, function(e){return(getRegulon(geneHub, e, mode, mi, pval))}))
+  
+  # Make sure the name of the network exists
+  if (is.character(net))
+    if(net %in% varNames)
+      net = get(net)
+    else
+      return(NULL)
+    
+    x = net[[1]]
+    ind = x[x[,1] == geneHub, 2]
+    if (length(ind) > 0){
+      mat = net[[2]][[ind]]
+      sel = (mat[, "MI"] >= mi) & (mat[, "Pvalue"] <= pval)
+      if (length(sel)== 0 | sum(sel)==0)
+        return(NULL)
+      mat = mat[sel, , drop=FALSE]
+      if (mode == "all"){
+        mat[,1] = abs(mat[,1])
+        return(mat)
+      }
+      if (mode == "ids"){
+        #res = abs(mat[,1])
+        #names(res) = NULL
+        #return(res)
+        return(abs(mat[,1]))
+      }
+    }
+    else
+      return(NULL)
 }
 
 
@@ -1305,34 +1307,34 @@ getRegulon <- function(geneHub, net = NULL, mode="ids", mi = 0, pval = 1){
 # *****************************************************************************
 
 getManyRegulons <- function(gene_hubs, nets = NULL, mode = c("shared", "all")){
-	gene_hubs = as.entrezId(gene_hubs)
-	
-	if (is.null(nets))
-		nets = varNames
-	if (!is.character(nets))
-		return(NULL)
-	
-	res = lapply(nets, function(net){
-				net = get(net)
-				
-				regs = sapply(gene_hubs, function(hub){
-							return(getRegulon(hub, net = net))
-						})
-				if (mode[1] == "shared")
-					fun = intersect
-				else
-					fun = union
-				targets = Reduce(fun, regs)
-				return(targets)
-			})
-	names(res) = nets
-	return(res)
+  gene_hubs = as.entrezId(gene_hubs)
+  
+  if (is.null(nets))
+    nets = varNames
+  if (!is.character(nets))
+    return(NULL)
+  
+  res = lapply(nets, function(net){
+    net = get(net)
+    
+    regs = sapply(gene_hubs, function(hub){
+      return(getRegulon(hub, net = net))
+    })
+    if (mode[1] == "shared")
+      fun = intersect
+    else
+      fun = union
+    targets = Reduce(fun, regs)
+    return(targets)
+  })
+  names(res) = nets
+  return(res)
 }
 
 
 # *****************************************************************************
-# Run pathway enrichment anaysis for the targets of a hub gene that appear 
-# mulitple times across different interactomes.
+# Run pathway enrichment analysis for the targets of a hub gene that appear 
+# multiple times across different interactomes.
 #
 # Given a query hub gene H, this method tabulates the interactions in the regulon
 # of H across a user-specified set of interactomes, counting only interactions that
@@ -1403,7 +1405,7 @@ regulonAnnotation <- function(gene, nets = varNames, top = 100, heatMap = TRUE, 
 #		metrics for the interaction (regulator_i, geneID) from the ARARCNe network.
 # * net:	The network(s) to use. This is either vector that is a subset of 
 #		varNames or the actual ARACNe network variable. If 'net' == NULL then
-#		regulators for each tunor are returned.
+#		regulators for each tumor are returned.
 # * mi:		Only interactions with MI >= than this threshold are considered.
 # * pval:	Only interactions with p-value <= than this threshold are considered.
 # 
@@ -1411,14 +1413,14 @@ regulonAnnotation <- function(gene, nets = varNames, top = 100, heatMap = TRUE, 
 # If 'net' == NULL return a list with one entry one for each interactome in varNames, 
 # each entry being the vector V or matrix M described above for the corresponding 
 # interactome. if 'net' is a subset of varNames returns a list as above, but only
-# with entres corresponding to the networks in 'net'.	
+# with entries corresponding to the networks in 'net'.	
 # *****************************************************************************
 getRegulators <- function(geneID, mode = "ids", net = NULL, mi = 0, pval = 1){
- 
-    geneID =  as.entrezId(geneID)
-	if (is.na(geneID))
-		return(NULL)
-   
+  
+  geneID =  as.entrezId(geneID)
+  if (is.na(geneID))
+    return(NULL)
+  
   if (is.null(net))
     return(sapply(varNames, function(e){return(getRegulators(geneID, mode, e, mi, pval))}))
   if (is.character(net) && (length(net) > 1))
@@ -1461,7 +1463,7 @@ getRegulators <- function(geneID, mode = "ids", net = NULL, mi = 0, pval = 1){
 # Returns a list L comprising 2 members:
 # * L[[1]]: this is a vector containing the gene IDs of the genes that 
 #		comprise the intersection of the 2 regulons.
-# * L[[2]]: this is a vector containing the following vaulues:
+# * L[[2]]: this is a vector containing the following values:
 #	** geneID
 #	** the log10 p-value of the FET test.
 #	** the number of genes in the intersection of the 2 regulons (i.g., |L[[1]]|
@@ -1470,40 +1472,40 @@ getRegulators <- function(geneID, mode = "ids", net = NULL, mi = 0, pval = 1){
 # *****************************************************************************
 
 getConservedRegulon <- function(gene, net1_name, net2_name){
-	gene = as.entrezId(gene)
-	if (is.na(gene))
-		return(NULL)
-	
-	if (!is.character(net1_name) | !is.character(net2_name))
-		stop("Interactome names must be strings")
-	if (is.character(net1_name) & is.character(net2_name)){
-		# Check that the network names exist
-		if(!all(net1_name %in% varNames, net2_name %in% varNames))
-			return(NULL)
-		
-		net1 = get(net1_name)
-		net2 = get(net2_name)
-	}
-	
-	x = net1[[1]]
-	ind = x[x[,1] == gene, 2]
-	if (length(ind) == 0)
-		return(NULL)
-	reg1 = abs(net1[[2]][[ind]][,1])
-	
-	x = net2[[1]]
-	ind = x[x[,1] == gene, 2]
-	if (length(ind) == 0)
-		return(NULL)
-	reg2 = abs(net2[[2]][[ind]][,1])
-	common_targets = intersect(reg1, reg2)
-	
-	x = tfPairEnrich[[2]][[tfPairEnrich[[1]][net1_name, net2_name]]]
-	results = list()
-	results[[1]] = common_targets
-	results[[2]] = x[x[,1] == gene	,]
-	
-	return(results)
+  gene = as.entrezId(gene)
+  if (is.na(gene))
+    return(NULL)
+  
+  if (!is.character(net1_name) | !is.character(net2_name))
+    stop("Interactome names must be strings")
+  if (is.character(net1_name) & is.character(net2_name)){
+    # Check that the network names exist
+    if(!all(net1_name %in% varNames, net2_name %in% varNames))
+      return(NULL)
+    
+    net1 = get(net1_name)
+    net2 = get(net2_name)
+  }
+  
+  x = net1[[1]]
+  ind = x[x[,1] == gene, 2]
+  if (length(ind) == 0)
+    return(NULL)
+  reg1 = abs(net1[[2]][[ind]][,1])
+  
+  x = net2[[1]]
+  ind = x[x[,1] == gene, 2]
+  if (length(ind) == 0)
+    return(NULL)
+  reg2 = abs(net2[[2]][[ind]][,1])
+  common_targets = intersect(reg1, reg2)
+  
+  x = tfPairEnrich[[2]][[tfPairEnrich[[1]][net1_name, net2_name]]]
+  results = list()
+  results[[1]] = common_targets
+  results[[2]] = x[x[,1] == gene	,]
+  
+  return(results)
 }
 
 # *****************************************************************************
@@ -1515,69 +1517,69 @@ getConservedRegulon <- function(gene, net1_name, net2_name){
 #			or Entrez ID (the latter either as string or integer)
 # * nets:	A vector of length N contains the names (as character strings) 
 # 			of the interactomes to use. The default is all the interactomes.
-# * mode:	It assuems either of two values, "vector" or "matrix". It specifies 
+# * mode:	It assumes either of two values, "vector" or "matrix". It specifies 
 #			if the results will be returned as a vector or as a	matrix.
 #
 # RETURN VALUE
 # ---->If mode == "vector":
 # Returns a vector with choose(N,2) entries, one  for each interactome pair.
-# Interactomes are compared in the orded in wihch they are listed in 'varNames',
+# Interactomes are compared in the order in which they are listed in 'varNames',
 # i.e., the first interactome is compared with the remaining N-1, followed by
 # comparing the second interactome with the remaining N-2, etc. If the i-th 
-# vector entry corresponds to the copmarison of the interactomes A and B, then
+# vector entry corresponds to the comparison of the interactomes A and B, then
 # the value in this entry is the log(p) value of the Fisher Exact Test (FET) 
-# that asseses the intersection of the regulon of "gene" in A with the regulon of
+# that assesses the intersection of the regulon of "gene" in A with the regulon of
 # geneID in B, i.e., the enrichment of the first regulon in genes from the 
 # second regulon. For more details about the FET see the comments of the 
 # function tfPairEnrichment.
 #
 # ----> If mode == "matrix":
-# Returns the same FEt values but orgnanized in an N x N matrix M with row names
-# and colunm names being the values in "nets" and where M[i,j] is the FET for the
+# Returns the same FEt values but organized in an N x N matrix M with row names
+# and column names being the values in "nets" and where M[i,j] is the FET for the
 # intersection of regulons of "gene" in nets[i] and nets[j]. 
 # ***************************************************************************** 
 regulonConservationAcrossNets <- function(gene, nets = varNames, mode="vector"){
-	gene = strtoi(as.entrezId(gene))
-	
-	N = length(nets)
-	
-	if (mode == "vector"){
-		pos = vector("integer", choose(N,2))
-		k = 1
-		for (i in 1:(N-1))
-			for (j in (i+1):N){
-				pos[k] = tfPairEnrich[[1]][nets[i], nets[j]]
-				k = k + 1
-			}
-		
-		res = sapply(tfPairEnrich[[2]][pos], function(e){
-					if (length(which(e[,1] == gene)) == 0)
-						return (0)
-					else
-						return(e[which(e[,1] == gene),2])
-				})
-		return(res)
-	}
-	
-	if (mode == "matrix"){
-		res = matrix(-Inf, N, N)
-		rownames(res) = colnames(res) = nets
-		for (i in 1:(N-1))
-			for (j in (i+1):N){
-				fetTable = tfPairEnrich[[2]][[tfPairEnrich[[1]][nets[i], nets[j]]]]
-				if (length(which(fetTable[,1] == gene)) == 0)
-					res[i,j] = res[j,i] = 0
-				else
-					res[i,j] = res[j,i] = fetTable[which(fetTable[,1] == gene),2]
-			}
-		return(res)
-	}
+  gene = strtoi(as.entrezId(gene))
+  
+  N = length(nets)
+  
+  if (mode == "vector"){
+    pos = vector("integer", choose(N,2))
+    k = 1
+    for (i in 1:(N-1))
+      for (j in (i+1):N){
+        pos[k] = tfPairEnrich[[1]][nets[i], nets[j]]
+        k = k + 1
+      }
+    
+    res = sapply(tfPairEnrich[[2]][pos], function(e){
+      if (length(which(e[,1] == gene)) == 0)
+        return (0)
+      else
+        return(e[which(e[,1] == gene),2])
+    })
+    return(res)
+  }
+  
+  if (mode == "matrix"){
+    res = matrix(-Inf, N, N)
+    rownames(res) = colnames(res) = nets
+    for (i in 1:(N-1))
+      for (j in (i+1):N){
+        fetTable = tfPairEnrich[[2]][[tfPairEnrich[[1]][nets[i], nets[j]]]]
+        if (length(which(fetTable[,1] == gene)) == 0)
+          res[i,j] = res[j,i] = 0
+        else
+          res[i,j] = res[j,i] = fetTable[which(fetTable[,1] == gene),2]
+      }
+    return(res)
+  }
 }
 
 # *****************************************************************************
 # For a query hub gene, use the tfPairEnrich object to extract the FET 
 # log(pvalues) for all pairwise N = choose(M, 2) interactome regulon comparisons 
-# (where M is the total number of interactomes), optinally replacing -Inf values. 
+# (where M is the total number of interactomes), optionally replacing -Inf values. 
 # Also, if named == TRUE names the 
 # vector entries as "net1%net2"
 #
@@ -1589,7 +1591,7 @@ regulonConservationAcrossNets <- function(gene, nets = varNames, mode="vector"){
 #
 # RETURN VALUE
 # A vector of length N, containing the FET log(pvalues). Vector entries are named
-# with strings of hte form "A%B", where A and B	are the variable names of the two 
+# with strings of the form "A%B", where A and B	are the variable names of the two 
 # interactomes being compared (e.g., "ArteryAor%Lung").
 # *****************************************************************************
 getRegulonFETs <- function(gene, replaceInf = FALSE){
@@ -1628,33 +1630,33 @@ getRegulonFETs <- function(gene, replaceInf = FALSE){
 # the number of interactomes where this is interaction is present. The vector
 # is ordered in decreasing value of these numbers and its entries are named 
 # with the Entrez ID of the target gene in each interaction. In compiling
-# this vector we only conside interactions that clear that "mi" and "pval"
+# this vector we only consider interactions that clear that "mi" and "pval"
 # thresholds, i.e., interactions with mutual information >= "mi" and 
 # p-value <= "pval"
 # ***************************************************************************** 
 tabulateRegulonInteractions <- function(gene, nets = varNames, mi = 0, pval = 1){
-	gene = strtoi(as.entrezId(gene))
-	
-	res = unlist(sapply(nets, function(e){
-						if (!(gene %in% get(e)[[1]][,1]))
-							return(NA)
-						mat = get(e)[[2]][[as.character(gene)]]
-						sel = (mat[, "MI"] >= mi) & (mat[, "Pvalue"] <= pval)
-						if (length(sel)==0 | sum(sel)==0)
-							return(NA)
-						return(abs(mat[sel, "Target"]))
-					}))
-	res = res[!is.na(res)]
-	return(sort(table(res), decreasing = TRUE))
+  gene = strtoi(as.entrezId(gene))
+  
+  res = unlist(sapply(nets, function(e){
+    if (!(gene %in% get(e)[[1]][,1]))
+      return(NA)
+    mat = get(e)[[2]][[as.character(gene)]]
+    sel = (mat[, "MI"] >= mi) & (mat[, "Pvalue"] <= pval)
+    if (length(sel)==0 | sum(sel)==0)
+      return(NA)
+    return(abs(mat[sel, "Target"]))
+  }))
+  res = res[!is.na(res)]
+  return(sort(table(res), decreasing = TRUE))
 }
 
 
 logLines <- function(message){
-	
-	if (LOGGING_ON){
-		writeLines(message)
-		flush(stdout())
-	}
+  
+  if (LOGGING_ON){
+    writeLines(message)
+    flush(stdout())
+  }
 }
 
 
@@ -1669,26 +1671,26 @@ logLines <- function(message){
 # 'gbmVP'). The object comprises 2 lists:
 # * A[[1]]: This is a matrix of size N x 2 where the first column contains the
 #	gene IDs of VIPER regulators and the second column contains the VIPER 
-#	enricment scores (NES) for these regulators. Specifically, if A[[1]][i,1] = B
+#	enrichment scores (NES) for these regulators. Specifically, if A[[1]][i,1] = B
 #	then the regulators B has a VIPER NES of A[[1]][i,2] in the sample whose
 #	sample ID is stored in A[[2]][i]. Entries in A[[1]][,] are first ordered 
-#	according to the first column (i.e., regulator gene ID) and then accrording to
+#	according to the first column (i.e., regulator gene ID) and then according to
 #	the second column, highest NES first.
 # * A[[2]]: This is a vector of sample IDs, as described in the bullet above.
 # *****************************************************************************
 readVIPER <- function(rootDir = "//isilon.c2b2.columbia.edu/ifs/scratch/c2b2/ac_lab/fmg2117/projects/pancancer/cptac/citrusFiles/"){
-	for(index in 1:length(fileNamesVP)){
-		logLines(paste("\nProcessing file -> ", fileNamesVP[index]))
-		data = as.matrix(read.table(paste(rootDir, fileNamesVP[index], sep=""), header = TRUE))
-		x = cbind(as.integer(data[,1]), as.numeric(data[,3]))
-		# Sort according to gene ID and then according to Viper value
-		ordering = order(x[,1], x[,2], decreasing = TRUE)
-		x = x[ordering, ]
-		res = list()
-		res[[1]] = x
-		res[[2]] = data[ordering,2]
-		assign(varNamesVP[index], res, envir = globalenv())
-	}
+  for(index in 1:length(fileNamesVP)){
+    logLines(paste("\nProcessing file -> ", fileNamesVP[index]))
+    data = as.matrix(read.table(paste(rootDir, fileNamesVP[index], sep=""), header = TRUE))
+    x = cbind(as.integer(data[,1]), as.numeric(data[,3]))
+    # Sort according to gene ID and then according to Viper value
+    ordering = order(x[,1], x[,2], decreasing = TRUE)
+    x = x[ordering, ]
+    res = list()
+    res[[1]] = x
+    res[[2]] = data[ordering,2]
+    assign(varNamesVP[index], res, envir = globalenv())
+  }
 }
 
 
@@ -1697,7 +1699,7 @@ readVIPER <- function(rootDir = "//isilon.c2b2.columbia.edu/ifs/scratch/c2b2/ac_
 #
 # * geneIDs: An integer or character vector containing the gene IDs of the query
 #		regulators.
-# * varVP:	The name (or the actual variable) of the query tunor, in the 
+# * varVP:	The name (or the actual variable) of the query tumor, in the 
 #		format 'gbmVP'
 #
 # Returns a matrix with one row per regulator in 'geneIDs' and one column per
@@ -1708,20 +1710,20 @@ readVIPER <- function(rootDir = "//isilon.c2b2.columbia.edu/ifs/scratch/c2b2/ac_
 # *****************************************************************************
 
 getViperProfiles <- function(geneIDs, varVP){
-	if (is.character(varVP))
-		varDG = get(varVP)
-	geneIDs = as.integer(geneIDs)
-	colNames = sort(unique(varVP[[2]]))
-	res = matrix(nrow = length(geneIDs), ncol = length(colNames))
-	rownames(res) = geneIDs
-	colnames(res) = colNames
-	for (i in 1:length(geneIDs)){
-		ind = which(varVP[[1]][,1] == geneIDs[i])
-		val = varVP[[1]][ind,2]
-		names(val) = varVP[[2]][ind]
-		res[i,] = val[colNames]
-	}
-	return(res)
+  if (is.character(varVP))
+    varDG = get(varVP)
+  geneIDs = as.integer(geneIDs)
+  colNames = sort(unique(varVP[[2]]))
+  res = matrix(nrow = length(geneIDs), ncol = length(colNames))
+  rownames(res) = geneIDs
+  colnames(res) = colNames
+  for (i in 1:length(geneIDs)){
+    ind = which(varVP[[1]][,1] == geneIDs[i])
+    val = varVP[[1]][ind,2]
+    names(val) = varVP[[2]][ind]
+    res[i,] = val[colNames]
+  }
+  return(res)
 }
 
 
@@ -1733,7 +1735,7 @@ getViperProfiles <- function(geneIDs, varVP){
 # **********************************************************************
 # Reads the DIGGIT files generated for the CPTAC project and organizes
 # the data into data structures convenient for exploration. The intention 
-# is to run this commnand once, to generate the data 
+# is to run this command once, to generate the data 
 # structures and then store them to an .rda file for subsequent use.
 #
 # One variable is created for each ARACNe network.Variables are names 
@@ -1747,13 +1749,13 @@ getViperProfiles <- function(geneIDs, varVP){
 #    ** A[[1]][R,3] is the number of genomic events reported by DIGGIT to modulate B.
 # *  A[[2]] is a list with N items, again each corresponding to a TF from the DIGGIT file. The R-th element
 #    of the list contains information related to the TF B for which A[[1]][,2] = R. The R-th list element 
-#    A[[2]][[R]] is a matrix with dimensions M x 6 where M is the numner of genomic events reported by
+#    A[[2]][[R]] is a matrix with dimensions M x 6 where M is the number of genomic events reported by
 #    DIGGIT to modulate B. Each row S in that matrix corresponds to a genomic event XXX_C modulating B, 
 #    where XXX is one of SNV, AMP, DEL, and denotes the type of genetic event (single nucleotide variation, 
-#    aplififcations, deletion) and C is the Gene ID of the gene harboring the genomic event. The S-th row
+#    amplification, deletion) and C is the Gene ID of the gene harboring the genomic event. The S-th row
 #    contains the following data:
 #    ** A[[2]][[R]][S, 1] is the gene ID of gene C.
-#    ** A[[2]][[R]][S, 2] is an integer representing the type of genomic evnet (1 = SNV, 2 = AMP, 3 = DEL).
+#    ** A[[2]][[R]][S, 2] is an integer representing the type of genomic event (1 = SNV, 2 = AMP, 3 = DEL).
 #    ** A[[2]][[R]][S, 3] is the "areaP" p-value for the genomic event from the DIGGIT file.
 #    ** A[[2]][[R]][S, 4] is the "preppiP" p-value for the genomic event from the DIGGIT file.
 #    ** A[[2]][[R]][S, 5] is the "cindyP" p-value for the genomic event from the DIGGIT file.
@@ -1766,115 +1768,115 @@ getViperProfiles <- function(geneIDs, varVP){
 #
 # **********************************************************************
 readDIGGIT <- function(rootDir = "/ifs/scratch/c2b2/ac_lab/fmg2117/projects/pancancer/cptac/citrusFiles/"){
-	
-	# Read DIGGIT networks one by one
-	for(index in 1:length(fileNamesDG)){
-		logLines(paste("\nProcessing file -> ", fileNamesDG[index]))
-		dataDG = as.matrix(read.table(paste(rootDir, fileNamesDG[index], sep=""), header = TRUE))
-		
-		# Order by TF gene id.
-		geneID = as.integer(dataDG[,2])
-		indOrder = order(geneID)
-		dataDG = dataDG[indOrder,]
-		geneID = geneID[indOrder]
-		uniqueTFs = sort(unique(geneID))
-		N = length(uniqueTFs)
-		
-		mat = matrix(nrow = N, ncol = 3)
-		for (i in 1:N){
-			mat[i,1] = uniqueTFs[i]
-			mat[i,2] = i
-			mat[i,3] = 0
-		}
-		
-		# count the number of genomic events for each TF
-		j = 1
-		mat[1,3] = 1
-		for (i in 2:length(geneID)){
-			if(geneID[i] != geneID[i-1])
-				j = j+1
-			mat[j, 3] =  mat[j, 3]+1
-		}      
-		
-		listOfEvents = list()
-		# populate the matrices with the actual data for the genomic events 
-		# found in the DIGGIT files
-		j = 1
-		k = 1
-		# Notice, below we use an extra as.matrix() call to defend against the case
-		# of one-row matreices, which R turns automatically into vectors. The as.matrix()
-		# call forces those to be saved as 1-row matrices instead, as we want.
-		tmpMat = as.matrix(matrix(nrow = mat[j,3], ncol=6))
-		colnames(tmpMat) = c("GeneID", "EventType", "areaP", "preppiP", "cindyP", "combinedP")
-		
-		# Fill in the first entry
-		rowData = dataDG[1,]
-		parts = strsplit(rowData[1], "_")
-		eventType = diggitEventType(parts[[1]][1])
-		eventGene = as.integer(parts[[1]][2])
-		# if the eventType is not among those expected, then there is something wrong with
-		# data file - stop.
-		if (eventType == 0)
-			stop(paste("The following genomic event:-->",  parts[[1]][1], "<-- found in file", 
-							fileNames[index], "is not of type SNV, AMP, or DEL."))
-		tmpMat[1,1] = eventGene
-		tmpMat[1,2] = eventType
-		for (r in 3:6)
-			tmpMat[1,r] = as.numeric(rowData[r])
-		
-		# Fill in the rest of the entries
-		M = length(dataDG[,1])
-		for (i in 2:M){
-			if(geneID[i] != geneID[i-1]){
-				# We are just finished processing a TF, order the genomic events according
-				# to the combinedP value, save, and setup the processing of the next TF.
-				# In the statement below, the argument drop = FALSE protects against 
-				# turning one-row matrices into vectors.
-				tmpMat = tmpMat[order(tmpMat[,6]) , , drop = FALSE]
-				rownames(tmpMat) = tmpMat[,1]
-				listOfEvents[[j]] = tmpMat
-				j = j+1
-				k = 0;
-				# See comment avove regarding the seemingly uncessary call to as.matrix()
-				tmpMat = as.matrix(matrix(nrow = mat[j,3], ncol=6))
-				colnames(tmpMat) = c("GeneID", "EventType", "areaP", "preppiP", "cindyP", "combinedP")
-			}
-			k = k+1
-			rowData = dataDG[i,]
-			parts = strsplit(rowData[1], "_")
-			eventType = diggitEventType(parts[[1]][1])
-			eventGene = as.integer(parts[[1]][2])
-			# if the eventType is not among those expected, then there is something wrong with
-			# data file - stop.
-			if (eventType == 0)
-				stop(paste("The following genomic event:-->",  parts[[1]][1], "<-- found in file", 
-								fileNames[index], "is not of type SNV, AMP, or DEL."))
-			tmpMat[k,1] = eventGene
-			tmpMat[k,2] = eventType
-			for (r in 3:6)
-				tmpMat[k,r] = as.numeric(rowData[r])
-		}
-		
-		# Take care of the last iterant
-		tmpMat = tmpMat[order(tmpMat[,6]) , , drop = FALSE]
-		rownames(tmpMat) = tmpMat[,1]
-		listOfEvents[[j]] = tmpMat
-		
-		results = list()
-		# Name the list items with the gene ID of their corresponding TF
-		names(listOfEvents) = mat[,1]
-		# Order mat so that that TFs with the largest regulons are listed first.
-		mat = mat[order(mat[,3], decreasing=TRUE),]
-		results[[1]] = mat
-		results[[2]] = listOfEvents
-		assign(varNamesDG[index], results, envir = globalenv())
-		
-	}
-	
-	# Finally, count the total number of genomic events in each tumor type
-	tmp = sapply(varNamesDG, tmp <- function(name){x = get(name); y = x[[1]][,3]; return(sum(y))})
-	assign("eventCountByTumor", tmp, envir = globalenv())
-	
+  
+  # Read DIGGIT networks one by one
+  for(index in 1:length(fileNamesDG)){
+    logLines(paste("\nProcessing file -> ", fileNamesDG[index]))
+    dataDG = as.matrix(read.table(paste(rootDir, fileNamesDG[index], sep=""), header = TRUE))
+    
+    # Order by TF gene id.
+    geneID = as.integer(dataDG[,2])
+    indOrder = order(geneID)
+    dataDG = dataDG[indOrder,]
+    geneID = geneID[indOrder]
+    uniqueTFs = sort(unique(geneID))
+    N = length(uniqueTFs)
+    
+    mat = matrix(nrow = N, ncol = 3)
+    for (i in 1:N){
+      mat[i,1] = uniqueTFs[i]
+      mat[i,2] = i
+      mat[i,3] = 0
+    }
+    
+    # count the number of genomic events for each TF
+    j = 1
+    mat[1,3] = 1
+    for (i in 2:length(geneID)){
+      if(geneID[i] != geneID[i-1])
+        j = j+1
+      mat[j, 3] =  mat[j, 3]+1
+    }      
+    
+    listOfEvents = list()
+    # populate the matrices with the actual data for the genomic events 
+    # found in the DIGGIT files
+    j = 1
+    k = 1
+    # Notice, below we use an extra as.matrix() call to defend against the case
+    # of one-row matrices, which R turns automatically into vectors. The as.matrix()
+    # call forces those to be saved as 1-row matrices instead, as we want.
+    tmpMat = as.matrix(matrix(nrow = mat[j,3], ncol=6))
+    colnames(tmpMat) = c("GeneID", "EventType", "areaP", "preppiP", "cindyP", "combinedP")
+    
+    # Fill in the first entry
+    rowData = dataDG[1,]
+    parts = strsplit(rowData[1], "_")
+    eventType = diggitEventType(parts[[1]][1])
+    eventGene = as.integer(parts[[1]][2])
+    # if the eventType is not among those expected, then there is something wrong with
+    # data file - stop.
+    if (eventType == 0)
+      stop(paste("The following genomic event:-->",  parts[[1]][1], "<-- found in file", 
+                 fileNames[index], "is not of type SNV, AMP, or DEL."))
+    tmpMat[1,1] = eventGene
+    tmpMat[1,2] = eventType
+    for (r in 3:6)
+      tmpMat[1,r] = as.numeric(rowData[r])
+    
+    # Fill in the rest of the entries
+    M = length(dataDG[,1])
+    for (i in 2:M){
+      if(geneID[i] != geneID[i-1]){
+        # We are just finished processing a TF, order the genomic events according
+        # to the combinedP value, save, and setup the processing of the next TF.
+        # In the statement below, the argument drop = FALSE protects against 
+        # turning one-row matrices into vectors.
+        tmpMat = tmpMat[order(tmpMat[,6]) , , drop = FALSE]
+        rownames(tmpMat) = tmpMat[,1]
+        listOfEvents[[j]] = tmpMat
+        j = j+1
+        k = 0;
+        # See comment avove regarding the seemingly uncessary call to as.matrix()
+        tmpMat = as.matrix(matrix(nrow = mat[j,3], ncol=6))
+        colnames(tmpMat) = c("GeneID", "EventType", "areaP", "preppiP", "cindyP", "combinedP")
+      }
+      k = k+1
+      rowData = dataDG[i,]
+      parts = strsplit(rowData[1], "_")
+      eventType = diggitEventType(parts[[1]][1])
+      eventGene = as.integer(parts[[1]][2])
+      # if the eventType is not among those expected, then there is something wrong with
+      # data file - stop.
+      if (eventType == 0)
+        stop(paste("The following genomic event:-->",  parts[[1]][1], "<-- found in file", 
+                   fileNames[index], "is not of type SNV, AMP, or DEL."))
+      tmpMat[k,1] = eventGene
+      tmpMat[k,2] = eventType
+      for (r in 3:6)
+        tmpMat[k,r] = as.numeric(rowData[r])
+    }
+    
+    # Take care of the last iterant
+    tmpMat = tmpMat[order(tmpMat[,6]) , , drop = FALSE]
+    rownames(tmpMat) = tmpMat[,1]
+    listOfEvents[[j]] = tmpMat
+    
+    results = list()
+    # Name the list items with the gene ID of their corresponding TF
+    names(listOfEvents) = mat[,1]
+    # Order mat so that that TFs with the largest regulons are listed first.
+    mat = mat[order(mat[,3], decreasing=TRUE),]
+    results[[1]] = mat
+    results[[2]] = listOfEvents
+    assign(varNamesDG[index], results, envir = globalenv())
+    
+  }
+  
+  # Finally, count the total number of genomic events in each tumor type
+  tmp = sapply(varNamesDG, tmp <- function(name){x = get(name); y = x[[1]][,3]; return(sum(y))})
+  assign("eventCountByTumor", tmp, envir = globalenv())
+  
 }
 
 
@@ -1882,66 +1884,66 @@ readDIGGIT <- function(rootDir = "/ifs/scratch/c2b2/ac_lab/fmg2117/projects/panc
 # Print out description of variables generated by processing the DIGGIT files
 # *****************************************************************************
 READMEDG <-function () {
-	writeLines("This workspace contains a number of variables ralated to the DIGGIT fiels generated")
-	writeLines(" in the CPTAC project - run the command ls() to see the full listing. They include,")
-	writeLines("among others:\n")
-	writeLines("---> One variable for each tumor, linking genomics evnts to the regulators they modulate,")
-	writeLines("according to DIGGIT. Variables are named with the standard TCGA tumor type acronyms")
-	writeLines("(blca, brca, etc.) followed by the string 'DG'. Each variable A is a list with two elements:")
-	writeLines(" *  A[[1]] is a Nx3 matrix, where N is the number of TFs in the DIGGIT file, i.e., the") 
-	writeLines("    number of unique genes B found in the second DIGGIT file column. Each row R in that") 
-	writeLines("    matrix corresponds to a single TF B and contains the following data:")
-	writeLines("    ** A[[1]][R,1] is the Gene ID of gene B.")
-	writeLines("    ** A[[1]][R,2] is the index corresponding to B in the list A[[2]] -- this will be")
-	writeLines("       explained below.")
-	writeLines("    ** A[[1]][R,3] is the number of genomic events reported by DIGGIT to modulate B.")
-	writeLines(" *  A[[2]] is a list with N items, again each corresponding to a TF from the DIGGIT file.")
-	writeLines("    The R-th element of the list contains information related to the TF B for which") 
-	writeLines("    A[[1]][,2] = R. The R-th list element A[[2]][[R]] is a matrix with dimensions M x 6")
-	writeLines("    where M is the numner of genomic events reported by DIGGIT to modulate B. Each row S") 
-	writeLines("    in that matrix corresponds to a genomic event XXX_C modulating B, where XXX is one of") 
-	writeLines("    SNV, AMP, DEL, and denotes the type of genetic event (single nucleotide variation, ")
-	writeLines("    aplififcations, deletion) and C is the Gene ID of the gene harboring the genomic event.")
-	writeLines("    The S-th row contains the following data:")
-	writeLines("    ** A[[2]][[R]][S, 1] is the gene ID of gene C.")
-	writeLines("    ** A[[2]][[R]][S, 2] is an integer representing the type of genomic evnet (1 = SNV, ")
-	writeLines("       2 = AMP, 3 = DEL).")
-	writeLines("    ** A[[2]][[R]][S, 3] is the 'areaP' p-value for the genomic event from the DIGGIT file.")
-	writeLines("    ** A[[2]][[R]][S, 4] is the 'preppiP' p-value for the genomic event from the DIGGIT file.")
-	writeLines("    ** A[[2]][[R]][S, 5] is the 'cindyP' p-value for the genomic event from the DIGGIT file.")
-	writeLines("    ** A[[2]][[R]][S, 6] is the 'combinedP' p-value for the genomic event from the DIGGIT file.")
-	writeLines(" A few more things to note about variable A:")
-	writeLines(" * The matrix A[[1]] is ordered according to number of modulating events (i.e., the number")
-	writeLines("   stored in the 3rd column of the table), with the largest entry first.") 
-	writeLines(" * The targets contained in the matrix A[[2]][[R]] are listed in decreasing order of")
-	writeLines("   significance, based on 'combinedP', with the lowest P-value listed first.\n")
-	writeLines("---> A variable named 'modsPerTumor' which is a named vector listing the number of unique modulator")
-	writeLines("genes harboring genomic modifications that affect the activity of VIPER regulators, per DIGGIT.\n")
-	writeLines("---> A variable named 'eventsPerTumor' which is a named vector listing the number of DIGGIT")
-	writeLines("associations reported for each tumor.\n")
-	writeLines("---> A variable named 'altsPerTumor' which is a named vector listing the number of all")
-	writeLines("unique genomic alterations reported for each tumor.\n")
-	writeLines("---> A variable named 'top100FET' which is a list with one elements for each tumor")
-	writeLines("(list elements are named, the the command names(top100FET) to see the names).")
-	writeLines("The list element top100FET[[i]] corresponods to the i-th tumor and contains a list with one")
-	writeLines("element for each of the top most modulated regulators in the tumor, up to 100 regulators. E.g.,")
-	writeLines("the list R = top100FET[[\"blcaDG\"]] will conttain data for the M regulators blcaDG[[1]][1:M, 1].")
-	writeLines("The M list elements in R are named according to the gene IDs of the regulators, run the ")
-	writeLines("command names(R) to see them. Each R[[j]] (corresponding to the j-th regulator, say G) is a")
-	writeLines("matrix with two columns. Each row in the matrix corresponds to a regulator B other than G such ")
-	writeLines("that (brace for this): if M(B) and M(G) are the set of modulator genes harboring DIGGIT events")
-	writeLines("that affect, respectively, B and G then the intersection of M(B) and M(R) is siginficant, as ")
-	writeLines("determined by Fisher's exact test (hence the name FET), at a level of p < 0.01 (adjusted).\n")
-	writeLines("---> A variable named 'globModMatrix' listing the number of TFs that each modulator gene")
-	writeLines("modulates in each tumor. It is a N x 20 matrix M with one column per tumor and one row per")
-	writeLines("modulator gene. Rows are named using gene IDs and columns are named according to tumor names,")
-	writeLines("using the format 'brcaDG'. M[i, j] is the number of genes modulated by gene rownames[i] in")
-	writeLines("tumor colnames(j).")
-	writeLines("")
+  writeLines("This workspace contains a number of variables related to the DIGGIT files generated")
+  writeLines(" in the CPTAC project - run the command ls() to see the full listing. They include,")
+  writeLines("among others:\n")
+  writeLines("---> One variable for each tumor, linking genomic events to the regulators they modulate,")
+  writeLines("according to DIGGIT. Variables are named with the standard TCGA tumor type acronyms")
+  writeLines("(blca, brca, etc.) followed by the string 'DG'. Each variable A is a list with two elements:")
+  writeLines(" *  A[[1]] is a Nx3 matrix, where N is the number of TFs in the DIGGIT file, i.e., the") 
+  writeLines("    number of unique genes B found in the second DIGGIT file column. Each row R in that") 
+  writeLines("    matrix corresponds to a single TF B and contains the following data:")
+  writeLines("    ** A[[1]][R,1] is the Gene ID of gene B.")
+  writeLines("    ** A[[1]][R,2] is the index corresponding to B in the list A[[2]] -- this will be")
+  writeLines("       explained below.")
+  writeLines("    ** A[[1]][R,3] is the number of genomic events reported by DIGGIT to modulate B.")
+  writeLines(" *  A[[2]] is a list with N items, again each corresponding to a TF from the DIGGIT file.")
+  writeLines("    The R-th element of the list contains information related to the TF B for which") 
+  writeLines("    A[[1]][,2] = R. The R-th list element A[[2]][[R]] is a matrix with dimensions M x 6")
+  writeLines("    where M is the number of genomic events reported by DIGGIT to modulate B. Each row S") 
+  writeLines("    in that matrix corresponds to a genomic event XXX_C modulating B, where XXX is one of") 
+  writeLines("    SNV, AMP, DEL, and denotes the type of genetic event (single nucleotide variation, ")
+  writeLines("    amplification, deletion) and C is the Gene ID of the gene harboring the genomic event.")
+  writeLines("    The S-th row contains the following data:")
+  writeLines("    ** A[[2]][[R]][S, 1] is the gene ID of gene C.")
+  writeLines("    ** A[[2]][[R]][S, 2] is an integer representing the type of genomic event (1 = SNV, ")
+  writeLines("       2 = AMP, 3 = DEL).")
+  writeLines("    ** A[[2]][[R]][S, 3] is the 'areaP' p-value for the genomic event from the DIGGIT file.")
+  writeLines("    ** A[[2]][[R]][S, 4] is the 'preppiP' p-value for the genomic event from the DIGGIT file.")
+  writeLines("    ** A[[2]][[R]][S, 5] is the 'cindyP' p-value for the genomic event from the DIGGIT file.")
+  writeLines("    ** A[[2]][[R]][S, 6] is the 'combinedP' p-value for the genomic event from the DIGGIT file.")
+  writeLines(" A few more things to note about variable A:")
+  writeLines(" * The matrix A[[1]] is ordered according to number of modulating events (i.e., the number")
+  writeLines("   stored in the 3rd column of the table), with the largest entry first.") 
+  writeLines(" * The targets contained in the matrix A[[2]][[R]] are listed in decreasing order of")
+  writeLines("   significance, based on 'combinedP', with the lowest P-value listed first.\n")
+  writeLines("---> A variable named 'modsPerTumor' which is a named vector listing the number of unique modulator")
+  writeLines("genes harboring genomic modifications that affect the activity of VIPER regulators, per DIGGIT.\n")
+  writeLines("---> A variable named 'eventsPerTumor' which is a named vector listing the number of DIGGIT")
+  writeLines("associations reported for each tumor.\n")
+  writeLines("---> A variable named 'altsPerTumor' which is a named vector listing the number of all")
+  writeLines("unique genomic alterations reported for each tumor.\n")
+  writeLines("---> A variable named 'top100FET' which is a list with one elements for each tumor")
+  writeLines("(list elements are named, the the command names(top100FET) to see the names).")
+  writeLines("The list element top100FET[[i]] corresponods to the i-th tumor and contains a list with one")
+  writeLines("element for each of the top most modulated regulators in the tumor, up to 100 regulators. E.g.,")
+  writeLines("the list R = top100FET[[\"blcaDG\"]] will contain data for the M regulators blcaDG[[1]][1:M, 1].")
+  writeLines("The M list elements in R are named according to the gene IDs of the regulators, run the ")
+  writeLines("command names(R) to see them. Each R[[j]] (corresponding to the j-th regulator, say G) is a")
+  writeLines("matrix with two columns. Each row in the matrix corresponds to a regulator B other than G such ")
+  writeLines("that (brace for this): if M(B) and M(G) are the set of modulator genes harboring DIGGIT events")
+  writeLines("that affect, respectively, B and G then the intersection of M(B) and M(R) is significant, as ")
+  writeLines("determined by Fisher's exact test (hence the name FET), at a level of p < 0.01 (adjusted).\n")
+  writeLines("---> A variable named 'globModMatrix' listing the number of TFs that each modulator gene")
+  writeLines("modulates in each tumor. It is a N x 20 matrix M with one column per tumor and one row per")
+  writeLines("modulator gene. Rows are named using gene IDs and columns are named according to tumor names,")
+  writeLines("using the format 'brcaDG'. M[i, j] is the number of genes modulated by gene rownames[i] in")
+  writeLines("tumor colnames(j).")
+  writeLines("")
 }
 
 # *****************************************************************************
-# Helpe function, maps the string form of a genomic event into an integer, as 
+# Helper function, maps the string form of a genomic event into an integer, as 
 # follows:
 # 
 # * "SNV" --> 1
@@ -1951,13 +1953,13 @@ READMEDG <-function () {
 # *****************************************************************************
 
 diggitEventType <- function(str){
-	if (str == "SNV")
-		return(1)  
-	if (str == "AMP")
-		return(2)
-	if (str == "DEL")
-		return(3)
-	return(0)
+  if (str == "SNV")
+    return(1)  
+  if (str == "AMP")
+    return(2)
+  if (str == "DEL")
+    return(3)
+  return(0)
 }
 
 
@@ -1970,7 +1972,7 @@ diggitEventType <- function(str){
 #				events for the tumor varNamesDG[i].
 # * norm:		FALSE, by default. If TRUE, the result data frame will contain
 #				one extra column, as described below.
-# * varDG:		Character vector coantaining the names of the DIGGIT data objects
+# * varDG:		Character vector containing the names of the DIGGIT data objects
 #				to use, in the format "gbmDG".
 #
 # Returns a data frame with 20 columns (one for each tumor type) and 3 (or 4)
@@ -1978,41 +1980,41 @@ diggitEventType <- function(str){
 # * Column 1 = tumor name
 # * Column 2 = number of DIGGIT genomic events modulating the TF in that tumor
 # * Column 3 (optional) = if norm is TRUE, a normalized version of the number of 
-#				genomic events shown in column 2. The normalizitaion takes into 
+#				genomic events shown in column 2. The normalization takes into 
 #				account the total number of genomic events reported for a given 
 #				tumor.
 # * Column 4 = ranking (according to number of modulating DIGGIT genomic events) 
-#	       of the TF in that tunor.
+#	       of the TF in that tumor.
 # The result data frame is ordered according to column #4.
 # *****************************************************************************
 tfDGsummary <- function(geneID, eventCountByTumor, norm = FALSE, varDG = varNamesDG){
-	NORM_FACTOR = min(eventCountByTumor)
-	tumName = vector(length = length(varDG), mode = "character")
-	numEvents = vector(length = length(varDG), mode = "integer")
-	normNumEvents = vector(length = length(varDG), mode = "integer")
-	ranking = vector(length = length(varDG), mode = "integer")
-	for (i in 1:length(varDG)){
-		tumName[i] = varDG[i]
-		if(length(which(get(varDG[i])[[1]][,1] == geneID)) > 0){
-			numEvents[i] = get(varDG[i]	)[[1]][which(get(varDG[i])[[1]][,1] == geneID), 3]
-			ranking[i] = which(get(varDG[i])[[1]][,1] == geneID)
-			normNumEvents[i] = round(NORM_FACTOR*(numEvents[i] / eventCountByTumor[i]),0)
-		}
-		else{
-			numEvents[i] = 0
-			ranking[i] = 10000
-			normNumEvents[i] = 0
-		}
-	}
-	indOrder = order(ranking)
-	tumName = tumName[indOrder]
-	numEvents = numEvents[indOrder]
-	ranking = ranking[indOrder]
-	normNumEvents = normNumEvents[indOrder]
-	if (norm)
-		return(data.frame(tumName, numEvents, normNumEvents, ranking))
-	else
-		return(data.frame(tumName, numEvents, ranking))
+  NORM_FACTOR = min(eventCountByTumor)
+  tumName = vector(length = length(varDG), mode = "character")
+  numEvents = vector(length = length(varDG), mode = "integer")
+  normNumEvents = vector(length = length(varDG), mode = "integer")
+  ranking = vector(length = length(varDG), mode = "integer")
+  for (i in 1:length(varDG)){
+    tumName[i] = varDG[i]
+    if(length(which(get(varDG[i])[[1]][,1] == geneID)) > 0){
+      numEvents[i] = get(varDG[i]	)[[1]][which(get(varDG[i])[[1]][,1] == geneID), 3]
+      ranking[i] = which(get(varDG[i])[[1]][,1] == geneID)
+      normNumEvents[i] = round(NORM_FACTOR*(numEvents[i] / eventCountByTumor[i]),0)
+    }
+    else{
+      numEvents[i] = 0
+      ranking[i] = 10000
+      normNumEvents[i] = 0
+    }
+  }
+  indOrder = order(ranking)
+  tumName = tumName[indOrder]
+  numEvents = numEvents[indOrder]
+  ranking = ranking[indOrder]
+  normNumEvents = normNumEvents[indOrder]
+  if (norm)
+    return(data.frame(tumName, numEvents, normNumEvents, ranking))
+  else
+    return(data.frame(tumName, numEvents, ranking))
 }
 
 
@@ -2021,7 +2023,7 @@ tfDGsummary <- function(geneID, eventCountByTumor, norm = FALSE, varDG = varName
 #
 # Arguments are:
 # * tfGeneID: 	The gene id of the query TF gene.
-# * modGeneID:	If NULL, return genomic events for all modulators. Otherewise
+# * modGeneID:	If NULL, return genomic events for all modulators. Otherwise
 #				return genomic events only for the modulator with this gene ID.
 # * filterNulls:	If TRUE, remove NULL entries from the results list
 # * idsOnly:	If TRUE, return only the gene IDs of the modulators.
@@ -2032,37 +2034,37 @@ tfDGsummary <- function(geneID, eventCountByTumor, norm = FALSE, varDG = varName
 # otherwise), one for each tumor. The i-th entry corresponds to the tumor 
 # varNamesDG[i] and, if idsOnly == FALSE, contains the value:
 #		get(varNamesDG[i])[[2]][[j]] 
-# where j isthe entry where the DIGGIT events for gene "tfGeneID" are stored. If
+# where j is the entry where the DIGGIT events for gene "tfGeneID" are stored. If
 # idsOnly == TRUE, the i-th entry contains the vector:
 #		unique(get(varNamesDG[i])[[2]][[j]][,1]
 # i.e., the list of unique genes modulating the query TF. List entries are named and  
-# can be rettrieved not only by index but also by providing a tumor string from 
+# can be retrieved not only by index but also by providing a tumor string from 
 # varNamesDG.
 # *****************************************************************************
 tfDGDetails <- function(tfGeneID, modGeneID = NULL, filterNulls = FALSE, idsOnly = FALSE, 
-		varDG = varNamesDG){
-	results = vector("list", length(varDG))
-	names(results) = varDG
-	for (i in 1:length(varDG)){
-		sumr = get(varDG[i])[[1]]
-		detl = get(varDG[i])[[2]]
-		if (length(which(sumr[,1] == tfGeneID)) > 0){
-			ind = sumr[which(sumr[,1] == tfGeneID), 2]
-			if (is.null(modGeneID))
-				if (idsOnly)
-					results[[i]] = unique(detl[[ind]][,1])
-				else
-					results[[i]] = detl[[ind]]
-			else if (length(which(detl[[ind]][,1] == modGeneID)) > 0)
-				if (idsOnly)
-					results[[i]] = modGeneID
-				else
-					results[[i]] = detl[[ind]][detl[[ind]][,1] == modGeneID,,drop=FALSE]
-		}
-	}
-	if (filterNulls)
-		return(Filter(Negate(is.null), results))
-	return(results)
+                        varDG = varNamesDG){
+  results = vector("list", length(varDG))
+  names(results) = varDG
+  for (i in 1:length(varDG)){
+    sumr = get(varDG[i])[[1]]
+    detl = get(varDG[i])[[2]]
+    if (length(which(sumr[,1] == tfGeneID)) > 0){
+      ind = sumr[which(sumr[,1] == tfGeneID), 2]
+      if (is.null(modGeneID))
+        if (idsOnly)
+          results[[i]] = unique(detl[[ind]][,1])
+        else
+          results[[i]] = detl[[ind]]
+        else if (length(which(detl[[ind]][,1] == modGeneID)) > 0)
+          if (idsOnly)
+            results[[i]] = modGeneID
+          else
+            results[[i]] = detl[[ind]][detl[[ind]][,1] == modGeneID,,drop=FALSE]
+    }
+  }
+  if (filterNulls)
+    return(Filter(Negate(is.null), results))
+  return(results)
 }
 
 # *****************************************************************************
@@ -2076,21 +2078,21 @@ tfDGDetails <- function(tfGeneID, modGeneID = NULL, filterNulls = FALSE, idsOnly
 # order of the vector values.
 # *****************************************************************************
 globalCountOfModulators <- function(varNamesDG, sortem = TRUE){
-	uniqueIDs = vector("integer", length(varNamesDG))
-	names(uniqueIDs) = varNamesDG
-	for (i in 1:length(varNamesDG)){
-		L = sum(get(varNamesDG[i])[[1]][,3])
-		v = vector("integer", L)
-		k = 0
-		for (j in 1:length(get(varNamesDG[i])[[1]][,2])){
-			v[(k+1):(k+length(get(varNamesDG[i])[[2]][[j]][,1]))] = get(varNamesDG[i])[[2]][[j]][,1]
-			k = k + length(get(varNamesDG[i])[[2]][[j]][,1])
-		}
-		uniqueIDs[i] = length(unique(v))
-	}
-	if (sortem)
-		uniqueIDs = sort(uniqueIDs, decreasing = TRUE)
-	return(uniqueIDs)
+  uniqueIDs = vector("integer", length(varNamesDG))
+  names(uniqueIDs) = varNamesDG
+  for (i in 1:length(varNamesDG)){
+    L = sum(get(varNamesDG[i])[[1]][,3])
+    v = vector("integer", L)
+    k = 0
+    for (j in 1:length(get(varNamesDG[i])[[1]][,2])){
+      v[(k+1):(k+length(get(varNamesDG[i])[[2]][[j]][,1]))] = get(varNamesDG[i])[[2]][[j]][,1]
+      k = k + length(get(varNamesDG[i])[[2]][[j]][,1])
+    }
+    uniqueIDs[i] = length(unique(v))
+  }
+  if (sortem)
+    uniqueIDs = sort(uniqueIDs, decreasing = TRUE)
+  return(uniqueIDs)
 }
 
 
@@ -2105,9 +2107,9 @@ globalCountOfModulators <- function(varNamesDG, sortem = TRUE){
 # If sortem = TRUE then the entries are in decreasing order of the vector values.
 # *****************************************************************************
 globalCountOfEvents <- function(sortem = TRUE, varDG = varNamesDG){
-	if (sortem)
-		return(sort(sapply(varDG, function(e){return(sum(get(e)[[1]][,3]))}), decreasing = TRUE))
-	return(sapply(varDG, function(e){return(sum(get(e)[[1]][,3]))}))
+  if (sortem)
+    return(sort(sapply(varDG, function(e){return(sum(get(e)[[1]][,3]))}), decreasing = TRUE))
+  return(sapply(varDG, function(e){return(sum(get(e)[[1]][,3]))}))
 }
 
 # *****************************************************************************
@@ -2126,27 +2128,27 @@ globalCountOfEvents <- function(sortem = TRUE, varDG = varNamesDG){
 #				in the case where dg_data == NULL
 # *****************************************************************************
 countUniqModGenes <- function(dg_data = NULL, getVector = FALSE, varDG = varNamesDG){
-	tumorL = list()
-	if (is.null(dg_data))
-		tumorL = lapply(varDG, function(e){return(get(e))})
-	else if (typeof(dg_data) == "character")
-		tumorL[[1]] = get(dg_data)
-	else tumorL[[1]] = dg_data
-	
-	tally = rep(0, max_geneId)
-	for(index in 1:length(tumorL)){
-		dg_data = tumorL[[index]]
-		L = length(dg_data[[2]])
-		for (i in 1:L){
-			x = dg_data[[2]][[i]][,1]
-			for (j in 1:length(x))
-				tally[x[j]] = 1
-		}
-	}
-	if (getVector)
-		return(which(tally > 0))
-	else
-		return(length(which(tally > 0)))
+  tumorL = list()
+  if (is.null(dg_data))
+    tumorL = lapply(varDG, function(e){return(get(e))})
+  else if (typeof(dg_data) == "character")
+    tumorL[[1]] = get(dg_data)
+  else tumorL[[1]] = dg_data
+  
+  tally = rep(0, max_geneId)
+  for(index in 1:length(tumorL)){
+    dg_data = tumorL[[index]]
+    L = length(dg_data[[2]])
+    for (i in 1:L){
+      x = dg_data[[2]][[i]][,1]
+      for (j in 1:length(x))
+        tally[x[j]] = 1
+    }
+  }
+  if (getVector)
+    return(which(tally > 0))
+  else
+    return(length(which(tally > 0)))
 }
 
 
@@ -2163,11 +2165,11 @@ countUniqModGenes <- function(dg_data = NULL, getVector = FALSE, varDG = varName
 # genomic event that modulates the TF. Values V[i] are in decreasing order.
 # *****************************************************************************
 geneTableOfModulators <- function(geneID, varDG = varNamesDG){
-	y = tfDGDetails(geneID)
-	union = unique(y[[1]][,1])
-	for (i in 2:length(varDG))
-		union = append(union, unique(y[[i]][,1]))
-	return(sort(table(union), decreasing = TRUE))
+  y = tfDGDetails(geneID)
+  union = unique(y[[1]][,1])
+  for (i in 2:length(varDG))
+    union = append(union, unique(y[[i]][,1]))
+  return(sort(table(union), decreasing = TRUE))
 }
 
 
@@ -2185,34 +2187,34 @@ geneTableOfModulators <- function(geneID, varDG = varNamesDG){
 # are in increasing order.
 # *****************************************************************************
 getModulatedRegulators <- function(modGeneID, varDG){
-	if (typeof(varDG) == "character")
-		varDG = get(varDG)
-	tmp = matrix(nrow = length(varDG[[2]]), ncol = 2)
-	tmp[,] = 0
-	rownames(tmp) = varDG[[1]][,1]
-	for (i in 1:length(varDG[[1]][,1])){
-		x = varDG[[2]][[varDG[[1]][i,2]]]
-		if (length(which(x[,1] == modGeneID)) > 0){
-			tmp[i,1] = 1
-			tmp[i,2] = min(x[which(x[,1] == modGeneID), 6])
-		}
-	}
-	tmp = tmp[tmp[,1] == 1,]
-	res = tmp[,2]
-	names(res) = rownames(tmp)
-	return(sort(res))
+  if (typeof(varDG) == "character")
+    varDG = get(varDG)
+  tmp = matrix(nrow = length(varDG[[2]]), ncol = 2)
+  tmp[,] = 0
+  rownames(tmp) = varDG[[1]][,1]
+  for (i in 1:length(varDG[[1]][,1])){
+    x = varDG[[2]][[varDG[[1]][i,2]]]
+    if (length(which(x[,1] == modGeneID)) > 0){
+      tmp[i,1] = 1
+      tmp[i,2] = min(x[which(x[,1] == modGeneID), 6])
+    }
+  }
+  tmp = tmp[tmp[,1] == 1,]
+  res = tmp[,2]
+  names(res) = rownames(tmp)
+  return(sort(res))
 }
 
 # *****************************************************************************
 # Count the number of TFs that each modulator gene modulates in each tumor
 #
 # Arguments:
-# * unique:		If TRUE, a modulating effect of gene B on TF A in a tunor is 
-#				counted only once, even if there are mulitple alterations of B 
+# * unique:		If TRUE, a modulating effect of gene B on TF A in a tumor is 
+#				counted only once, even if there are multiple alterations of B 
 #				that modulate A. Otherwise, each individual alteration contributes
 #				1 to the total count
 # * varNamesDG: A vector containing the names of the DIGGIT data objects, one per
-#				tunor to be analyzed
+#				tumor to be analyzed
 #
 # Returns a N x length(varNamesDG) matrix M with one column per tumor and one row
 # per modulator gene. Rows are named using gene IDs anc columns are named according 
@@ -2220,20 +2222,20 @@ getModulatedRegulators <- function(modGeneID, varDG){
 # by gene rownames[i] in tumor colnames(j).
 # *****************************************************************************
 globalModulatorMatrix <- function (unique = FALSE, varDG = varNamesDG) {
-	# Get a list of all the modulator genes encountered across all tumors
-	modGenes = countUniqModGenes(getVector = TRUE, varDG = varDG)
-	results = matrix(0, nrow = length(modGenes), ncol = length(varDG))
-	rownames(results) = modGenes
-	colnames(results) = varDG
-	for (index in 1:length(varDG)){
-		x = modulatorCounts(get(varDG[index]), unique = unique)
-		for (i in 1:length(x))
-			results[names(x)[i], index] = x[i] 
-	}
-	# Fix column names before returning by removing capitalized suffixes from the 
-	# tumor acronyms and by ordering columns alphabetically
-	colnames(results) = gsub("[A-Z]+", "", colnames(results))
-	return (results[,sort(colnames(results))])
+  # Get a list of all the modulator genes encountered across all tumors
+  modGenes = countUniqModGenes(getVector = TRUE, varDG = varDG)
+  results = matrix(0, nrow = length(modGenes), ncol = length(varDG))
+  rownames(results) = modGenes
+  colnames(results) = varDG
+  for (index in 1:length(varDG)){
+    x = modulatorCounts(get(varDG[index]), unique = unique)
+    for (i in 1:length(x))
+      results[names(x)[i], index] = x[i] 
+  }
+  # Fix column names before returning by removing capitalized suffixes from the 
+  # tumor acronyms and by ordering columns alphabetically
+  colnames(results) = gsub("[A-Z]+", "", colnames(results))
+  return (results[,sort(colnames(results))])
 }
 
 
@@ -2243,7 +2245,7 @@ globalModulatorMatrix <- function (unique = FALSE, varDG = varNamesDG) {
 #
 # Arguments:
 # * geneID:		the ID of the query TF
-# * varDG:		the DIGGIT data object for the tunor of interest (i.e., one of
+# * varDG:		the DIGGIT data object for the tumor of interest (i.e., one of
 #				the variables whose name is found in the vector varNamesDG).
 # * correct:	If TRUE then the p-values from the Fisher's exact tests are 
 #				Bonferroni-corrected
@@ -2260,35 +2262,35 @@ globalModulatorMatrix <- function (unique = FALSE, varDG = varNamesDG) {
 # modulating events for the TF names(V[i]).
 # *****************************************************************************
 coModulatedRegulators <- function(tfGeneId, varDG, correct = FALSE, allCount = 0){
-	results = NULL
-	tfGeneId = as.integer(tfGeneId)
-	if (length(which(varDG[[1]][,1] == tfGeneId)) == 0)
-		return(results)
-	
-	tfCount = length(varDG[[1]][,1])
-	if (allCount == 0)
-		allCount = countUniqModGenes(varDG)
-	tfModGenes = unique(varDG[[2]][[toString(tfGeneId)]][,1])
-	results = rep(1, tfCount)
-	names(results) = varDG[[1]][,1]
-	for (i in 1:tfCount){
-		if (varDG[[1]][i,1] == tfGeneId)
-			next
-		otherTfGeneId = varDG[[1]][i,1]
-		otherTfModGenes = unique(varDG[[2]][[toString(otherTfGeneId)]][,1])
-		# Set up the counts for Fisher's exact test
-		a = length(intersect(tfModGenes, otherTfModGenes))
-		b = length(setdiff(tfModGenes, otherTfModGenes))
-		c = length(setdiff(otherTfModGenes, tfModGenes))
-		d = allCount - length(union(tfModGenes, otherTfModGenes))
-		contigencyMat = matrix(c(a, c, b, d), 2, 2)
-		results[i] = fisher.test(contigencyMat)$p.value
-	}
-	
-	if (correct)
-		for (i in 1:length(results))
-			results[i] = min(tfCount*results[i], 1)
-	return (sort(results))
+  results = NULL
+  tfGeneId = as.integer(tfGeneId)
+  if (length(which(varDG[[1]][,1] == tfGeneId)) == 0)
+    return(results)
+  
+  tfCount = length(varDG[[1]][,1])
+  if (allCount == 0)
+    allCount = countUniqModGenes(varDG)
+  tfModGenes = unique(varDG[[2]][[toString(tfGeneId)]][,1])
+  results = rep(1, tfCount)
+  names(results) = varDG[[1]][,1]
+  for (i in 1:tfCount){
+    if (varDG[[1]][i,1] == tfGeneId)
+      next
+    otherTfGeneId = varDG[[1]][i,1]
+    otherTfModGenes = unique(varDG[[2]][[toString(otherTfGeneId)]][,1])
+    # Set up the counts for Fisher's exact test
+    a = length(intersect(tfModGenes, otherTfModGenes))
+    b = length(setdiff(tfModGenes, otherTfModGenes))
+    c = length(setdiff(otherTfModGenes, tfModGenes))
+    d = allCount - length(union(tfModGenes, otherTfModGenes))
+    contigencyMat = matrix(c(a, c, b, d), 2, 2)
+    results[i] = fisher.test(contigencyMat)$p.value
+  }
+  
+  if (correct)
+    for (i in 1:length(results))
+      results[i] = min(tfCount*results[i], 1)
+  return (sort(results))
 }
 
 
@@ -2301,7 +2303,7 @@ coModulatedRegulators <- function(tfGeneId, varDG, correct = FALSE, allCount = 0
 # * save:	Boolean, indicates if the plot should be saved to file.
 # * fName:	If "save" is TRUE, this is the file name to user for storing the 
 #			image. If this is NULL then use as file name the value of 'which'.  
-# * varsDG: A vector containing the neames of the DIGGIT data variables,
+# * varsDG: A vector containing the names of the DIGGIT data variables,
 #			one per each tumor.
 # * width, height, res:	Image specification arguments to control width, height,
 #			and resolution.
@@ -2309,18 +2311,18 @@ coModulatedRegulators <- function(tfGeneId, varDG, correct = FALSE, allCount = 0
 #			each subfunction to interpret as needed.
 # *****************************************************************************
 makeGraphs <- function (which = "mods_events", save = FALSE, fName = NULL,
-		varsDG = varNamesDG, width = 800, height = 800, res = 130, params=NULL){
-	if (save){
-		if (is.null(fName))
-			fName = paste(which, ".png", sep="")
-		png(fName, width = width, height = height, res = res)
-	}
-	
+                        varsDG = varNamesDG, width = 800, height = 800, res = 130, params=NULL){
+  if (save){
+    if (is.null(fName))
+      fName = paste(which, ".png", sep="")
+    png(fName, width = width, height = height, res = res)
+  }
+  
   # ******************** which = regulon_sizes  *****************************
   # For each interactome, draw a boxplot for the sizes of all regulons. 
   # 
   # ARGUMENTS
-  # * params[[1]]: list of intectomes to plot, in the form of a vector of
+  # * params[[1]]: list of interactomes to plot, in the form of a vector of
   #		character strings, each string providing the variable name of an
   #		interactome. E.g., params[[1]] = c("Lung", "tcga_read")
   #		If params == NULL, plot bars for all interactomes.
@@ -2388,416 +2390,416 @@ makeGraphs <- function (which = "mods_events", save = FALSE, fName = NULL,
     }
   }
   
-	# ******************** which = mods_events  *****************************
-	# Plot 2 number series, each comprising 20 counts, one for each tumor: 
-	# (1) the number of genes harboring DIGGIT events.
-	# (2) the total number of repored DIGGIT associations 
-	if (which == "mods_events"){
-		par(mar=c(5,4,4,5)+.1)
-		plot(modsPerTumor, xlab = "Tumors", ylab = "# of Genes harboring DIGGIT mutations", xaxt="n", yaxt="n")
-		axis(1, at=seq(1,length(varsDG)), labels=gsub("DG", "", names(modsPerTumor)), las = 2)
-		axis(3, at=seq(1,length(varsDG)), labels=gsub("DG", "", names(modsPerTumor)), las = 2)
-		axis(2, at=seq(1, max(modsPerTumor), length.out=5), 
-				labels = as.character(round(seq(1, max(modsPerTumor), length.out=5))), 
-				col = "black", las=2)
-		par(new=TRUE)
-		plot(eventsPerTumor[names(modsPerTumor)],type="p",col="red",xaxt="n",yaxt="n",xlab="",ylab="")
-		axis(4, at=seq(1, max(eventsPerTumor), length.out=5), 
-				labels = as.character(round(seq(1, max(eventsPerTumor), length.out=5))), 
-				col = "red", las=2, cex=0.75)
-		abline(v=seq(1:length(varsDG)), lty=3)
-		legend('topright', legend = c("# Genes", "# Assoc"), col=c("black", "red"), lty=1)
-		mtext("# of DIGGIT associations", side=4, line = 4)
-	}
-	
-	# ********************* which = events_regs ********************************-
-	# Plot 2 number series, each comprising 20 counts, one for each tumor: 
-	# (1) the number of VIPER regulatorss
-	# (2) the total number of repored DIGGIT associations 
-	if (which == "events_regs"){
-		par(mar=c(5,4,4,5)+.1)
-		#series = sort(sapply(varsDG, function (e) {return(length(get(e)[[1]][,1]))}), decreasing = TRUE)
-		plot(regsPerTumor, xlab = "Tumors", ylab = "# of VIPER regulators", xaxt="n", yaxt="n")
-		axis(1, at=seq(1,length(regsPerTumor)), labels=gsub("DG", "", names(regsPerTumor)), las = 2)
-		axis(3, at=seq(1,length(regsPerTumor)), labels=gsub("DG", "", names(regsPerTumor)), las = 2)
-		axis(2, at=seq(1, max(regsPerTumor), length.out=5), 
-				labels = as.character(round(seq(1, max(regsPerTumor), length.out=5))), 
-				col = "black", las=2)
-		par(new=TRUE)
-		plot(eventsPerTumor[names(regsPerTumor)],type="p",col="red",xaxt="n",yaxt="n",xlab="",ylab="")
-		axis(4, at=seq(1, max(eventsPerTumor), length.out=5), 
-				labels = as.character(round(seq(1, max(eventsPerTumor), length.out=5))), 
-				col = "red", las=2, cex=0.75)
-		abline(v=seq(1:length(varsDG)), lty=3)
-		legend('topright', legend = c("# Regs", "# Assoc"), col=c("black", "red"), lty=1)
-		mtext("# of DIGGIT associations", side=4, line = 4)
-	}
-	
-	# ********************* which = median_events ********************************
-	if (which == "median_events"){
-		par(mar=c(5,5,4,4)+.1)
-		plot(eventsPerTumor, xlab = "Tumors", ylab = "", xaxt="n", yaxt="n")
-		mtext("# of DIGGIT associations", side=2, line = 4)
-		axis(1, at=seq(1,length(eventsPerTumor)), labels=gsub("DG", "", names(eventsPerTumor)), las = 2)
-		axis(3, at=seq(1,length(eventsPerTumor)), labels=gsub("DG", "", names(eventsPerTumor)), las = 2)
-		axis(2, at=seq(1, max(eventsPerTumor), length.out = 5), 
-				labels = as.character(round(seq(1, max(eventsPerTumor), length.out = 5))), 
-				las=2, cex=0.75)
-		par(new=TRUE)
-		medians = sapply(names(eventsPerTumor), function(e) {return(median(get(e)[[1]][,3]))})
-		plot(medians,type="p",col="red",xaxt="n",yaxt="n",xlab="",ylab="")
-		axis(4, at=seq(0, max(medians), ceiling(max(medians)/5)), 
-				labels = as.character(seq(0, max(medians), ceiling(max(medians)/5))), 
-				col = "red", las=2, cex=0.75)
-		abline(v=seq(1:length(medians)), lty=3)
-		legend('topright', legend = c("# Assoc", "Median/gene"), col=c("black", "red"), lty=1)
-		mtext("Median # of associations per regulator", side=4, line = 3)
-		
-	}
-	
-	# ********************* which = viper_regs ********************************
-	# Plot the number of VIPER regulators for each tumor
-	if (which == "viper_regs"){
-		series = sort(regsPerTumor, decreasing = TRUE)
-		plot(series, xlab = "Tumors", ylab = "# of VIPER regulators", xaxt="n")
-		axis(1, at=seq(1,length(series)), labels=gsub("DG", "", names(series)), las = 2)
-		axis(3, at=seq(1,length(series)), labels=gsub("DG", "", names(series)), las = 2)
-		abline(v=seq(1:length(series)), lty=3)
-	}
-	
-	# ********************* which = events_per_gene ********************************
-	# Generate one plot for each tumor, each showing the density of the number of DIGGIT events
-	# affecting every gene. Graphs are plotted in in decreasing order of the total number 
-	# of DIGGIT associations
-	if (which == "events_per_gene"){
-		par(mfrow=c(ceiling(sqrt(length(varsDG))), ceiling(sqrt(length(varsDG)))))
-		orderToDraw = names(eventsPerTumor)
-		for (i in 1:length(orderToDraw)){
-			xlab = paste("N = ", length(get(orderToDraw[i])[[1]][,3]), 
-					"    Median = ", median(get(orderToDraw[i])[[1]][,3]))
-			plot(density(get(orderToDraw[i])[[1]][,3]), main=gsub("DG", "", orderToDraw[i]), xlab=xlab)
-		}
-	}
-
-	# ********************* which = enriched_activity ********************************
-	# Generate one plot for each tumor, showing the enrichment of top-modulated 
-	# regulators in highly active regulators (red line), highly suppressed modulators 
-	# (blue line), and several random choices of modulator (black lines) 
-	if (which == "enriched_activity"){
-		par(mfrow=c(ceiling(sqrt(length(varsDG))), ceiling(sqrt(length(varsDG)))))
-		how_many_random = 5
-		for (i in 1:length(varsDG)){
-			viper = get(gsub("DG", "VP", varsDG[i]))[[1]]
-			plot(incrementalFETs(varsDG[i], viper, mode="pos")$pvals, t="l", 
-					main = gsub("DG", "", varsDG[i]), ylab = "-Log(pval)", xlab="", col="red")
-			lines(incrementalFETs(varsDG[i], viper, mode="neg")$pvals, t="l", col="blue")
-			for (j in 1:how_many_random)
-				lines(incrementalFETs(varsDG[i], viper, mode="pos", random=TRUE)$pvals, t="l")
-			
-		}
-	}
-	
-	# ********************* which = events_boxplots ********************************
-	# Generate one box plots for each tunor, for the counts of DIGGIT events
-	# per VIPER regulator.
-	if (which == "events_boxplots"){
-		par(mar=c(5,5,4,7)+.1)
-		medians = sort(sapply(names(eventsPerTumor), function(e) {return(median(get(e)[[1]][,3]))}))
-		L = sapply(varsDG, function(e){return(get(e)[[1]][,3])})
-		L = L[names(medians)]
-		names(L) = gsub("DG", "", names(L))
-		title = paste("Counts of DIGGIT events associated with VIPER regulators, ordered by median.\n",
-				"(red line: total # of DIGGIT events per tumor)")
-		boxplot(L, las=2, main=title, xlab="", ylab="")
-		par(new=TRUE)
-		plot(eventsPerTumor[names(medians)], type="l", col = "red", axes=FALSE, xlab="", 
-				ylab = "Median counts of regulator events")
-		axis(4, at=seq(1, max(eventsPerTumor), length.out = 5), 
-				labels = as.character(round(seq(1, max(eventsPerTumor), length.out = 5))), 
-				col="red", las=2, cex=0.75)
-		abline(v=seq(1:20), lty=3)
-		mtext("Total # of DIGGIT associations", side=4, line = 5)
-	}
-	
-	
-	# ********************* which = events_barplots ********************************
-	# Generate one bar plots for each tumor, showing the counts of the 3 
-	# types of DIGGIT events: SNVs, AMPs, DELs
-	if (which == "events_barplots"){
-		par(mar=c(5,5,4,7)+.1)
-		tmp = sapply(varsDG, function(x){return(rowSums(sapply(get(x)[[2]], 
-					function(e){return(c(sum(e[,2] == 1), sum(e[,2] == 2), sum(e[,2] == 3)))})))})
-		title = "Counts of DIGGIT events per Tumor"
-		ylab = "# of DIGGIT associations"
-		mp = barplot(tmp[,names(sort(eventsPerTumor, decreasing=TRUE))], col = c("black", "red", "blue"), 
-				xaxt="n", yaxt="n",	legend.text = c("SNV", "AMP", "DEL"), main = title)
-		axis(1, at=mp, labels=gsub("DG", "", names(sort(eventsPerTumor, decreasing=TRUE))), las = 2)
-		axis(2, at=seq(1, max(eventsPerTumor), length.out = 5), 
-				labels = as.character(round(seq(1, max(eventsPerTumor), length.out = 5))), 
-				col="black", las=2)
-	}
-
-	# ********************* which = density_per_event ********************************
-	# Generate one plot for each tumor, each showing the 3 density graphs, one each for 
-	# the -log(combinedP) value of DIGGIT associations involving either SNV, AMP, or DEL 
-	# type genomic events
-	if (which == "density_per_event"){
-		par(mfrow=c(ceiling(sqrt(length(varsDG))), ceiling(sqrt(length(varsDG)))))
-		orderToDraw = names(eventsPerTumor)
-		for (i in 1:length(orderToDraw)){
-			snv = unlist(sapply(get(orderToDraw[i])[[2]], function(x){return(x[x[,2] == 1,6])}))
-			amp = unlist(sapply(get(orderToDraw[i])[[2]], function(x){return(x[x[,2] == 2,6])}))
-			del = unlist(sapply(get(orderToDraw[i])[[2]], function(x){return(x[x[,2] == 3,6])}))
-			xlab = paste("SNV# = ", length(snv), " AMP# = ",  length(amp), "  DEL# = ",  length(del))
-			plot(density(-log(snv)), ylim=c(0, 0.5), main=gsub("DG", "", orderToDraw[i]), xlab=xlab)
-			lines(density(-log(amp)), col="red")
-			lines(density(-log(del)), col="blue")
-		}
-	}
-	
-	# ********************* which = chrom_diff *************************************
-	# Generate one histograms for each tumor, showing the frequency of the the 
-	# values:
-	#			chromosome(mod) - chromosome(reg)
-	# for each DIGGIT event involving a regultor gene 'reg' and a modulator gene 
-	# 'mod'. Our goal is to observe if there is any systematic (and thus, possibly
-	# alarming) preference for modulators targeting regulators in the same chromosome.
-	# This, e.g., could indicate that what DIGGIT picks up are associations between
-	# modulator-regulator pairs where the modulator and the regulator are part of the 
-	# same genomic abberation.	
-	if (which == "chrom_diff"){
-		par(mfrow=c(ceiling(sqrt(length(varsDG))), ceiling(sqrt(length(varsDG)))))
-		# Print plots in increasing order of number of DIGGIT events
-		names = names(sort(eventsPerTumor))
-		chr_map = rep(0, max_geneId)
-		for (index in 1:length(names)){
-			dg_data = get(names[index])
-			t = vector(mode="numeric", length=sum(dg_data[[1]][,3]))
-			k = 1
-			for (i in 1:length(dg_data[[1]][,1])){
-				rid = dg_data[[1]][i,1]
-				r_ind = dg_data[[1]][i,2]
-				mods = dg_data[[2]][[r_ind]]
-				rid_chr = chr_map[rid]
-				if (!is.na(rid_chr) && rid_chr == 0){
-					rid_chr = getChromosome(rid)
-					chr_map[rid] = rid_chr
-				}
-				for (j in 1:length(mods[,1])){
-					mid_chr = chr_map[mods[j,1]]
-					if (!is.na(mid_chr) && mid_chr == 0){
-						mid_chr = getChromosome(mods[j,1])
-						chr_map[mods[j,1]] = mid_chr
-					}
-					t[k] = mid_chr - rid_chr
-					k = k+1
-				}
-			}
-			title = paste(gsub("DG", "", names[index]),"=", length(unlist(t)))
-			x_lab = "Chr(mod)-Chr(reg)"
-			y_lab = "# DIGGITs"
-			hist(unlist(t), main = title, ylab = y_lab, xlab=x_lab)
-		}
-	}
-	# ********************* which = distr_high_positive_vipers ************************
-	# We create a plot demonstrating that regulators that are highly active across
-	# mulitple tumors have regulons which are well conserved across tumors. Specifically,
-	# within each tumor, we sort all VIPER regulators in order of activity, from highest
-	# to lowest and select the 150 most active regulators in each tumor (as the activity of
-	# a regulator in a tumor we use its median VIPER activity across all samples). We then 
-	# combine this data to identify the vector "top" of regulators that appear in the top-150 
-	# lists of at least five tumors. For each gene G in "top" we then retrieve the -Log(p)
-	# FET enrrichment values for the regulon of G from fPairEnrich[[2]], which indicate how
-	# well conserved the regulon of G is across all 190 pairs of interactomes. The -Log(p) 
-	# values for all genes G in "top" are the aggregated and their distribution is plotted
-	# (using a red-colored line). We then repeat this process for (1) the union "tfids" of 
-	# all VIPER regulators from all tumors (plotted using a black line) and (2) a number "rep" of 
-	# random samples from "tfids" where the size of each sample is same as the number of
-	# genes in "top".
-	if (which == "distr_high_positive_vipers"){
-		tfids = unique(unlist(sapply(varNamesVP, function(x){return(unique(get(x)[[1]][,1]))})))
-		xAxis = "Log(p) enrichment score"
-		plotTitle = "Density of Log(p) values for the enrichment in common targets among the regulons 
-				of VIPER regulators, across all possible pairs of tumors. Black line is density for
-				all regulators. Red line is only for the list L of most active regulators in the top-150 list.
-				Green lines are for multiple random choices of |L| regulators from the full set."
-		plot(density(unlist(sapply(tfPairEnrich[[2]], 
-										function(x){
-											return(x[, 2])
-										}))), xlab = xAxis, main = plotTitle, cex.main=0.8)
-		L = lapply(varNamesVP, function(name){
-					net = get(name)
-					inc = length(unique(net[[2]]))
-					x= nrow(net[[1]])/inc
-					y = sapply(seq(1,x), function(k){return(median(net[[1]][((k-1)*inc+1):(k*inc), 2]))})
-					names(y) = unique(net[[1]][,1])
-					return(sort(y, decreasing=T))
-				})
-		names(L) = varNamesVP
-		t_150 = sort(table(unlist(lapply(L, function(x, top=150){return(strtoi(names(x)[1:top]))}))), decreasing=T)
-		min = 5
-		max = length(varNamesVP)
-		res = rep("", length(max:min))
-		for (i in max:min){
-			t = names(t_150[t_150 == i])
-			if (length(t) > 0)
-				res[max-i+1] = toString(entrezIDtoSymbol(t))
-		}		
-		top = geneSymbolToEntrezId(unlist(strsplit(paste(res[(res != "")], collapse=", "), ", ", fixed=T)))
-		lines(density(unlist(sapply(tfPairEnrich[[2]], 
-										function(x){
-											return(x[which(x[,1] %in% top), 2])
-										}))), col="red")
-		repNum = 200
-		for (i in 1:repNum){
-			topSample = sample(tfids, length(top))
-			lines(density(unlist(sapply(tfPairEnrich[[2]], 
-											function(x){
-												return(x[which(x[,1] %in% topSample), 2])
-											}))), col="green")
-		}
-		
-	}
-	
-	# ***************************** which = cluster_networks ********************************
-	# Cluster dataset using 4 different similarity metrics, computed through the method
-	# interactionCounts(). The type of clustering used depends on the value of params. If
-	# params[[1]] == "mds", then multidimensional scaling is used. Otherwise (including 
-	# when params == NULL) hierarchical clustering is used.
+  # ******************** which = mods_events  *****************************
+  # Plot 2 number series, each comprising 20 counts, one for each tumor: 
+  # (1) the number of genes harboring DIGGIT events.
+  # (2) the total number of repored DIGGIT associations 
+  if (which == "mods_events"){
+    par(mar=c(5,4,4,5)+.1)
+    plot(modsPerTumor, xlab = "Tumors", ylab = "# of Genes harboring DIGGIT mutations", xaxt="n", yaxt="n")
+    axis(1, at=seq(1,length(varsDG)), labels=gsub("DG", "", names(modsPerTumor)), las = 2)
+    axis(3, at=seq(1,length(varsDG)), labels=gsub("DG", "", names(modsPerTumor)), las = 2)
+    axis(2, at=seq(1, max(modsPerTumor), length.out=5), 
+         labels = as.character(round(seq(1, max(modsPerTumor), length.out=5))), 
+         col = "black", las=2)
+    par(new=TRUE)
+    plot(eventsPerTumor[names(modsPerTumor)],type="p",col="red",xaxt="n",yaxt="n",xlab="",ylab="")
+    axis(4, at=seq(1, max(eventsPerTumor), length.out=5), 
+         labels = as.character(round(seq(1, max(eventsPerTumor), length.out=5))), 
+         col = "red", las=2, cex=0.75)
+    abline(v=seq(1:length(varsDG)), lty=3)
+    legend('topright', legend = c("# Genes", "# Assoc"), col=c("black", "red"), lty=1)
+    mtext("# of DIGGIT associations", side=4, line = 4)
+  }
+  
+  # ********************* which = events_regs ********************************-
+  # Plot 2 number series, each comprising 20 counts, one for each tumor: 
+  # (1) the number of VIPER regulators
+  # (2) the total number of reported DIGGIT associations 
+  if (which == "events_regs"){
+    par(mar=c(5,4,4,5)+.1)
+    #series = sort(sapply(varsDG, function (e) {return(length(get(e)[[1]][,1]))}), decreasing = TRUE)
+    plot(regsPerTumor, xlab = "Tumors", ylab = "# of VIPER regulators", xaxt="n", yaxt="n")
+    axis(1, at=seq(1,length(regsPerTumor)), labels=gsub("DG", "", names(regsPerTumor)), las = 2)
+    axis(3, at=seq(1,length(regsPerTumor)), labels=gsub("DG", "", names(regsPerTumor)), las = 2)
+    axis(2, at=seq(1, max(regsPerTumor), length.out=5), 
+         labels = as.character(round(seq(1, max(regsPerTumor), length.out=5))), 
+         col = "black", las=2)
+    par(new=TRUE)
+    plot(eventsPerTumor[names(regsPerTumor)],type="p",col="red",xaxt="n",yaxt="n",xlab="",ylab="")
+    axis(4, at=seq(1, max(eventsPerTumor), length.out=5), 
+         labels = as.character(round(seq(1, max(eventsPerTumor), length.out=5))), 
+         col = "red", las=2, cex=0.75)
+    abline(v=seq(1:length(varsDG)), lty=3)
+    legend('topright', legend = c("# Regs", "# Assoc"), col=c("black", "red"), lty=1)
+    mtext("# of DIGGIT associations", side=4, line = 4)
+  }
+  
+  # ********************* which = median_events ********************************
+  if (which == "median_events"){
+    par(mar=c(5,5,4,4)+.1)
+    plot(eventsPerTumor, xlab = "Tumors", ylab = "", xaxt="n", yaxt="n")
+    mtext("# of DIGGIT associations", side=2, line = 4)
+    axis(1, at=seq(1,length(eventsPerTumor)), labels=gsub("DG", "", names(eventsPerTumor)), las = 2)
+    axis(3, at=seq(1,length(eventsPerTumor)), labels=gsub("DG", "", names(eventsPerTumor)), las = 2)
+    axis(2, at=seq(1, max(eventsPerTumor), length.out = 5), 
+         labels = as.character(round(seq(1, max(eventsPerTumor), length.out = 5))), 
+         las=2, cex=0.75)
+    par(new=TRUE)
+    medians = sapply(names(eventsPerTumor), function(e) {return(median(get(e)[[1]][,3]))})
+    plot(medians,type="p",col="red",xaxt="n",yaxt="n",xlab="",ylab="")
+    axis(4, at=seq(0, max(medians), ceiling(max(medians)/5)), 
+         labels = as.character(seq(0, max(medians), ceiling(max(medians)/5))), 
+         col = "red", las=2, cex=0.75)
+    abline(v=seq(1:length(medians)), lty=3)
+    legend('topright', legend = c("# Assoc", "Median/gene"), col=c("black", "red"), lty=1)
+    mtext("Median # of associations per regulator", side=4, line = 3)
+    
+  }
+  
+  # ********************* which = viper_regs ********************************
+  # Plot the number of VIPER regulators for each tumor
+  if (which == "viper_regs"){
+    series = sort(regsPerTumor, decreasing = TRUE)
+    plot(series, xlab = "Tumors", ylab = "# of VIPER regulators", xaxt="n")
+    axis(1, at=seq(1,length(series)), labels=gsub("DG", "", names(series)), las = 2)
+    axis(3, at=seq(1,length(series)), labels=gsub("DG", "", names(series)), las = 2)
+    abline(v=seq(1:length(series)), lty=3)
+  }
+  
+  # ********************* which = events_per_gene ********************************
+  # Generate one plot for each tumor, each showing the density of the number of DIGGIT events
+  # affecting every gene. Graphs are plotted in in decreasing order of the total number 
+  # of DIGGIT associations
+  if (which == "events_per_gene"){
+    par(mfrow=c(ceiling(sqrt(length(varsDG))), ceiling(sqrt(length(varsDG)))))
+    orderToDraw = names(eventsPerTumor)
+    for (i in 1:length(orderToDraw)){
+      xlab = paste("N = ", length(get(orderToDraw[i])[[1]][,3]), 
+                   "    Median = ", median(get(orderToDraw[i])[[1]][,3]))
+      plot(density(get(orderToDraw[i])[[1]][,3]), main=gsub("DG", "", orderToDraw[i]), xlab=xlab)
+    }
+  }
+  
+  # ********************* which = enriched_activity ********************************
+  # Generate one plot for each tumor, showing the enrichment of top-modulated 
+  # regulators in highly active regulators (red line), highly suppressed modulators 
+  # (blue line), and several random choices of modulator (black lines) 
+  if (which == "enriched_activity"){
+    par(mfrow=c(ceiling(sqrt(length(varsDG))), ceiling(sqrt(length(varsDG)))))
+    how_many_random = 5
+    for (i in 1:length(varsDG)){
+      viper = get(gsub("DG", "VP", varsDG[i]))[[1]]
+      plot(incrementalFETs(varsDG[i], viper, mode="pos")$pvals, t="l", 
+           main = gsub("DG", "", varsDG[i]), ylab = "-Log(pval)", xlab="", col="red")
+      lines(incrementalFETs(varsDG[i], viper, mode="neg")$pvals, t="l", col="blue")
+      for (j in 1:how_many_random)
+        lines(incrementalFETs(varsDG[i], viper, mode="pos", random=TRUE)$pvals, t="l")
+      
+    }
+  }
+  
+  # ********************* which = events_boxplots ********************************
+  # Generate one box plots for each tumor, for the counts of DIGGIT events
+  # per VIPER regulator.
+  if (which == "events_boxplots"){
+    par(mar=c(5,5,4,7)+.1)
+    medians = sort(sapply(names(eventsPerTumor), function(e) {return(median(get(e)[[1]][,3]))}))
+    L = sapply(varsDG, function(e){return(get(e)[[1]][,3])})
+    L = L[names(medians)]
+    names(L) = gsub("DG", "", names(L))
+    title = paste("Counts of DIGGIT events associated with VIPER regulators, ordered by median.\n",
+                  "(red line: total # of DIGGIT events per tumor)")
+    boxplot(L, las=2, main=title, xlab="", ylab="")
+    par(new=TRUE)
+    plot(eventsPerTumor[names(medians)], type="l", col = "red", axes=FALSE, xlab="", 
+         ylab = "Median counts of regulator events")
+    axis(4, at=seq(1, max(eventsPerTumor), length.out = 5), 
+         labels = as.character(round(seq(1, max(eventsPerTumor), length.out = 5))), 
+         col="red", las=2, cex=0.75)
+    abline(v=seq(1:20), lty=3)
+    mtext("Total # of DIGGIT associations", side=4, line = 5)
+  }
+  
+  
+  # ********************* which = events_barplots ********************************
+  # Generate one bar plots for each tumor, showing the counts of the 3 
+  # types of DIGGIT events: SNVs, AMPs, DELs
+  if (which == "events_barplots"){
+    par(mar=c(5,5,4,7)+.1)
+    tmp = sapply(varsDG, function(x){return(rowSums(sapply(get(x)[[2]], 
+                                                           function(e){return(c(sum(e[,2] == 1), sum(e[,2] == 2), sum(e[,2] == 3)))})))})
+    title = "Counts of DIGGIT events per Tumor"
+    ylab = "# of DIGGIT associations"
+    mp = barplot(tmp[,names(sort(eventsPerTumor, decreasing=TRUE))], col = c("black", "red", "blue"), 
+                 xaxt="n", yaxt="n",	legend.text = c("SNV", "AMP", "DEL"), main = title)
+    axis(1, at=mp, labels=gsub("DG", "", names(sort(eventsPerTumor, decreasing=TRUE))), las = 2)
+    axis(2, at=seq(1, max(eventsPerTumor), length.out = 5), 
+         labels = as.character(round(seq(1, max(eventsPerTumor), length.out = 5))), 
+         col="black", las=2)
+  }
+  
+  # ********************* which = density_per_event ********************************
+  # Generate one plot for each tumor, each showing the 3 density graphs, one each for 
+  # the -log(combinedP) value of DIGGIT associations involving either SNV, AMP, or DEL 
+  # type genomic events
+  if (which == "density_per_event"){
+    par(mfrow=c(ceiling(sqrt(length(varsDG))), ceiling(sqrt(length(varsDG)))))
+    orderToDraw = names(eventsPerTumor)
+    for (i in 1:length(orderToDraw)){
+      snv = unlist(sapply(get(orderToDraw[i])[[2]], function(x){return(x[x[,2] == 1,6])}))
+      amp = unlist(sapply(get(orderToDraw[i])[[2]], function(x){return(x[x[,2] == 2,6])}))
+      del = unlist(sapply(get(orderToDraw[i])[[2]], function(x){return(x[x[,2] == 3,6])}))
+      xlab = paste("SNV# = ", length(snv), " AMP# = ",  length(amp), "  DEL# = ",  length(del))
+      plot(density(-log(snv)), ylim=c(0, 0.5), main=gsub("DG", "", orderToDraw[i]), xlab=xlab)
+      lines(density(-log(amp)), col="red")
+      lines(density(-log(del)), col="blue")
+    }
+  }
+  
+  # ********************* which = chrom_diff *************************************
+  # Generate one histograms for each tumor, showing the frequency of the the 
+  # values:
+  #			chromosome(mod) - chromosome(reg)
+  # for each DIGGIT event involving a regulator gene 'reg' and a modulator gene 
+  # 'mod'. Our goal is to observe if there is any systematic (and thus, possibly
+  # alarming) preference for modulators targeting regulators in the same chromosome.
+  # This, e.g., could indicate that what DIGGIT picks up are associations between
+  # modulator-regulator pairs where the modulator and the regulator are part of the 
+  # same genomic aberration.	
+  if (which == "chrom_diff"){
+    par(mfrow=c(ceiling(sqrt(length(varsDG))), ceiling(sqrt(length(varsDG)))))
+    # Print plots in increasing order of number of DIGGIT events
+    names = names(sort(eventsPerTumor))
+    chr_map = rep(0, max_geneId)
+    for (index in 1:length(names)){
+      dg_data = get(names[index])
+      t = vector(mode="numeric", length=sum(dg_data[[1]][,3]))
+      k = 1
+      for (i in 1:length(dg_data[[1]][,1])){
+        rid = dg_data[[1]][i,1]
+        r_ind = dg_data[[1]][i,2]
+        mods = dg_data[[2]][[r_ind]]
+        rid_chr = chr_map[rid]
+        if (!is.na(rid_chr) && rid_chr == 0){
+          rid_chr = getChromosome(rid)
+          chr_map[rid] = rid_chr
+        }
+        for (j in 1:length(mods[,1])){
+          mid_chr = chr_map[mods[j,1]]
+          if (!is.na(mid_chr) && mid_chr == 0){
+            mid_chr = getChromosome(mods[j,1])
+            chr_map[mods[j,1]] = mid_chr
+          }
+          t[k] = mid_chr - rid_chr
+          k = k+1
+        }
+      }
+      title = paste(gsub("DG", "", names[index]),"=", length(unlist(t)))
+      x_lab = "Chr(mod)-Chr(reg)"
+      y_lab = "# DIGGITs"
+      hist(unlist(t), main = title, ylab = y_lab, xlab=x_lab)
+    }
+  }
+  # ********************* which = distr_high_positive_vipers ************************
+  # We create a plot demonstrating that regulators that are highly active across
+  # multiple tumors have regulons which are well conserved across tumors. Specifically,
+  # within each tumor, we sort all VIPER regulators in order of activity, from highest
+  # to lowest and select the 150 most active regulators in each tumor (as the activity of
+  # a regulator in a tumor we use its median VIPER activity across all samples). We then 
+  # combine this data to identify the vector "top" of regulators that appear in the top-150 
+  # lists of at least five tumors. For each gene G in "top" we then retrieve the -Log(p)
+  # FET enrichment values for the regulon of G from fPairEnrich[[2]], which indicate how
+  # well conserved the regulon of G is across all 190 pairs of interactomes. The -Log(p) 
+  # values for all genes G in "top" are the aggregated and their distribution is plotted
+  # (using a red-colored line). We then repeat this process for (1) the union "tfids" of 
+  # all VIPER regulators from all tumors (plotted using a black line) and (2) a number "rep" of 
+  # random samples from "tfids" where the size of each sample is same as the number of
+  # genes in "top".
+  if (which == "distr_high_positive_vipers"){
+    tfids = unique(unlist(sapply(varNamesVP, function(x){return(unique(get(x)[[1]][,1]))})))
+    xAxis = "Log(p) enrichment score"
+    plotTitle = "Density of Log(p) values for the enrichment in common targets among the regulons 
+    of VIPER regulators, across all possible pairs of tumors. Black line is density for
+    all regulators. Red line is only for the list L of most active regulators in the top-150 list.
+    Green lines are for multiple random choices of |L| regulators from the full set."
+    plot(density(unlist(sapply(tfPairEnrich[[2]], 
+                               function(x){
+                                 return(x[, 2])
+                               }))), xlab = xAxis, main = plotTitle, cex.main=0.8)
+    L = lapply(varNamesVP, function(name){
+      net = get(name)
+      inc = length(unique(net[[2]]))
+      x= nrow(net[[1]])/inc
+      y = sapply(seq(1,x), function(k){return(median(net[[1]][((k-1)*inc+1):(k*inc), 2]))})
+      names(y) = unique(net[[1]][,1])
+      return(sort(y, decreasing=T))
+    })
+    names(L) = varNamesVP
+    t_150 = sort(table(unlist(lapply(L, function(x, top=150){return(strtoi(names(x)[1:top]))}))), decreasing=T)
+    min = 5
+    max = length(varNamesVP)
+    res = rep("", length(max:min))
+    for (i in max:min){
+      t = names(t_150[t_150 == i])
+      if (length(t) > 0)
+        res[max-i+1] = toString(entrezIDtoSymbol(t))
+    }		
+    top = geneSymbolToEntrezId(unlist(strsplit(paste(res[(res != "")], collapse=", "), ", ", fixed=T)))
+    lines(density(unlist(sapply(tfPairEnrich[[2]], 
+                                function(x){
+                                  return(x[which(x[,1] %in% top), 2])
+                                }))), col="red")
+    repNum = 200
+    for (i in 1:repNum){
+      topSample = sample(tfids, length(top))
+      lines(density(unlist(sapply(tfPairEnrich[[2]], 
+                                  function(x){
+                                    return(x[which(x[,1] %in% topSample), 2])
+                                  }))), col="green")
+    }
+    
+  }
+  
+  # ***************************** which = cluster_networks ********************************
+  # Cluster dataset using 4 different similarity metrics, computed through the method
+  # interactionCounts(). The type of clustering used depends on the value of params. If
+  # params[[1]] == "mds", then multidimensional scaling is used. Otherwise (including 
+  # when params == NULL) hierarchical clustering is used.
   # If params[[1]] == "fet", then hierarchical clustering based on FET score is used.
   # FET score utilizes p-values of Fisher's exact test on every shared regulons
   # between interactomes.
   # If params[[1]] == "fet" && params[[2]] == "mds", then MDS plot based on FET score
   # is used.
   # If params[[1]] == "prob", then hierarchical clustering based on the probability is used.
-  # See descriptions of calNetProb() function about more deatils.
+  # See descriptions of calNetProb() function about more details.
   # If params[[1]] == "prob" && params[[2]] == "mds", then MDS plot based on the probability
   # is used.
-	if (which == "cluster_networks"){
-		if((!is.null(params)) && (params[[1]] == "fet")) {
-		  buf <- calFet()
-		  
-		  par(mfrow=c(2,2))
-		  graphTitles = c("Distances using all FET",
-        "Distances using FET from TF hubs",
-        "Distances using FET from TF and co-TF hubs",
-        "Distances using FET from signaling hubs")
-		  
-		  for(j in 1:length(buf)) {
-		    M <- min(buf[[j]])
-		    buf[[j]] = buf[[j]]-M+1
-		    
-		    d = as.dist(buf[[j]])
-		    
-		    if((length(params) > 1) && (params[[2]] == "mds")) {
-		      fit <- cmdscale(d,eig=TRUE, k=2)
-		      x_c <- fit$points[,1]
-		      y_c <- fit$points[,2]
+  if (which == "cluster_networks"){
+    if((!is.null(params)) && (params[[1]] == "fet")) {
+      buf <- calFet()
+      
+      par(mfrow=c(2,2))
+      graphTitles = c("Distances using all FET",
+                      "Distances using FET from TF hubs",
+                      "Distances using FET from TF and co-TF hubs",
+                      "Distances using FET from signaling hubs")
+      
+      for(j in 1:length(buf)) {
+        M <- min(buf[[j]])
+        buf[[j]] = buf[[j]]-M+1
+        
+        d = as.dist(buf[[j]])
+        
+        if((length(params) > 1) && (params[[2]] == "mds")) {
+          fit <- cmdscale(d,eig=TRUE, k=2)
+          x_c <- fit$points[,1]
+          y_c <- fit$points[,2]
           
-		      plot(x_c, y_c, main=graphTitles[j],	type="n")
-		      text(x_c, y_c, labels = labels(d), cex=.7, pos=3)
-		    } else {
-		      plot(hclust(d), main=graphTitles[j])
-		    }
-		  }
-		  
-		} else if((!is.null(params)) && (params[[1]] == "prob")) {
-		  buf <- calNetProb()
-		  
-		  par(mfrow=c(2,2))
-		  graphTitles = c("Distances using the probability from all hubs",
-		                  "Distances using the probability from TF hubs",
-		                  "Distances using the probability from TF and co-TF hubs",
-		                  "Distances using the probability from signaling hubs")
-		  
-		  for(j in 1:length(buf)) {
-		    M <- min(buf[[j]])
-		    buf[[j]] = buf[[j]]-M+1
-		    
-		    d = as.dist(buf[[j]])
-		    
-		    if((length(params) > 1) && (params[[2]] == "mds")) {
-		      fit <- cmdscale(d,eig=TRUE, k=2)
-		      x_c <- fit$points[,1]
-		      y_c <- fit$points[,2]
-		      
-		      plot(x_c, y_c, main=graphTitles[j],	type="n")
-		      text(x_c, y_c, labels = labels(d), cex=.7, pos=3)
-		    } else {
-		      plot(hclust(d), main=graphTitles[j])
-		    }
-		  }
-		} else {
-  	  # The following 4 variables are "expensive" to generate, so do that only once.
-  		if (!exists("pairWise"))
-  			assign("pairWise", interactionCounts("pairwise"), envir = globalenv())	
-  		if (!exists("pairWiseTFonly"))
-  			assign("pairWiseTFonly", interactionCounts("pairwise", is.tf), envir = globalenv())
-  		if (!exists("pairWiseTFandCoTF"))
-  			assign("pairWiseTFandCoTF", interactionCounts("pairwise", function(x){return (is.tf(x) || is.cotf(x))}), 
-  					envir = globalenv())
-  		if (!exists("pairWiseSignalOnly"))
-  			assign("pairWiseSignalOnly", interactionCounts("pairwise", is.sign), envir = globalenv())
-  		pwiseCounts = list(pairWise, pairWiseTFonly, pairWiseTFandCoTF, pairWiseSignalOnly)
-  		# par(mfrow=c(1,length(pwiseCounts)))
-  		par(mfrow=c(2,2))
-  		graphTitles = c("Distances using all interactions",
-  				"Distances using only interactions from TF hubs",
-  				"Distances using only interactions from TF and co-TF hubs",
-  				"Distances using only interactions from signaling hubs")
-  		for (j in 1:length(pwiseCounts)){
-  			x = pwiseCounts[[j]]
-  			N = nrow(x)
-  			for (i in 1:N)
-  				x[i,i]=0
-  			max = max(x)
-  			x = max - x
-  			for (i in 1:N)
-  				x[i,i]=0
-  			d = as.dist(x)
-  			if ((!is.null(params)) && (params[[1]] == "mds")){
-  				fit <- cmdscale(d,eig=TRUE, k=2)
-  				x_c <- fit$points[,1]
-  				y_c <- fit$points[,2]
-  				# This is a hack; when computing distances using TFs or TFs+co-TFs, the MDS diagram
-  				# is plotted in the opposite orientation. To make all images look the same, we just
-  				# flit the x axis.
-  				# if (j %in% c(2,3))
-  				#	x_c = -x_c
-  				plot(x_c, y_c, main=graphTitles[j],	type="n")
-  				text(x_c, y_c, labels = labels(d), cex=.7, pos=3)
-  			} else{
-  				plot(hclust(d), main=graphTitles[j])
-  			}
-  		}
-		}
-	}
-	
+          plot(x_c, y_c, main=graphTitles[j],	type="n")
+          text(x_c, y_c, labels = labels(d), cex=.7, pos=3)
+        } else {
+          plot(hclust(d), main=graphTitles[j])
+        }
+      }
+      
+    } else if((!is.null(params)) && (params[[1]] == "prob")) {
+      buf <- calNetProb()
+      
+      par(mfrow=c(2,2))
+      graphTitles = c("Distances using the probability from all hubs",
+                      "Distances using the probability from TF hubs",
+                      "Distances using the probability from TF and co-TF hubs",
+                      "Distances using the probability from signaling hubs")
+      
+      for(j in 1:length(buf)) {
+        M <- min(buf[[j]])
+        buf[[j]] = buf[[j]]-M+1
+        
+        d = as.dist(buf[[j]])
+        
+        if((length(params) > 1) && (params[[2]] == "mds")) {
+          fit <- cmdscale(d,eig=TRUE, k=2)
+          x_c <- fit$points[,1]
+          y_c <- fit$points[,2]
+          
+          plot(x_c, y_c, main=graphTitles[j],	type="n")
+          text(x_c, y_c, labels = labels(d), cex=.7, pos=3)
+        } else {
+          plot(hclust(d), main=graphTitles[j])
+        }
+      }
+    } else {
+      # The following 4 variables are "expensive" to generate, so do that only once.
+      if (!exists("pairWise"))
+        assign("pairWise", interactionCounts("pairwise"), envir = globalenv())	
+      if (!exists("pairWiseTFonly"))
+        assign("pairWiseTFonly", interactionCounts("pairwise", is.tf), envir = globalenv())
+      if (!exists("pairWiseTFandCoTF"))
+        assign("pairWiseTFandCoTF", interactionCounts("pairwise", function(x){return (is.tf(x) || is.cotf(x))}), 
+               envir = globalenv())
+      if (!exists("pairWiseSignalOnly"))
+        assign("pairWiseSignalOnly", interactionCounts("pairwise", is.sign), envir = globalenv())
+      pwiseCounts = list(pairWise, pairWiseTFonly, pairWiseTFandCoTF, pairWiseSignalOnly)
+      # par(mfrow=c(1,length(pwiseCounts)))
+      par(mfrow=c(2,2))
+      graphTitles = c("Distances using all interactions",
+                      "Distances using only interactions from TF hubs",
+                      "Distances using only interactions from TF and co-TF hubs",
+                      "Distances using only interactions from signaling hubs")
+      for (j in 1:length(pwiseCounts)){
+        x = pwiseCounts[[j]]
+        N = nrow(x)
+        for (i in 1:N)
+          x[i,i]=0
+        max = max(x)
+        x = max - x
+        for (i in 1:N)
+          x[i,i]=0
+        d = as.dist(x)
+        if ((!is.null(params)) && (params[[1]] == "mds")){
+          fit <- cmdscale(d,eig=TRUE, k=2)
+          x_c <- fit$points[,1]
+          y_c <- fit$points[,2]
+          # This is a hack; when computing distances using TFs or TFs+co-TFs, the MDS diagram
+          # is plotted in the opposite orientation. To make all images look the same, we just
+          # flit the x axis.
+          # if (j %in% c(2,3))
+          #	x_c = -x_c
+          plot(x_c, y_c, main=graphTitles[j],	type="n")
+          text(x_c, y_c, labels = labels(d), cex=.7, pos=3)
+        } else{
+          plot(hclust(d), main=graphTitles[j])
+        }
+      }
+    }
+  }
   
-	# ********************* which = regulon_sizes_per_gene_type ************************
-	# Create one plot per ARACNe network, each graphing regulon sizes in decreasing order, 
-	# with vertical lines corresponsing to hub type (TF = red, coTF = blue, signaling = green)
-	# type genomic events. ++++NOTE: The ARACNe networks to plot must be passed as the value
-	# of the function argument 'varsGS', in the form of a string vector such as:
-	# 		c("brca", "blca", "gbm", "lgg")
-	if (which == "regulon_sizes_per_gene_type"){
-		if (!is.character(varsDG))
-			stop()
-		nets =  lapply(varsDG, function(x){return(get(x))})
-		#par(mfrow=c(ceiling(sqrt(length(varsDG))), ceiling(sqrt(length(varsDG)))))
-		par(mfrow=c(ceiling(length(varsDG)/3), min(3, length(varsDG))))
-		for (i in 1:length(varsDG)){
-			plotReg(nets[[i]])
-			title(main = varsDG[i])
-		}
-	}
+  
+  # ********************* which = regulon_sizes_per_gene_type ************************
+  # Create one plot per ARACNe network, each graphing regulon sizes in decreasing order, 
+  # with vertical lines corresponding to hub type (TF = red, coTF = blue, signaling = green)
+  # type genomic events. ++++NOTE: The ARACNe networks to plot must be passed as the value
+  # of the function argument 'varsGS', in the form of a string vector such as:
+  # 		c("brca", "blca", "gbm", "lgg")
+  if (which == "regulon_sizes_per_gene_type"){
+    if (!is.character(varsDG))
+      stop()
+    nets =  lapply(varsDG, function(x){return(get(x))})
+    #par(mfrow=c(ceiling(sqrt(length(varsDG))), ceiling(sqrt(length(varsDG)))))
+    par(mfrow=c(ceiling(length(varsDG)/3), min(3, length(varsDG))))
+    for (i in 1:length(varsDG)){
+      plotReg(nets[[i]])
+      title(main = varsDG[i])
+    }
+  }
   
   
   # ********************* which = exclusive_interactions ************************
   # Process the file generated by a call to the method:
   #			oneOffs("exclusive_interactions", params)
   # which produces a sorted table T for each hub gene R seen it both GTEx and TCGA
-  # netwroks; each table entry corresponds to gene G such that the interaction 
+  # networks; each table entry corresponds to gene G such that the interaction 
   # (R, G) appears only in GTEx (or TCGA) networks and T[G] is the support of 
   # (R, G), i.e., the number of networks where it is present. Additionally, the call
   # to oneOffs() will generate similar tables for randomly reassigning networks to 
@@ -2806,9 +2808,9 @@ makeGraphs <- function (which = "mods_events", save = FALSE, fName = NULL,
   # TCGA. For GTEx, it will look at interactions involving target G and count the 
   # number of hub genes R such that (1) (R, G) in an interactions that is 
   # exclusive to GTEx, and (2) has support larger than a user-specified value "min".
-  # It will the plot the density plot for these coutnts and ovelay the same count 
+  # It will the plot the density plot for these counts and overlay the same count 
   # as computed from the randomly reassigned networks. The plot for TCGA is computed
-  # in the exact same manner, but counting interactions that are exlusive to GTEx.
+  # in the exact same manner, but counting interactions that are exclusive to GTEx.
   # Our goal here is to identify true interactions (hence the requirement to have
   # large support and to clear MI and p-value thresholds) that are exclusive to 
   # either GTEx or TCGA (hence, putatively plan a role in suppressing or promoting
@@ -2816,25 +2818,25 @@ makeGraphs <- function (which = "mods_events", save = FALSE, fName = NULL,
   # of regulators. The characteristics, we postulate, make for ineresting interactions.
   # 
   # The code below expects the following values to be passed in the params[[]] argument:
-  # * params[[1]]:	Character string cotnaining the full pathname of the file 
+  # * params[[1]]:	Character string containing the full pathname of the file 
   #			produced by the call to oneOffs.
-  # * params[[2]]:	Integer provding the value "min" which will be used as the minimum
+  # * params[[2]]:	Integer providing the value "min" which will be used as the minimum
   #			support for the interactions to be considered.
   if (which == "exclusive_interactions"){
     
     # ****************** tabulateCommonRegulators **************************
     # Takes as input a list like L_gtex of L_tcga generated by method computeDiffinteractions().
-    # Each list member correspond to a hub gene and contains its top exlusive interactions, tabulated
+    # Each list member correspond to a hub gene and contains its top exclusive interactions, tabulated
     # according to their support. The methods first identifies interactions that have support 
-    # in at least "min" netwroks. It then examines the targets involved in these interactions
+    # in at least "min" networks. It then examines the targets involved in these interactions
     # and tabulates them according to how many hub genes interact with each target at that level of 
     # suppor or higher. Essentially, we are looking for regulatory modules which:
     # 1.	regulate the same target
     # 2.	invovle "real" interactions (given the high support)
-    # 3.	are exlusive to GTEx or TCGA, indicating funcitonal significance.
+    # 3.	are exclusive to GTEx or TCGA, indicating functional significance.
     #
     # ARGUMENTS:
-    # * L:		A list formatted as the variables  L_gtex of L_tcga genarated by method 
+    # * L:		A list formatted as the variables  L_gtex of L_tcga generated by method 
     #			computeDiffinteractions()
     # * min:	Minimum support threshold. Only consider interactions with support in at least
     #			"min" networks.
@@ -2842,7 +2844,7 @@ makeGraphs <- function (which = "mods_events", save = FALSE, fName = NULL,
     # RETURN VALUE
     # A sorted table T with one entry per target gene G involved in an exclusive interaction (R,G). 
     # The value T[G] is the number of hub genes R for which (R,G) has support at least "min".
-    # Only genes G for which T[G] > 0 are reported. The entries in the table are sotred from highest
+    # Only genes G for which T[G] > 0 are reported. The entries in the table are sorted from highest
     # to lowest value.
     tabulateCommonRegulators <- function(L, min = 15){
       LL = unlist(sapply(L, function(x){
@@ -3002,7 +3004,7 @@ makeGraphs <- function (which = "mods_events", save = FALSE, fName = NULL,
           theme_classic(base_size = 16) +
           labs(title=viperMatNames[i], subtitle="") +
           theme(legend.position="none")
-          
+        
         ### save the plot
         ggsave(filename = paste0(params[[2]], viperMatNames[i], "_density.png"),
                width = 15, height = 10)
@@ -3432,11 +3434,11 @@ makeGraphs <- function (which = "mods_events", save = FALSE, fName = NULL,
       for(i in 1:plot_rowNum) {
         p[[i]] <- ggplot(df[which(df[,1] %in% unique_tissue_names[((i-1)*beeswarmNum+1):(i*beeswarmNum)]),],
                          aes(x=group, y=chromosome)) +
-                  labs(y="Chromosome") +
-                  theme_classic(base_size = 16) +
-                  geom_boxplot() +
-                  geom_beeswarm(aes(color=group)) +
-                  stat_compare_means()
+          labs(y="Chromosome") +
+          theme_classic(base_size = 16) +
+          geom_boxplot() +
+          geom_beeswarm(aes(color=group)) +
+          stat_compare_means()
       }
       
       ### save the plot
@@ -3554,8 +3556,8 @@ makeGraphs <- function (which = "mods_events", save = FALSE, fName = NULL,
   }
   
   
-	if(save)
-		dev.off()
+  if(save)
+    dev.off()
 }
 
 ### Calculates FET score based on tfPairEnrich
@@ -3741,31 +3743,31 @@ calNetProb <- function() {
 # final results.
 # *****************************************************************************
 globalCoModulatedRegulators <- function(numTFs, cutOff = 0.01, removeNulls = TRUE, varDG = varNamesDG){
-	
-	results = vector("list", length(varDG))
-	names(results) = varDG
-	gCounts = globalCountOfModulators(varDG, FALSE)
-	
-	for (index in 1:length(varDG)){
-		# logLines(paste("Processing tunor -->", varDG[index]))
-		varDG = get(varDG[index])
-		num = min(numTFs, length(varDG[[1]][,1]))
-		tumorRes = vector("list", num)
-		names(tumorRes) = varDG[[1]][1:num, 1]
-		for (i in 1:num){
-			tfGeneID = varDG[[1]][i,1]
-			v = coModulatedRegulators(tfGeneID, varDG, TRUE, gCounts[index])
-			if (!is.null(v)){
-				v = v[v < cutOff]
-				if (length(v) > 0)
-					tumorRes[[i]] = v
-			}
-		}
-		results[[index]] = tumorRes
-	}
-	if(removeNulls)
-		results = sapply(results, function(e){return(e[!sapply(e, is.null)])})
-	return(results)
+  
+  results = vector("list", length(varDG))
+  names(results) = varDG
+  gCounts = globalCountOfModulators(varDG, FALSE)
+  
+  for (index in 1:length(varDG)){
+    # logLines(paste("Processing tunor -->", varDG[index]))
+    varDG = get(varDG[index])
+    num = min(numTFs, length(varDG[[1]][,1]))
+    tumorRes = vector("list", num)
+    names(tumorRes) = varDG[[1]][1:num, 1]
+    for (i in 1:num){
+      tfGeneID = varDG[[1]][i,1]
+      v = coModulatedRegulators(tfGeneID, varDG, TRUE, gCounts[index])
+      if (!is.null(v)){
+        v = v[v < cutOff]
+        if (length(v) > 0)
+          tumorRes[[i]] = v
+      }
+    }
+    results[[index]] = tumorRes
+  }
+  if(removeNulls)
+    results = sapply(results, function(e){return(e[!sapply(e, is.null)])})
+  return(results)
 }
 
 
@@ -3786,26 +3788,26 @@ globalCoModulatedRegulators <- function(numTFs, cutOff = 0.01, removeNulls = TRU
 # containing the symbol names of the genes in the intersection of A and B.
 # *****************************************************************************
 getTopRegsAndMods <- function (top = 100, varDG = varNamesDG){
-	# get a table listing for each modulator gene (rows) the number of TFs 
-	# modulated by the gene in each tumor (columns)
-	z = globalModulatorMatrix(TRUE, varNamesDG = varDG)
-	L = list()
-	for (i in 1:length(varDG)) 
-		L[[i]] = z[,i]
-	#y = sapply(L, function(e){return(strtoi(names(sort(e, decreasing = TRUE)[1:top])))})
-	#y = sort(table(y), decreasing = TRUE)
-	#entrezIDtoSymbol(names(y[1:20]))
-	
-	# For reach tumor report the genes that are both among the 'top' most modulated 
-	# regulators and the TOP most active modulators
-	res = sapply(seq(length(varDG)), function(i){
-				x = intersect(strtoi(names(sort(L[[i]], decreasing = TRUE)[1:top])),
-						get(varDG[i])[[1]][1:top, 1]); 
-				if(length(x) == 0) 
-					return(NULL) 
-				return(entrezIDtoSymbol(x))})
-	names(res) = varDG
-	return(res)
+  # get a table listing for each modulator gene (rows) the number of TFs 
+  # modulated by the gene in each tumor (columns)
+  z = globalModulatorMatrix(TRUE, varNamesDG = varDG)
+  L = list()
+  for (i in 1:length(varDG)) 
+    L[[i]] = z[,i]
+  #y = sapply(L, function(e){return(strtoi(names(sort(e, decreasing = TRUE)[1:top])))})
+  #y = sort(table(y), decreasing = TRUE)
+  #entrezIDtoSymbol(names(y[1:20]))
+  
+  # For reach tumor report the genes that are both among the 'top' most modulated 
+  # regulators and the TOP most active modulators
+  res = sapply(seq(length(varDG)), function(i){
+    x = intersect(strtoi(names(sort(L[[i]], decreasing = TRUE)[1:top])),
+                  get(varDG[i])[[1]][1:top, 1]); 
+    if(length(x) == 0) 
+      return(NULL) 
+    return(entrezIDtoSymbol(x))})
+  names(res) = varDG
+  return(res)
 }
 
 
@@ -3826,24 +3828,24 @@ getTopRegsAndMods <- function (top = 100, varDG = varNamesDG){
 # to smallest.
 # *****************************************************************************
 modulatorCounts <- function(varDG, unique = FALSE){
-	if (typeof(varDG) == "character")
-		varDG = get(varDG)
-	resMat = matrix(0, max_geneId, 2)
-	for (i in 1:length(varDG[[2]])){
-		if (unique)
-			tmp = unique(varDG[[2]][[i]][,1])
-		else
-			tmp = varDG[[2]][[i]][,1]
-		for (j in 1:length(tmp)){
-			resMat[tmp[j], 2] = resMat[tmp[j], 2] + 1
-			resMat[tmp[j], 1] = tmp[j]
-		}
-	}
-	resMat = resMat[resMat[,2] > 0,]
-	resMat = resMat[order(resMat[,2], decreasing = TRUE),]
-	results = resMat[,2]
-	names(results) = resMat[,1]
-	return(results)
+  if (typeof(varDG) == "character")
+    varDG = get(varDG)
+  resMat = matrix(0, max_geneId, 2)
+  for (i in 1:length(varDG[[2]])){
+    if (unique)
+      tmp = unique(varDG[[2]][[i]][,1])
+    else
+      tmp = varDG[[2]][[i]][,1]
+    for (j in 1:length(tmp)){
+      resMat[tmp[j], 2] = resMat[tmp[j], 2] + 1
+      resMat[tmp[j], 1] = tmp[j]
+    }
+  }
+  resMat = resMat[resMat[,2] > 0,]
+  resMat = resMat[order(resMat[,2], decreasing = TRUE),]
+  results = resMat[,2]
+  names(results) = resMat[,1]
+  return(results)
 }
 
 
@@ -3901,38 +3903,38 @@ modulatorCounts <- function(varDG, unique = FALSE){
 # the pair (-log(pval_i), count_i).
 # *****************************************************************************
 incrementalFETs <- function (varDG, vipers, min = 3, mode = "both", top = 100, random = FALSE) {
-	if (typeof(varDG) == "character")
-		varDG = get(varDG)
-	# Retain only the vipers involving regulators modulated by DIGGIT events
-	tmp = vipers[vipers[,1] %in% varDG[[1]][,1],]
-	# Filter out vipers where regulator activity is "low" and tabulate the results,
-	# counting for each regulator the number of samples where its activity deviates 
-	# signficantly from its mean (at least 'min' SDs).
-	if (mode == "both")
-		tmp = sort(table((tmp[abs(tmp[,2]) > min, 1])), decreasing = TRUE)
-	else if (mode == "pos")
-		tmp = sort(table((tmp[tmp[,2] > min, 1])), decreasing = TRUE)
-	else 
-		tmp = sort(table((tmp[tmp[,2] < -min, 1])), decreasing = TRUE)
-	if (random){
-		L = length(tmp)
-		tmp = unique(vipers[vipers[,1] %in% varDG[[1]][,1],1])
-		tmp = tmp[sample(seq(1:length(tmp)), L)]
-		names(tmp) = tmp
-	}
-	pvals = vector(length = length(tmp), mode = "numeric")
-	counts = vector(length = length(tmp), mode = "integer")
-	
-	N = length(varDG[[1]][,1])
-	for (i in 1:length(tmp)){
-		n_reg = min(top, length(varDG[[1]][,1]))
-		counts[i] = length(intersect(strtoi(names(tmp))[1:i], varDG[[1]][1:n_reg,1]))
-		dgOnly = length(setdiff(varDG[[1]][1:n_reg,1], strtoi(names(tmp))[1:i]))
-		vpOnly = length(setdiff(strtoi(names(tmp))[1:i], varDG[[1]][1:n_reg,1]))
-		none = N - dgOnly - vpOnly + counts[i]
-		pvals[i] = -log(fisher.test(matrix(c(counts[i], vpOnly, dgOnly, none), 2, 2), alternative = "greater")$p.value)
-	}
-	return(data.frame(pvals, counts))
+  if (typeof(varDG) == "character")
+    varDG = get(varDG)
+  # Retain only the vipers involving regulators modulated by DIGGIT events
+  tmp = vipers[vipers[,1] %in% varDG[[1]][,1],]
+  # Filter out vipers where regulator activity is "low" and tabulate the results,
+  # counting for each regulator the number of samples where its activity deviates 
+  # signficantly from its mean (at least 'min' SDs).
+  if (mode == "both")
+    tmp = sort(table((tmp[abs(tmp[,2]) > min, 1])), decreasing = TRUE)
+  else if (mode == "pos")
+    tmp = sort(table((tmp[tmp[,2] > min, 1])), decreasing = TRUE)
+  else 
+    tmp = sort(table((tmp[tmp[,2] < -min, 1])), decreasing = TRUE)
+  if (random){
+    L = length(tmp)
+    tmp = unique(vipers[vipers[,1] %in% varDG[[1]][,1],1])
+    tmp = tmp[sample(seq(1:length(tmp)), L)]
+    names(tmp) = tmp
+  }
+  pvals = vector(length = length(tmp), mode = "numeric")
+  counts = vector(length = length(tmp), mode = "integer")
+  
+  N = length(varDG[[1]][,1])
+  for (i in 1:length(tmp)){
+    n_reg = min(top, length(varDG[[1]][,1]))
+    counts[i] = length(intersect(strtoi(names(tmp))[1:i], varDG[[1]][1:n_reg,1]))
+    dgOnly = length(setdiff(varDG[[1]][1:n_reg,1], strtoi(names(tmp))[1:i]))
+    vpOnly = length(setdiff(strtoi(names(tmp))[1:i], varDG[[1]][1:n_reg,1]))
+    none = N - dgOnly - vpOnly + counts[i]
+    pvals[i] = -log(fisher.test(matrix(c(counts[i], vpOnly, dgOnly, none), 2, 2), alternative = "greater")$p.value)
+  }
+  return(data.frame(pvals, counts))
 }
 
 
@@ -3947,25 +3949,25 @@ incrementalFETs <- function (varDG, vipers, min = 3, mode = "both", top = 100, r
 #
 # *****************************************************************************
 saveToRDA <- function (mode = "ARACNe", fName = NULL){
-	
-	if (mode == "ARACNe"){
-		vars = c(varNames, "varNames", "pairWise", "netSizes", "tfPairEnrich", "tfPairProb", "tfNetEnrich", "README")
-		if (is.null(fName))
-			fName = "aracne.rda"
-	}
-	else if (mode == "DIGGIT"){
-		vars = c(varNamesDG, "varNamesDG", "eventsPerTumor", "modsPerTumor", "altsPerTumor", "regsPerTumor", 
-				"top100FET", "globModMatrix", "READMEDG")
-		if (is.null(fName))
-			fName = "tcga_diggit.rda"
-	}
-	else if (mode == "VIPER"){
-		vars = varNamesVP
-		if (is.null(fName))
-			fName = "tcga_viper.rda"
-	}
-	
-	save(list = vars, file = fName)
+  
+  if (mode == "ARACNe"){
+    vars = c(varNames, "varNames", "pairWise", "netSizes", "tfPairEnrich", "tfPairProb", "tfNetEnrich", "README")
+    if (is.null(fName))
+      fName = "aracne.rda"
+  }
+  else if (mode == "DIGGIT"){
+    vars = c(varNamesDG, "varNamesDG", "eventsPerTumor", "modsPerTumor", "altsPerTumor", "regsPerTumor", 
+             "top100FET", "globModMatrix", "READMEDG")
+    if (is.null(fName))
+      fName = "tcga_diggit.rda"
+  }
+  else if (mode == "VIPER"){
+    vars = varNamesVP
+    if (is.null(fName))
+      fName = "tcga_viper.rda"
+  }
+  
+  save(list = vars, file = fName)
 }
 
 
@@ -3984,39 +3986,39 @@ saveToRDA <- function (mode = "ARACNe", fName = NULL){
 # containing the counts described above.
 # *****************************************************************************
 getSummaryCounts <- function(save = FALSE, fName = NULL){
-	# Get the number of hubs and the number of interactions in each ARACNe network
-	numRegsAR = sapply(varNames, function(e){return(length(get(e)[[1]][,1]))})
-	numIntsAR = sapply(varNames, function(e){return(sum(get(e)[[1]][,3]))})
-	
-	# Get the number of VIPER regulators in each tumor and fix the columns names
-	numRegsVP = sapply(varNamesVP, function(e){return(length(unique(get(e)[[1]][,1])))})
-	names(numRegsVP) = gsub("VP", "", names(numRegsVP)) 
-	
-	# In each tumor get the total number of DIGGIT events and the number of distinct
-	# regulators modulated by them (and fix columns names)
-	numEventsDG = sapply(varNamesDG, function(e){return(sum(get(e)[[1]][,3]))})
-	numRegsDG = sapply(varNamesDG, function(e){return(length(get(e)[[1]][,1]))})
-	names(numEventsDG) = gsub("DG", "", names(numEventsDG))
-	names(numRegsDG) = gsub("DG", "", names(numRegsDG))
-	
-	# Harmonize order of column names before merging.
-	names = sort(names(numRegsAR))
-	numRegsAR = numRegsAR[names]
-	numIntsAR = numIntsAR[names]
-	numRegsVP = numRegsVP[names]
-	numEventsDG = numEventsDG[names]
-	numRegsDG = numRegsDG[names]
-	res = cbind(numRegsAR, numIntsAR, numRegsVP, numEventsDG, numRegsDG)
-	if(save){
-		if (is.null(fName))
-			fName = "summary_counts_cptac.xlsx"
-		new_names = c("ARACNe Hubs", "ARACNe Interactions", "VIPER Regulators", "DIGGIT Events", "DIGGIT Regulators")
-		old_names = colnames(res)
-		colnames(res) = new_names
-		write.xlsx(res, file = fName, col.names = TRUE)
-		colnames(res) = old_names
-	}
-	return(res)	
+  # Get the number of hubs and the number of interactions in each ARACNe network
+  numRegsAR = sapply(varNames, function(e){return(length(get(e)[[1]][,1]))})
+  numIntsAR = sapply(varNames, function(e){return(sum(get(e)[[1]][,3]))})
+  
+  # Get the number of VIPER regulators in each tumor and fix the columns names
+  numRegsVP = sapply(varNamesVP, function(e){return(length(unique(get(e)[[1]][,1])))})
+  names(numRegsVP) = gsub("VP", "", names(numRegsVP)) 
+  
+  # In each tumor get the total number of DIGGIT events and the number of distinct
+  # regulators modulated by them (and fix columns names)
+  numEventsDG = sapply(varNamesDG, function(e){return(sum(get(e)[[1]][,3]))})
+  numRegsDG = sapply(varNamesDG, function(e){return(length(get(e)[[1]][,1]))})
+  names(numEventsDG) = gsub("DG", "", names(numEventsDG))
+  names(numRegsDG) = gsub("DG", "", names(numRegsDG))
+  
+  # Harmonize order of column names before merging.
+  names = sort(names(numRegsAR))
+  numRegsAR = numRegsAR[names]
+  numIntsAR = numIntsAR[names]
+  numRegsVP = numRegsVP[names]
+  numEventsDG = numEventsDG[names]
+  numRegsDG = numRegsDG[names]
+  res = cbind(numRegsAR, numIntsAR, numRegsVP, numEventsDG, numRegsDG)
+  if(save){
+    if (is.null(fName))
+      fName = "summary_counts_cptac.xlsx"
+    new_names = c("ARACNe Hubs", "ARACNe Interactions", "VIPER Regulators", "DIGGIT Events", "DIGGIT Regulators")
+    old_names = colnames(res)
+    colnames(res) = new_names
+    write.xlsx(res, file = fName, col.names = TRUE)
+    colnames(res) = old_names
+  }
+  return(res)	
 }
 
 
@@ -4041,25 +4043,25 @@ getSummaryCounts <- function(save = FALSE, fName = NULL){
 # in decreasing order of that number.
 # *****************************************************************************
 getTopGlobalRegulators <- function(top = 50, varDG = varNamesDG, filterSNV = FALSE){
-	varDG_tmp = paste(varDG, "tmp", sep="_") 
-	for(i in 1:length(varDG)){
-		assign(varDG_tmp[i], get(varDG[i])[[1]])
-		if (filterSNV){
-			x = get(varDG[i])[[1]]
-			y = get(varDG[i])[[2]]
-			for (j in 1:nrow(x))
-				x[j,3] = sum(y[[x[j,2]]][,2] != 1)			
-			x = x[order(x[,3], decreasing = TRUE), ]
-			assign(varDG_tmp[i], x)
-		}
-	}
-	topTFs = matrix(NA, nrow=top, ncol=length(varDG))
-	colnames(topTFs) = varDG
-	for(i in 1:length(varDG)){
-		N = min(top, length(get(varDG_tmp[i])[, 1]))
-		topTFs[1:N, i] = get(varDG_tmp[i])[1:N, 1]
-	}
-	return(sort(table(as.vector(topTFs)), decreasing = TRUE))
+  varDG_tmp = paste(varDG, "tmp", sep="_") 
+  for(i in 1:length(varDG)){
+    assign(varDG_tmp[i], get(varDG[i])[[1]])
+    if (filterSNV){
+      x = get(varDG[i])[[1]]
+      y = get(varDG[i])[[2]]
+      for (j in 1:nrow(x))
+        x[j,3] = sum(y[[x[j,2]]][,2] != 1)			
+      x = x[order(x[,3], decreasing = TRUE), ]
+      assign(varDG_tmp[i], x)
+    }
+  }
+  topTFs = matrix(NA, nrow=top, ncol=length(varDG))
+  colnames(topTFs) = varDG
+  for(i in 1:length(varDG)){
+    N = min(top, length(get(varDG_tmp[i])[, 1]))
+    topTFs[1:N, i] = get(varDG_tmp[i])[1:N, 1]
+  }
+  return(sort(table(as.vector(topTFs)), decreasing = TRUE))
 }
 
 
@@ -4086,34 +4088,34 @@ getTopGlobalRegulators <- function(top = 50, varDG = varNamesDG, filterSNV = FAL
 # Returns an |M| x |R| table, as described above.
 # *****************************************************************************
 modsVsRegsMatrix <- function(regulators, sort = TRUE, geneSymbols = FALSE){
-	L = list()
-	for (i in 1:length(regulators))
-		L[[i]] = table(unlist(tfDGDetails(regulators[i], filterNulls = TRUE, idsOnly = TRUE)))
-	M = List()
-	for (i in 1:length(L))
-		M[[i]] = strtoi(names(L[[i]]))
-	res = matrix(0, nrow = length(unique(unlist(M))), ncol = length(regulators))
-	rownames(res) = unique(unlist(M))
-	colnames(res) = regulators
-	
-	for (i in 1:length(L)){
-		vec = L[[i]]
-		for (j in 1:length(vec))
-			res[names(vec)[j], i] = vec[j]
-	}
-
-	if (geneSymbols){
-		rownames(res) = entrezIDtoSymbol(unique(unlist(M)))
-		colnames(res) = entrezIDtoSymbol(regulators)
-	}
-	
-	if (sort){
-		rs = rowSums(res)
-		rc = apply(res, 1, max)
-		ordering = order(rc, rs, decreasing = TRUE)
-		res = res[ordering, ]
-	}
-	return(res)
+  L = list()
+  for (i in 1:length(regulators))
+    L[[i]] = table(unlist(tfDGDetails(regulators[i], filterNulls = TRUE, idsOnly = TRUE)))
+  M = List()
+  for (i in 1:length(L))
+    M[[i]] = strtoi(names(L[[i]]))
+  res = matrix(0, nrow = length(unique(unlist(M))), ncol = length(regulators))
+  rownames(res) = unique(unlist(M))
+  colnames(res) = regulators
+  
+  for (i in 1:length(L)){
+    vec = L[[i]]
+    for (j in 1:length(vec))
+      res[names(vec)[j], i] = vec[j]
+  }
+  
+  if (geneSymbols){
+    rownames(res) = entrezIDtoSymbol(unique(unlist(M)))
+    colnames(res) = entrezIDtoSymbol(regulators)
+  }
+  
+  if (sort){
+    rs = rowSums(res)
+    rc = apply(res, 1, max)
+    ordering = order(rc, rs, decreasing = TRUE)
+    res = res[ordering, ]
+  }
+  return(res)
 }
 
 
@@ -4132,14 +4134,14 @@ modsVsRegsMatrix <- function(regulators, sort = TRUE, geneSymbols = FALSE){
 # 			get(varNamesDG[i])[[1]][1:top,1]
 # *****************************************************************************
 getTumorsForRegulator <- function(geneID, top = 50, varNamesDG = varNamesDG){
-	return(sapply(varNamesDG, 
-			function(e){
-				x = get(e)[[1]][1:top,1]
-				if (length(which(x == geneID)) > 0)
-					return(TRUE)
-				else
-					return(FALSE)
-			}))
+  return(sapply(varNamesDG, 
+                function(e){
+                  x = get(e)[[1]][1:top,1]
+                  if (length(which(x == geneID)) > 0)
+                    return(TRUE)
+                  else
+                    return(FALSE)
+                }))
 }
 
 
@@ -4153,230 +4155,230 @@ getTumorsForRegulator <- function(geneID, top = 50, varNamesDG = varNamesDG){
 #				each subfunction to interpret as needed.
 # *****************************************************************************		
 oneOffs<- function (which = "freq_mods", params=NULL){
-	if (which == "freq_mods"){
-		# Get all regulators that are found in the top 150 most modulated genes in one
-		# or more tumors.
-		x150 = getTopGlobalRegulators(150)
-		# Get the modulator genes the modulate regulators found in the top-150 lists of 
-		# at least 7 tumors
-		x = modsVsRegsMatrix(strtoi(names(x150[x150>6])), sort=TRUE)
-		# For each regulator, identify the 30 modulators reported to modulated that regulator in the 
-		# most number of tumors. The tabulate the results and for each modulator report the number of
-		# regulators in whose top-30 list they appear.
-		t_30 = sort(table(sapply(seq(1, length(colnames(x))), 
-								function(i){return(rownames(x[order(x[,i], decreasing = TRUE),][1:30,]))})), 
-				decreasing = TRUE)
-		# As above, but identify the 50 (instead of of 30) top modulators per regulator.
-		t_50 = sort(table(sapply(seq(1, length(colnames(x))), 
-								function(i){return(rownames(x[order(x[,i], decreasing = TRUE),][1:50,]))})), 
-				decreasing = TRUE)
-		# As above, but identify the 100 (instead of of 50) top modulators per regulator.
-		t_100 = sort(table(sapply(seq(1, length(colnames(x))), 
-								function(i){return(rownames(x[order(x[,i], decreasing = TRUE),][1:100,]))})), 
-				decreasing = TRUE)
-		
-		# For t_30, t_50, t_100: create an excel spreadsheet with one worksheet for each of these
-		# 3 variables. Each worksheet lists the top 30 modulators based on the number of regulators
-		# they are found to frequently modulate. Each worksheet line contains 2 columns: the number of
-		# regulators frequently modulated, followed by the modulators that do the modulaating in these
-		# regulators.
-		fileName = "Reccurent_mods.xlsx"
-		r = t_30[1:30]
-		L = max(r) - min(r) + 1
-		tmp = matrix(nrow = L, ncol = 2)
-		tmp[,1] = seq(min(r), max(r))
-		for (i in min(r):max(r)){
-			rx = r[r==i]
-			if (length(rx) > 0)
-				tmp[i-min(r)+1,2] = toString(entrezIDtoSymbol(names(rx)))
-			else
-				tmp[i-min(r)+1,2] = ""
-		}
-		write.xlsx(apply(tmp,2,rev), file=fileName, sheetName="t_30")
-		r = t_50[1:30]
-		L = max(r) - min(r) + 1
-		tmp = matrix(nrow = L, ncol = 2)
-		tmp[,1] = seq(min(r), max(r))
-		for (i in min(r):max(r)){
-			rx = r[r==i]
-			if (length(rx) > 0)
-				tmp[i-min(r)+1,2] = toString(entrezIDtoSymbol(names(rx)))
-			else
-				tmp[i-min(r)+1,2] = ""
-		}
-		write.xlsx(apply(tmp,2,rev), file=fileName, append=TRUE, sheetName = "t_50")
-		r = t_100[1:30]
-		L = max(r) - min(r) + 1
-		tmp = matrix(nrow = L, ncol = 2)
-		tmp[,1] = seq(min(r), max(r))
-		for (i in min(r):max(r)){
-			rx = r[r==i]
-			if (length(rx) > 0)
-				tmp[i-min(r)+1,2] = toString(entrezIDtoSymbol(names(rx)))
-			else
-				tmp[i-min(r)+1,2] = ""
-		}
-		write.xlsx(apply(tmp,2,rev), file=fileName, append=TRUE, sheetName = "t_100")
-		
-		# Finally, take the union of the 30 top modulators from each of the lists
-		# t_30, t_50, t_100 and compile a matrix where rows correspond to these 
-		# modulators and rows correspond to to the top regulators in names(x150[x150>6]).
-		# The [m ,r]-th entry in that matrix will be the number of tunors where the m-th
-		# regulators is found to regulate the r-th regulator. Write this matrix as a 
-		# new worksheet in the spreadsheet used above.
-		n = union(names(t_30[1:30]), union(names(t_50[1:30]), names(t_100[1:30])))
-		y = x[ n,]
-		colnames(y) = entrezIDtoSymbol(colnames(y))
-		rownames(y) = entrezIDtoSymbol(rownames(y))
-		ordering = order(apply(y,1,max), rowSums(y), decreasing = TRUE)
-		y = y[ordering,]
-		write.xlsx(y, file=fileName, append=TRUE, sheetName = "Details")
-	}
-	if (which == "enriched_regulons"){
-		fileName = "enriched_regulons.xlsx"
-		how_many = 20
-		steps = c(10, 20, 30)
-		res = matrix("", nrow = how_many, ncol = length(steps))
-		colnames(res) = paste("N = ", steps)
-		for (i in 1:length(steps)){
-			t = sort(table(unlist(sapply(tfPairEnrich[[2]], function(e){
-												return(e[1:steps[i], 1])
-											}))), decreasing = TRUE)
-			t = t[1:how_many]
-			names(t) =  entrezIDtoSymbol(names(t))
-			for (j in 1:how_many)
-				res[j,i] = paste(names(t)[j], " (", t[j], ")", sep = "")
-		}
-		write.xlsx(res, file=fileName)
-	}
-	# ----- Identify regulators that are highly active across multiple tumors. -----
-	# This code expects that the params argument to have the following entries:
-	# * params[[1]]:	The minimum number ot top-N tunor lists that a regulator needs to
-	#					appear, in order to be reported.
-	# * params[[2]]:	A character value (either "P", "N", or "B") prescribing how to order
-	#					regulators accrording to their average activity.
-	# * params[[3]]:	A function name, prescribing which statistic to use for computing the average
-	#					regulator actvity. Possible values can be "mean" or "median"
-	# The code works as follows: First we order regulators in order of their mean VIPER activity across 
-	# all samples, based on the value of the parameter params[[2]]. Specifically:
-	# * If params[[2]] == "P", then we order from most positive to most negative.
-	# * If params[[2]] == "N", then we order from most negative to most positive.
-	# * If params[[2]] == "B", then we consider absoulte values and order from higher to lower.
-	# After orsering the reguators as described above we then take the N top regulators in each tumor 
-	# (N = 50, 100, 150)  and look for repeated occurrences, i.e., regulators that appear in multiple top-N 
-	# lists. Finally, we report regulators that are found in at least "min" top-N lists, where min is the
-	# values of the argument params[[1]]
-	if (which == "top_active_across_tumors"){
-		# check parameter values
-		if (!(params[[2]] %in% c("P", "N", "B")))
-			stop("params[[2]] not set correclty")
-		
-		L = lapply(varNamesVP, function(name){
-					net = get(name)
-					inc = length(unique(net[[2]]))
-					x= nrow(net[[1]])/inc
-					FUN = params[[3]]
-					y = sapply(seq(1,x), function(k){return(FUN(net[[1]][((k-1)*inc+1):(k*inc), 2]))})
-					names(y) = unique(net[[1]][,1])
-					if (params[[2]] == "N")
-						y = -y
-					if (params[[2]] == "B")
-						y = abs(y)
-					return(sort(y, decreasing=T))
-				})
-		names(L) = varNamesVP
-		t_50 = sort(table(unlist(lapply(L, function(x, top=50){return(strtoi(names(x)[1:top]))}))), decreasing=T)
-		t_100 = sort(table(unlist(lapply(L, function(x, top=100){return(strtoi(names(x)[1:top]))}))), decreasing=T)
-		t_150 = sort(table(unlist(lapply(L, function(x, top=150){return(strtoi(names(x)[1:top]))}))), decreasing=T)
-		min = params[[1]]
-		max = length(varNamesVP)
-		res = matrix("", nrow = length(max:min), ncol=4)
-		colnames(res) = c("Num_of_Tumors", "N_equals_50", "N_equals_100", "N_equals_150")
-		res[,1] = max:min
-		for (i in max:min){
-			t = names(t_50[t_50 == i])
-			if (length(t) > 0)
-				res[max-i+1, 2] = toString(entrezIDtoSymbol(t))
-			t = names(t_100[t_100 == i])
-			if (length(t) > 0)
-				res[max-i+1, 3] = toString(entrezIDtoSymbol(t))
-			t = names(t_150[t_150 == i])
-			if (length(t) > 0)
-				res[max-i+1, 4] = toString(entrezIDtoSymbol(t))
-		}
-		fName = "temp_vip.xlsx"
-		write.xlsx(res, file = fName, row.names = FALSE)
-	}
-	if (which == "top_modulated_regulators"){
-		noSnv = FALSE
-		if (!is.null(params) && (length(params) > 1) && (params[[2]] == TRUE))
-			noSnv = TRUE
-		t_50 = getTopGlobalRegulators(top = 50, filterSNV = noSnv)
-		t_50 = t_50[t_50 > params[[1]]]
-		names(t_50) = entrezIDtoSymbol(names(t_50))
-		t_100 = getTopGlobalRegulators(top =100, filterSNV = noSnv)
-		t_100 = t_100[t_100 > params[[1]]]
-		names(t_100) = entrezIDtoSymbol(names(t_100))
-		t_150 = getTopGlobalRegulators(top =150, filterSNV = noSnv)
-		t_150 = t_150[t_150 > params[[1]]]
-		names(t_150) = entrezIDtoSymbol(names(t_150))
-		minNum = min(c(t_50, t_100, t_150))
-		maxNum = max(c(t_50, t_100, t_150))
-		res = matrix(nrow = maxNum - minNum + 1, ncol=3)
-		colnames(res) = c("N=50", "N=100", "N=150")
-		rownames(res) = maxNum:minNum
-		for (ind in c("50", "100", "150")){
-			x = get(paste("t", ind, sep="_"))
-			for (i in minNum:maxNum)
-				res[toString(i), paste("N", ind, sep="=")] = paste(names(x[x == i]), collapse = ",")
-		}
-		write.xlsx(res, file="top_modulated_regulators.xlsx")
-		return(res)
-	}
-	
-	# ******************** which = unique_regulons  *****************************
-	# Reports all gene hubs that appear in only one regulon. 
-	# 
-	# Returns a matrix with one row per such hub gene, listing the gene Entrez ID,
-	# the gene symbol, the network its reqgulon appears in, the size of that regulon
-	# and the gene description. If params is NOT null then params[[1]] is expected 
-	# to be the name of an Excel file where to write out the results.
-	if(which == "unique_regulons"){
-		hubs_seen_at_least_twice = unique(unlist(sapply(tfPairEnrich[[2]], function(x){return(x[,1])})))
-		all_hubs = unique(unlist(sapply(varNames, function(x){return(get(x)[[1]][,1])})))
-		unique_hubs = setdiff(all_hubs, hubs_seen_at_least_twice)
-		
-		# Find which network each unique hub appears in
-		t = sapply(unique_hubs, function(gid){
-					for (net in varNames){
-						hubs = get(net)[[1]][,1]
-						if (gid %in% hubs)
-							return(net)
-					}
-				})
-		res = matrix(nrow = length(unique_hubs), ncol = 5)
-		colnames(res) = c("Entrez_ID", "Gene_Symbol", "Network", "Regulon_Size", "Gene_Description")
-		rownames(res) = unique_hubs
-		res[,1] = unique_hubs
-		res[,2] = entrezIDtoSymbol(unique_hubs)
-		res[,3] = t
-		res[,4] = sapply(1:length(unique_hubs), function(i){
-					return(get(t[i])[[1]][toString(unique_hubs[i]), 3])
-				})
-		temp <- entrezIDtoDescription(unique_hubs)
-		temp[sapply(temp, is.null)] <- "NA"
-		res[,5] = unlist(temp)
-		
-		# order results in decreasing order of hub regulon size
-		res = res[order(strtoi(res[, 4]), decreasing = TRUE), ]
-		# Write results to file, if requested.
-		if (!is.null(params)){
-			f_name = params[[1]]
-			write.xlsx(res, file=f_name, row.names=FALSE)
-		}
-		
-		return(res)
-	}
+  if (which == "freq_mods"){
+    # Get all regulators that are found in the top 150 most modulated genes in one
+    # or more tumors.
+    x150 = getTopGlobalRegulators(150)
+    # Get the modulator genes the modulate regulators found in the top-150 lists of 
+    # at least 7 tumors
+    x = modsVsRegsMatrix(strtoi(names(x150[x150>6])), sort=TRUE)
+    # For each regulator, identify the 30 modulators reported to modulated that regulator in the 
+    # most number of tumors. The tabulate the results and for each modulator report the number of
+    # regulators in whose top-30 list they appear.
+    t_30 = sort(table(sapply(seq(1, length(colnames(x))), 
+                             function(i){return(rownames(x[order(x[,i], decreasing = TRUE),][1:30,]))})), 
+                decreasing = TRUE)
+    # As above, but identify the 50 (instead of of 30) top modulators per regulator.
+    t_50 = sort(table(sapply(seq(1, length(colnames(x))), 
+                             function(i){return(rownames(x[order(x[,i], decreasing = TRUE),][1:50,]))})), 
+                decreasing = TRUE)
+    # As above, but identify the 100 (instead of of 50) top modulators per regulator.
+    t_100 = sort(table(sapply(seq(1, length(colnames(x))), 
+                              function(i){return(rownames(x[order(x[,i], decreasing = TRUE),][1:100,]))})), 
+                 decreasing = TRUE)
+    
+    # For t_30, t_50, t_100: create an excel spreadsheet with one worksheet for each of these
+    # 3 variables. Each worksheet lists the top 30 modulators based on the number of regulators
+    # they are found to frequently modulate. Each worksheet line contains 2 columns: the number of
+    # regulators frequently modulated, followed by the modulators that do the modulaating in these
+    # regulators.
+    fileName = "Reccurent_mods.xlsx"
+    r = t_30[1:30]
+    L = max(r) - min(r) + 1
+    tmp = matrix(nrow = L, ncol = 2)
+    tmp[,1] = seq(min(r), max(r))
+    for (i in min(r):max(r)){
+      rx = r[r==i]
+      if (length(rx) > 0)
+        tmp[i-min(r)+1,2] = toString(entrezIDtoSymbol(names(rx)))
+      else
+        tmp[i-min(r)+1,2] = ""
+    }
+    write.xlsx(apply(tmp,2,rev), file=fileName, sheetName="t_30")
+    r = t_50[1:30]
+    L = max(r) - min(r) + 1
+    tmp = matrix(nrow = L, ncol = 2)
+    tmp[,1] = seq(min(r), max(r))
+    for (i in min(r):max(r)){
+      rx = r[r==i]
+      if (length(rx) > 0)
+        tmp[i-min(r)+1,2] = toString(entrezIDtoSymbol(names(rx)))
+      else
+        tmp[i-min(r)+1,2] = ""
+    }
+    write.xlsx(apply(tmp,2,rev), file=fileName, append=TRUE, sheetName = "t_50")
+    r = t_100[1:30]
+    L = max(r) - min(r) + 1
+    tmp = matrix(nrow = L, ncol = 2)
+    tmp[,1] = seq(min(r), max(r))
+    for (i in min(r):max(r)){
+      rx = r[r==i]
+      if (length(rx) > 0)
+        tmp[i-min(r)+1,2] = toString(entrezIDtoSymbol(names(rx)))
+      else
+        tmp[i-min(r)+1,2] = ""
+    }
+    write.xlsx(apply(tmp,2,rev), file=fileName, append=TRUE, sheetName = "t_100")
+    
+    # Finally, take the union of the 30 top modulators from each of the lists
+    # t_30, t_50, t_100 and compile a matrix where rows correspond to these 
+    # modulators and rows correspond to to the top regulators in names(x150[x150>6]).
+    # The [m ,r]-th entry in that matrix will be the number of tunors where the m-th
+    # regulators is found to regulate the r-th regulator. Write this matrix as a 
+    # new worksheet in the spreadsheet used above.
+    n = union(names(t_30[1:30]), union(names(t_50[1:30]), names(t_100[1:30])))
+    y = x[ n,]
+    colnames(y) = entrezIDtoSymbol(colnames(y))
+    rownames(y) = entrezIDtoSymbol(rownames(y))
+    ordering = order(apply(y,1,max), rowSums(y), decreasing = TRUE)
+    y = y[ordering,]
+    write.xlsx(y, file=fileName, append=TRUE, sheetName = "Details")
+  }
+  if (which == "enriched_regulons"){
+    fileName = "enriched_regulons.xlsx"
+    how_many = 20
+    steps = c(10, 20, 30)
+    res = matrix("", nrow = how_many, ncol = length(steps))
+    colnames(res) = paste("N = ", steps)
+    for (i in 1:length(steps)){
+      t = sort(table(unlist(sapply(tfPairEnrich[[2]], function(e){
+        return(e[1:steps[i], 1])
+      }))), decreasing = TRUE)
+      t = t[1:how_many]
+      names(t) =  entrezIDtoSymbol(names(t))
+      for (j in 1:how_many)
+        res[j,i] = paste(names(t)[j], " (", t[j], ")", sep = "")
+    }
+    write.xlsx(res, file=fileName)
+  }
+  # ----- Identify regulators that are highly active across multiple tumors. -----
+  # This code expects that the params argument to have the following entries:
+  # * params[[1]]:	The minimum number ot top-N tunor lists that a regulator needs to
+  #					appear, in order to be reported.
+  # * params[[2]]:	A character value (either "P", "N", or "B") prescribing how to order
+  #					regulators accrording to their average activity.
+  # * params[[3]]:	A function name, prescribing which statistic to use for computing the average
+  #					regulator actvity. Possible values can be "mean" or "median"
+  # The code works as follows: First we order regulators in order of their mean VIPER activity across 
+  # all samples, based on the value of the parameter params[[2]]. Specifically:
+  # * If params[[2]] == "P", then we order from most positive to most negative.
+  # * If params[[2]] == "N", then we order from most negative to most positive.
+  # * If params[[2]] == "B", then we consider absoulte values and order from higher to lower.
+  # After orsering the reguators as described above we then take the N top regulators in each tumor 
+  # (N = 50, 100, 150)  and look for repeated occurrences, i.e., regulators that appear in multiple top-N 
+  # lists. Finally, we report regulators that are found in at least "min" top-N lists, where min is the
+  # values of the argument params[[1]]
+  if (which == "top_active_across_tumors"){
+    # check parameter values
+    if (!(params[[2]] %in% c("P", "N", "B")))
+      stop("params[[2]] not set correclty")
+    
+    L = lapply(varNamesVP, function(name){
+      net = get(name)
+      inc = length(unique(net[[2]]))
+      x= nrow(net[[1]])/inc
+      FUN = params[[3]]
+      y = sapply(seq(1,x), function(k){return(FUN(net[[1]][((k-1)*inc+1):(k*inc), 2]))})
+      names(y) = unique(net[[1]][,1])
+      if (params[[2]] == "N")
+        y = -y
+      if (params[[2]] == "B")
+        y = abs(y)
+      return(sort(y, decreasing=T))
+    })
+    names(L) = varNamesVP
+    t_50 = sort(table(unlist(lapply(L, function(x, top=50){return(strtoi(names(x)[1:top]))}))), decreasing=T)
+    t_100 = sort(table(unlist(lapply(L, function(x, top=100){return(strtoi(names(x)[1:top]))}))), decreasing=T)
+    t_150 = sort(table(unlist(lapply(L, function(x, top=150){return(strtoi(names(x)[1:top]))}))), decreasing=T)
+    min = params[[1]]
+    max = length(varNamesVP)
+    res = matrix("", nrow = length(max:min), ncol=4)
+    colnames(res) = c("Num_of_Tumors", "N_equals_50", "N_equals_100", "N_equals_150")
+    res[,1] = max:min
+    for (i in max:min){
+      t = names(t_50[t_50 == i])
+      if (length(t) > 0)
+        res[max-i+1, 2] = toString(entrezIDtoSymbol(t))
+      t = names(t_100[t_100 == i])
+      if (length(t) > 0)
+        res[max-i+1, 3] = toString(entrezIDtoSymbol(t))
+      t = names(t_150[t_150 == i])
+      if (length(t) > 0)
+        res[max-i+1, 4] = toString(entrezIDtoSymbol(t))
+    }
+    fName = "temp_vip.xlsx"
+    write.xlsx(res, file = fName, row.names = FALSE)
+  }
+  if (which == "top_modulated_regulators"){
+    noSnv = FALSE
+    if (!is.null(params) && (length(params) > 1) && (params[[2]] == TRUE))
+      noSnv = TRUE
+    t_50 = getTopGlobalRegulators(top = 50, filterSNV = noSnv)
+    t_50 = t_50[t_50 > params[[1]]]
+    names(t_50) = entrezIDtoSymbol(names(t_50))
+    t_100 = getTopGlobalRegulators(top =100, filterSNV = noSnv)
+    t_100 = t_100[t_100 > params[[1]]]
+    names(t_100) = entrezIDtoSymbol(names(t_100))
+    t_150 = getTopGlobalRegulators(top =150, filterSNV = noSnv)
+    t_150 = t_150[t_150 > params[[1]]]
+    names(t_150) = entrezIDtoSymbol(names(t_150))
+    minNum = min(c(t_50, t_100, t_150))
+    maxNum = max(c(t_50, t_100, t_150))
+    res = matrix(nrow = maxNum - minNum + 1, ncol=3)
+    colnames(res) = c("N=50", "N=100", "N=150")
+    rownames(res) = maxNum:minNum
+    for (ind in c("50", "100", "150")){
+      x = get(paste("t", ind, sep="_"))
+      for (i in minNum:maxNum)
+        res[toString(i), paste("N", ind, sep="=")] = paste(names(x[x == i]), collapse = ",")
+    }
+    write.xlsx(res, file="top_modulated_regulators.xlsx")
+    return(res)
+  }
+  
+  # ******************** which = unique_regulons  *****************************
+  # Reports all gene hubs that appear in only one regulon. 
+  # 
+  # Returns a matrix with one row per such hub gene, listing the gene Entrez ID,
+  # the gene symbol, the network its reqgulon appears in, the size of that regulon
+  # and the gene description. If params is NOT null then params[[1]] is expected 
+  # to be the name of an Excel file where to write out the results.
+  if(which == "unique_regulons"){
+    hubs_seen_at_least_twice = unique(unlist(sapply(tfPairEnrich[[2]], function(x){return(x[,1])})))
+    all_hubs = unique(unlist(sapply(varNames, function(x){return(get(x)[[1]][,1])})))
+    unique_hubs = setdiff(all_hubs, hubs_seen_at_least_twice)
+    
+    # Find which network each unique hub appears in
+    t = sapply(unique_hubs, function(gid){
+      for (net in varNames){
+        hubs = get(net)[[1]][,1]
+        if (gid %in% hubs)
+          return(net)
+      }
+    })
+    res = matrix(nrow = length(unique_hubs), ncol = 5)
+    colnames(res) = c("Entrez_ID", "Gene_Symbol", "Network", "Regulon_Size", "Gene_Description")
+    rownames(res) = unique_hubs
+    res[,1] = unique_hubs
+    res[,2] = entrezIDtoSymbol(unique_hubs)
+    res[,3] = t
+    res[,4] = sapply(1:length(unique_hubs), function(i){
+      return(get(t[i])[[1]][toString(unique_hubs[i]), 3])
+    })
+    temp <- entrezIDtoDescription(unique_hubs)
+    temp[sapply(temp, is.null)] <- "NA"
+    res[,5] = unlist(temp)
+    
+    # order results in decreasing order of hub regulon size
+    res = res[order(strtoi(res[, 4]), decreasing = TRUE), ]
+    # Write results to file, if requested.
+    if (!is.null(params)){
+      f_name = params[[1]]
+      write.xlsx(res, file=f_name, row.names=FALSE)
+    }
+    
+    return(res)
+  }
   
   # ******************** which = 2_6_only  *****************************
   # Reports all gene hubs that appear in only 2-6 networks
@@ -4926,7 +4928,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       
       gtex_m <- gtex_m[order(gtex_m$Count),]
       
-	    
+      
       ### TCGA
       ### Now it's time to check how many regulons in all interactomes
       for(net in varNames[(params[[1]]+1):length(varNames)]) {
@@ -4983,8 +4985,8 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       ### pathway analysis
       geneList <- shared_hubs$Gene_Symbol[which(!is.na(shared_hubs$Gene_Symbol))]
       pathwayAnalysis_TB(geneList = geneList,
-                      title = paste0("Shared_hubs_GTEx_", params[[3]], "(", gtexCnt, ")_TCGA_", params[[4]], "(", tcgaCnt, ")"),
-                      fName = paste0(params[[6]], "Pathway_shared_hubs_GTEx_", params[[3]], "_TCGA_", params[[4]], ".pdf"))
+                         title = paste0("Shared_hubs_GTEx_", params[[3]], "(", gtexCnt, ")_TCGA_", params[[4]], "(", tcgaCnt, ")"),
+                         fName = paste0(params[[6]], "Pathway_shared_hubs_GTEx_", params[[3]], "_TCGA_", params[[4]], ".pdf"))
       
     } else {
       writeLines("required params do not exist")
@@ -5400,8 +5402,8 @@ oneOffs<- function (which = "freq_mods", params=NULL){
           shared_tcga <- shared_tcga[order(-v),]
           
           shared_m <- data.frame(cbind(Entrez_ID=shared_gtex$Entrez_ID, Gene_Symbol=as.character(shared_gtex$Gene_Symbol),
-                                GTEX_Degree=shared_gtex$Median_Degree, TCGA_Degree=shared_tcga$Median_Degree,
-                                Diff=abs(shared_gtex$Median_Degree - shared_tcga$Median_Degree)))
+                                       GTEX_Degree=shared_gtex$Median_Degree, TCGA_Degree=shared_tcga$Median_Degree,
+                                       Diff=abs(shared_gtex$Median_Degree - shared_tcga$Median_Degree)))
         } else if(as.character(params[[4]]) == "mean") {
           v <- abs(shared_gtex$Mean_Degree - shared_tcga$Mean_Degree)
           
@@ -5846,13 +5848,13 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       
       ### assign viper matrices as R object
       sapply(1:length(f), function(i, f, varNamesVP) {
-          assign(varNamesVP[i],
-                 as.matrix(read.table(paste0(params[[1]], f[i]),
-                 header = TRUE, sep = "\t", row.names = 1,
-                 stringsAsFactors = FALSE, check.names = FALSE)),
-                 envir = globalenv())
-        }, f=f, varNamesVP=varNamesVP,
-        USE.NAMES = FALSE)
+        assign(varNamesVP[i],
+               as.matrix(read.table(paste0(params[[1]], f[i]),
+                                    header = TRUE, sep = "\t", row.names = 1,
+                                    stringsAsFactors = FALSE, check.names = FALSE)),
+               envir = globalenv())
+      }, f=f, varNamesVP=varNamesVP,
+      USE.NAMES = FALSE)
       
       ### set README function
       README <- function(){
@@ -6581,7 +6583,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
         ### only have info of the common hubs
         gtex_viper <- gtex_viper[common_hubs,]
         tcga_viper <- tcga_viper[common_hubs,]
-         
+        
         if(as.character(params[[5]] == "mean")) {
           ### VIPER NES mean difference of each hub
           mean_diff <- apply(gtex_viper, 1, mean) - apply(tcga_viper, 1, mean)
@@ -6615,13 +6617,13 @@ oneOffs<- function (which = "freq_mods", params=NULL){
         gtex_target_genes <- lapply(top_diff_hubs, function(x) {
           temp <- gtex_aracne[[2]][[gtex_aracne[[1]][x,2]]]
           return(rownames(temp[intersect(which(temp[,"MI"] > as.numeric(params[[3]])),
-                                  which(temp[,"Pvalue"] < as.numeric(params[[4]]))),]))
-          })
+                                         which(temp[,"Pvalue"] < as.numeric(params[[4]]))),]))
+        })
         tcga_target_genes <- lapply(top_diff_hubs, function(x) {
           temp <- tcga_aracne[[2]][[tcga_aracne[[1]][x,2]]]
           return(rownames(temp[intersect(which(temp[,"MI"] > as.numeric(params[[3]])),
-                                  which(temp[,"Pvalue"] < as.numeric(params[[4]]))),]))
-          })
+                                         which(temp[,"Pvalue"] < as.numeric(params[[4]]))),]))
+        })
         
         ### order the target genes (common between GTEx and TCGA first)
         common <- lapply(1:length(gtex_target_genes), function(x) {
@@ -6761,20 +6763,20 @@ oneOffs<- function (which = "freq_mods", params=NULL){
           ### pathway analysis
           # GTEx
           gtex_pathway[[i]][[j]] <- pathwayAnalysis_CP(geneList = gtex_target_genes[[j]],
-                                      org = "human",
-                                      database = "GO",
-                                      displayNum = 50,
-                                      title = paste0("GTEx_", names(top_diff_hubs)[j], "_Targets_Pathways_mi_",
-                                                    params[[3]], "_pv_", params[[4]]),
-                                      dir = paste0(params[[6]], dirName, "/", names(top_diff_hubs)[j], "/"))
+                                                       org = "human",
+                                                       database = "GO",
+                                                       displayNum = 50,
+                                                       title = paste0("GTEx_", names(top_diff_hubs)[j], "_Targets_Pathways_mi_",
+                                                                      params[[3]], "_pv_", params[[4]]),
+                                                       dir = paste0(params[[6]], dirName, "/", names(top_diff_hubs)[j], "/"))
           # TCGA
           tcga_pathway[[i]][[j]] <- pathwayAnalysis_CP(geneList = tcga_target_genes[[j]],
-                                      org = "human",
-                                      database = "GO",
-                                      displayNum = 50,
-                                      title = paste0("TCGA_", names(top_diff_hubs)[j], "_Targets_Pathways_mi_",
-                                                    params[[3]], "_pv_", params[[4]]),
-                                      dir = paste0(params[[6]], dirName, "/", names(top_diff_hubs)[j], "/"))
+                                                       org = "human",
+                                                       database = "GO",
+                                                       displayNum = 50,
+                                                       title = paste0("TCGA_", names(top_diff_hubs)[j], "_Targets_Pathways_mi_",
+                                                                      params[[3]], "_pv_", params[[4]]),
+                                                       dir = paste0(params[[6]], dirName, "/", names(top_diff_hubs)[j], "/"))
         }
         
         ### heatmap of changed NESs
@@ -6938,9 +6940,9 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       union_hub_pv <- NULL
       for(i in 1:length(union_hubs)) {
         union_hub_pv[i] <- fisher.test(matrix(c(as.integer(params[[2]]),
-                                             length(total_hubs)-as.integer(params[[2]]),
-                                             union_hubs[i],
-                                             length(total_hub_info)-union_hubs[i]), ncol=2))$p.value
+                                                length(total_hubs)-as.integer(params[[2]]),
+                                                union_hubs[i],
+                                                length(total_hub_info)-union_hubs[i]), ncol=2))$p.value
       }
       
       ### save the union hubs and the counts
@@ -6959,9 +6961,9 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       ### load target info
       total_target_info <- lapply(1:nrow(mapping_info), function(i) {
         buf <- read.table(file = paste0(params[[6]], paste0(mapping_info[i,1], "_", mapping_info[i,2]), "/",
-                                 params[[2]], "_top_diff_hubs_target_genes_mi_",
-                                 params[[3]], "_pv_", params[[4]], "_",
-                                 params[[5]], ".txt"),
+                                        params[[2]], "_top_diff_hubs_target_genes_mi_",
+                                        params[[3]], "_pv_", params[[4]], "_",
+                                        params[[5]], ".txt"),
                           header = TRUE, sep = "\t")
         return(buf[,-3*(1:as.numeric(params[[2]]))])
       })
@@ -7022,9 +7024,9 @@ oneOffs<- function (which = "freq_mods", params=NULL){
         gtex_avg_targetNum <- round(sum(gtex_union_targets) / as.integer(params[[2]]))
         for(j in 1:length(gtex_union_targets)) {
           gtex_union_target_pv[j] <- fisher.test(matrix(c(gtex_avg_targetNum,
-                                                  total_geneNum-gtex_avg_targetNum,
-                                                  gtex_union_targets[j],
-                                                  as.integer(params[[2]])-gtex_union_targets[j]), ncol=2))$p.value
+                                                          total_geneNum-gtex_avg_targetNum,
+                                                          gtex_union_targets[j],
+                                                          as.integer(params[[2]])-gtex_union_targets[j]), ncol=2))$p.value
         }
         tcga_union_target_pv <- NULL
         tcga_avg_targetNum <- round(sum(tcga_union_targets) / as.integer(params[[2]]))
@@ -7065,8 +7067,8 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       Systematic_Hub_Investigation_Results <- list()
       ### info of all the hubs appeared in all the 29 comparisons
       Systematic_Hub_Investigation_Results[[1]] <- read.table(file = paste0(params[[6]],
-                                                                     params[[2]], "_top_diff_hubs_",
-                                                                     params[[5]], "_counts.txt"),
+                                                                            params[[2]], "_top_diff_hubs_",
+                                                                            params[[5]], "_counts.txt"),
                                                               sep = "\t", header = TRUE,
                                                               row.names = 1)
       ### load target genes of the hubs
@@ -7084,23 +7086,23 @@ oneOffs<- function (which = "freq_mods", params=NULL){
         Systematic_Hub_Investigation_Results[[2]][[i]] <- list()
         ### info of the top 50 differentially activated hubs
         Systematic_Hub_Investigation_Results[[2]][[i]][[1]] <- read.table(file = paste0(params[[6]], paste0(mapping_info[i,1], "_", mapping_info[i,2]), "/",
-                                                                            params[[2]], "_top_diff_hubs_mi_",
-                                                                            params[[3]], "_pv_", params[[4]], "_",
-                                                                            params[[5]], ".txt"),
+                                                                                        params[[2]], "_top_diff_hubs_mi_",
+                                                                                        params[[3]], "_pv_", params[[4]], "_",
+                                                                                        params[[5]], ".txt"),
                                                                           sep = "\t", header = TRUE,
                                                                           row.names = 1)
         ### info of all the target genes from GTEx tissue
         Systematic_Hub_Investigation_Results[[2]][[i]][[2]] <- read.table(file = paste0(params[[6]], paste0(mapping_info[i,1], "_", mapping_info[i,2]), "/",
-                                                                            params[[2]], "_top_diff_hubs_mi_",
-                                                                            params[[3]], "_pv_", params[[4]], "_",
-                                                                            params[[5]], "_gtex_target_counts.txt"),
+                                                                                        params[[2]], "_top_diff_hubs_mi_",
+                                                                                        params[[3]], "_pv_", params[[4]], "_",
+                                                                                        params[[5]], "_gtex_target_counts.txt"),
                                                                           sep = "\t", header = TRUE,
                                                                           row.names = 1)
         ### info of all the target genes from TCGA tissue
         Systematic_Hub_Investigation_Results[[2]][[i]][[3]] <- read.table(file = paste0(params[[6]], paste0(mapping_info[i,1], "_", mapping_info[i,2]), "/",
-                                                                            params[[2]], "_top_diff_hubs_mi_",
-                                                                            params[[3]], "_pv_", params[[4]], "_",
-                                                                            params[[5]], "_tcga_target_counts.txt"),
+                                                                                        params[[2]], "_top_diff_hubs_mi_",
+                                                                                        params[[3]], "_pv_", params[[4]], "_",
+                                                                                        params[[5]], "_tcga_target_counts.txt"),
                                                                           sep = "\t", header = TRUE,
                                                                           row.names = 1)
         Systematic_Hub_Investigation_Results[[2]][[i]][[4]] <- list()
@@ -7504,19 +7506,19 @@ oneOffs<- function (which = "freq_mods", params=NULL){
             
             ### prop.test()
             suppressWarnings(result$Prop_PV[(i-1)*length(geneNum)+j] <-
-              prop.test(c(Z*10,
-                          X),
-                        c(W*10,
-                          Y))$p.value)
+                               prop.test(c(Z*10,
+                                           X),
+                                         c(W*10,
+                                           Y))$p.value)
             
             ### Fisher's exact test
             suppressWarnings(result$Fisher_PV[(i-1)*length(geneNum)+j] <-
-              fisher.test(matrix(c(X, Y-X, Z, W-Z), ncol = 2))$p.value)
+                               fisher.test(matrix(c(X, Y-X, Z, W-Z), ncol = 2))$p.value)
           }
           
           ### chi-square test
           suppressWarnings(result2$`Chi-Square_PV`[i] <-
-                           chisq.test(x = result2[i,2:24], p = geneNum_ratio)$p.value)
+                             chisq.test(x = result2[i,2:24], p = geneNum_ratio)$p.value)
         }
       }
       
@@ -7525,7 +7527,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
                                         params[[2]], "_chromosome_significance.txt"),
                   sep = "\t", row.names = FALSE)
       write.table(result2, file = paste0(params[[6]], entrezIDtoSymbol(params[[2]]), "_",
-                                        params[[2]], "_distribution_significance.txt"),
+                                         params[[2]], "_distribution_significance.txt"),
                   sep = "\t", row.names = FALSE)
     } else {
       writeLines("required params do not exist")
@@ -7615,10 +7617,10 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       isVectorAllZero <- function(v) {
         r = TRUE
         for(i in 1:length(v)) {
-           if(v[i] != 0) {
-             r = FALSE
-             break
-           }
+          if(v[i] != 0) {
+            r = FALSE
+            break
+          }
         }
         return(r)
       }
@@ -8134,7 +8136,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       for(i in 1:(nrow(distance_mats[[tissue]])-1)) {
         for(j in (i+1):ncol(distance_mats[[tissue]])) {
           distance_mats[[tissue]][i, j] <- 1 - (length(intersect(pathRes[[i]][,1], pathRes[[j]][,1])) /
-            length(union(pathRes[[i]][,1], pathRes[[j]][,1])))
+                                                  length(union(pathRes[[i]][,1], pathRes[[j]][,1])))
         }
       }
       
@@ -8791,7 +8793,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
     ### set README function
     README <- function(){
       writeLines(paste(rep("#", 100), collapse = ""))
-      writeLines("Create a RDA file that contains raw count matrices of all the GTEx and")
+      writeLines("A RDA file that contains raw count matrices of all the GTEx and")
       writeLines("TCGA tissues. The Aracne-ready files are normalized, cleaned (removed genes")
       writeLines("that have 0 or 1 across all samples), and even do not contain complete set")
       writeLines("of samples (Because 100 <= the number of samples <= 200 is ideal for")
@@ -8902,6 +8904,9 @@ oneOffs<- function (which = "freq_mods", params=NULL){
     load(params[[4]])
     load(params[[5]])
     
+    ### create an empty list for saving pathway count info
+    regulon_pathway_count_info <- vector("list", length = nrow(GTEx_TCGA_Map))
+    
     ### for every comparison between GTEx and TCGA, find interesting pathways
     for(i in 1:nrow(GTEx_TCGA_Map)) {
       
@@ -8996,6 +9001,12 @@ oneOffs<- function (which = "freq_mods", params=NULL){
                   file = paste0(params[[7]], subdirPath, "/", subdirPath, "_interesting_pathway_counts_", pVal_threshold, ".txt"),
                   sep = "\t", row.names = FALSE)
       
+      ### save the info to the list
+      regulon_pathway_count_info[[i]] <- data.frame(GO_ID=rownames(interesting_pathway_cnt),
+                                                    Pathway=goTermMap[rownames(interesting_pathway_cnt)],
+                                                    interesting_pathway_cnt,
+                                                    stringsAsFactors = FALSE, check.names = FALSE, row.names = NULL)
+      
       ### quality control test
       ### read count depth of each sample
       common_genes <- intersect(rownames(gtex_gexp), rownames(tcga_gexp))
@@ -9065,8 +9076,8 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       })
       
       ### add pathway labels
-      fgseaRes <- data.frame(GO_ID=rownames(interesting_pathway_cnt)[exist_idx],
-                             Pathway=goTermMap[rownames(interesting_pathway_cnt)[exist_idx]],
+      fgseaRes <- data.frame(GO_ID=fgseaRes$pathway[exist_idx],
+                             Pathway=goTermMap[fgseaRes$pathway[exist_idx]],
                              fgseaRes,
                              stringsAsFactors = FALSE, check.names = FALSE, row.names = NULL)
       
@@ -9116,10 +9127,10 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       })
       
       ### add pathway labels
-      fgseaRes2 <- data.frame(GO_ID=rownames(interesting_pathway_cnt)[exist_idx],
-                             Pathway=goTermMap[rownames(interesting_pathway_cnt)[exist_idx]],
-                             fgseaRes2,
-                             stringsAsFactors = FALSE, check.names = FALSE, row.names = NULL)
+      fgseaRes2 <- data.frame(GO_ID=fgseaRes2$pathway[exist_idx],
+                              Pathway=goTermMap[fgseaRes2$pathway[exist_idx]],
+                              fgseaRes2,
+                              stringsAsFactors = FALSE, check.names = FALSE, row.names = NULL)
       
       ### write out the gsea result
       write.table(fgseaRes2[,-which(colnames(fgseaRes2) == "leadingEdge")],
@@ -9139,68 +9150,539 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       
     }
     
+    ### set README function
+    README <- function() {
+      writeLines(paste(rep("#", 100), collapse = ""))
+      writeLines("A RDA file contains regulon pathway count info between")
+      writeLines("GTEx and TCGA of 29 tissue mappings.")
+      writeLines("The \"regulon_pathway_count_info\" object is a data frame that has")
+      writeLines("exclusively appeared pathway info of the corresponding GTEx-TCGA")
+      writeLines("comparison of the TISSUE.")
+      writeLines(paste(rep("#", 100), collapse = ""))
+    }
+    
+    ### save the DE result matrices in a RDA file
+    save(list = c("regulon_pathway_count_info", "README"), file = paste0(params[[7]], "All_29_GTEx_vs_TCGA_regulon_pathway_info.rda"))
+    
+  }
+  
+  # ******************************** which = MakeDEGRDA ********************************
+  # Perform DE analysis on all the 29 tissue mappings between GTEx and TCGA.
+  # The Aracne-ready files are normalized, cleaned (removed genes
+  # that have 0 or 1 across all samples), and even do not contain complete set
+  # of samples (Because 100 <= the number of samples <= 200 is ideal for
+  # running Aracne run). Therefore, the files are not suitable for DE analysis
+  # between GTEx and TCGA. This function uses raw count matrices for a tissue
+  # that already has an Aracne network. There will be no cleaning, no normalization,
+  # and no sample selection. And using the raw counts, DE analysis will be performed
+  # between GTEx and TCGA samples. The DE results of 29 mappings will be saved as 
+  # a RDA file.
+  #
+  # params[[1]]: The file path of the "All_62_raw_counts" file
+  #              (a character vector of length 1)
+  # params[[2]]: The file path of the "GTEx_TCGA_Map.rda" file
+  #              (a character vector of length 1)
+  # params[[3]]: The result RDA file path
+  #              (a character vector of length 1)
+  #
+  # e.g., params = list("//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_62_raw_counts.rda",
+  #                     "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/GTEx_TCGA_Map.rda",
+  #                     "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_29_GTEx_vs_TCGA_DE_Results.rda")
+  # e.g., params = list("./data/RDA_Files/All_62_raw_counts.rda", "./data/RDA_Files/GTEx_TCGA_Map.rda", "./data/RDA_Files/All_29_GTEx_vs_TCGA_DE_Results.rda")
+  
+  if(which == "MakeDEGRDA") {
+    
+    ### argument checking
+    assertString(params[[1]])
+    assertString(params[[2]])
+    assertString(params[[3]])
+    
+    ### load the raw counts
+    load(params[[1]])
+    load(params[[2]])
+    
+    ### create an empty DER_names
+    der_names <- NULL
+    
+    ### for each tissue mapping between GTEx and TCGA, perform DE analysis
+    for(i in 1:nrow(GTEx_TCGA_Map)) {
+      
+      ### get gene expressions
+      gtex_gexp <- get(paste0("rcntmat_", GTEx_TCGA_Map[i,"GTEx"]))
+      tcga_gexp <- get(paste0("rcntmat_tcga_", GTEx_TCGA_Map[i,"TCGA"]))
+      
+      ### common shared genes between GTEx and TCGA
+      common_genes <- intersect(rownames(gtex_gexp), rownames(tcga_gexp))
+      
+      ### DE analysis
+      gexp <- cbind(gtex_gexp[common_genes,], tcga_gexp[common_genes,])
+      group <- c(rep("GTEx", ncol(gtex_gexp)), rep("TCGA", ncol(tcga_gexp)))
+      deresult <- deseqWithComparisons(rCnt = gexp, grp = group, exp_class = "GTEx", ctrl_class = "TCGA")
+      
+      ### save the DE result to a variable
+      der_names <- c(der_names, paste0("DEG_GTEx_", GTEx_TCGA_Map[i,"GTEx"], "_vs_TCGA_", toupper(GTEx_TCGA_Map[i,"TCGA"])))
+      assign(der_names[i], deresult, envir = globalenv())
+      
+    }
+    
+    ### set README function
+    README <- function() {
+      writeLines(paste(rep("#", 100), collapse = ""))
+      writeLines("A RDA file that contains DE analysis results using raw counts between")
+      writeLines("GTEx and TCGA of 29 tissue mappings. The raw counts are not cleaned,")
+      writeLines("not normalized, and include all the raw samples. And using the raw counts,")
+      writeLines("DE analysis was performed between GTEx and TCGA samples.")
+      writeLines("The \"DEG_GTEx_TISSUE_vs_TCGA_TISSUE\" object is a data frame that has")
+      writeLines("a DE result of the corresponding GTEx-TCGA comparison of the TISSUE.")
+      writeLines(paste(rep("#", 100), collapse = ""))
+    }
+    
+    ### save the DE result matrices in a RDA file
+    save(list = c("der_names", der_names, "README"), file = params[[3]])
+    
+  }
+  
+  # ******************** which = investigate_interesting_regulon_pathways ********************
+  # For a given significant hub and a given interesting regulon pathway of a given tissue mapping,
+  # this function helps to identify what is happening with regard to the given inputs.
+  # The output will be consist of 6 results and they will be all combined into one PDF file.
+  # 1. A visualized network (graph) of the given hub and target genes.
+  #    The target genes found in the given pathway are marked with yellow.
+  #    From this graph, we could know which target genes the given hub have in both
+  #    GTEx and TCGA, and how many of them are associated with the given pathway.
+  # 2. A Venn diagram that describes how many target genes are shared between two regulons
+  #    of the given hub in GTEx and TCGA.
+  # 3. A table of Aracne info + DE analysis result of the found targets (Found pathway genes in the regulon)
+  #    Rows are the found targets, columns should be (Symbol, MI, MoA, Likelihood, Pvalue_MI,
+  #    baseMean, log2FoldChange, lfcSE, stat, pvalue_DE, padj_DE, Rank_DE)
+  # 4. A heatmap of the gene expression of the found target genes in both GTEx and TCGA
+  #    There should be a column side bar that represents where the samples are from (GTEx or TCGA).
+  # 5. A table and a line graph of MI comparison between GTEx and TCGA.
+  #    The mutual information is measured between the given hub and the found target genes.
+  #    Rows are the found targets and the number of column is 2 meaning GTEx and TCGA.
+  # 
+  # params[[1]]: The GO ID of interest
+  #              (a character vector of length 1)
+  # params[[2]]: The hub name of interest in Entrez ID
+  #              (a character vector of length 1)
+  # params[[3]]: The comparison of interest - the index in the GTEx-TCGA mapping (should be 1:29)
+  #              See the "GTEx_TCGA_Map" matrix for the details
+  #              e.g., params[[3]] = 21 indicates GTEx_Lung vs TCGA_LUAD
+  #              (an integer on [1, 29])
+  # params[[4]]: The file path of the "GTEx_TCGA_Map.rda" file
+  #              (a character vector of length 1)
+  # params[[5]]: The file path of Aracne network RDA file (All_62_ARACNE.rda)
+  #              (a character vector of length 1)
+  # params[[6]]: The file path of regulon pathway result RDA file (RegulonPathwayAnnotation.rda)
+  #              (a character vector of length 1)
+  # params[[7]]: The file path of DE results of the 29 GTEx-TCGA mapping (All_29_GTEx_vs_TCGA_DE_Results.rda)
+  #              (a character vector of length 1)
+  # params[[8]]: The file path of Aracne-ready gene expression RDA file (ALL_62_ARACNE_READY_EXPMAT.rda)
+  #              (a character vector of length 1)
+  # params[[9]]: The output results directory path
+  #              (a character vector of length 1)
+  #
+  # e.g., params = list("GO:0140013", "7272", 6,
+  #                     "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/GTEx_TCGA_Map.rda",
+  #                     "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_62_ARACNE.rda",
+  #                     "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/RegulonPathwayAnnotation.rda",
+  #                     "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_29_GTEx_vs_TCGA_DE_Results.rda",
+  #                     "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/ALL_62_ARACNE_READY_EXPMAT.rda",
+  #                     "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/regulon_pathway/GTEx_vs_TCGA/GTEx_BrainCerHem_vs_TCGA_GBM/)
+  # e.g., params = list("GO:0140013", "7272", 6,
+  #                     "./data/RDA_Files/GTEx_TCGA_Map.rda",
+  #                     "./data/RDA_Files/All_62_ARACNE.rda",
+  #                     "./data/RDA_Files/RegulonPathwayAnnotation.rda",
+  #                     "./data/RDA_Files/All_29_GTEx_vs_TCGA_DE_Results.rda",
+  #                     "./data/RDA_Files/ALL_62_ARACNE_READY_EXPMAT.rda",
+  #                     "./results/regulon_pathway/GTEx_vs_TCGA/GTEx_BrainCerHem_vs_TCGA_GBM/")
+  
+  if(which == "investigate_interesting_regulon_pathways") {
+    
+    ### argument checking
+    assertString(params[[1]])
+    assertString(params[[2]])
+    assertIntegerish(params[[3]])
+    assertString(params[[4]])
+    assertString(params[[5]])
+    assertString(params[[6]])
+    assertString(params[[7]])
+    assertString(params[[8]])
+    assertString(params[[9]])
+    if(is.na(params[[3]]) || params[[3]] < 1 || params[[3]] > 29) {
+      stop("params[[3]] should be an integer in 1:29")
+    }
+    
+    ### load the data - only load the data of the given tissue
+    load(params[[4]])
+    
+    env <- new.env()
+    load(params[[5]], env)
+    gtex_aracne_net <- env[[GTEx_TCGA_Map[params[[3]],"GTEx"]]]
+    tcga_aracne_net <- env[[paste0("tcga_",GTEx_TCGA_Map[params[[3]],"TCGA"])]]
+    gc()
+    
+    env <- new.env()
+    load(params[[6]], env)
+    gtex_regulon_pathway_result <- env[[paste0(GTEx_TCGA_Map[params[[3]],"GTEx"], "GO")]][[params[[2]]]]
+    tcga_regulon_pathway_result <- env[[paste0("tcga_",GTEx_TCGA_Map[params[[3]],"TCGA"],"GO")]][[params[[2]]]]
+    gc()
+    
+    env <- new.env()
+    load(params[[7]], env)
+    deresult <- env[[paste0("DEG_GTEx_", GTEx_TCGA_Map[params[[3]],"GTEx"], "_vs_TCGA_", toupper(GTEx_TCGA_Map[params[[3]],"TCGA"]))]]
+    gc()
+    
+    env <- new.env()
+    load(params[[8]], env)
+    gtex_aracne_ready_gexp <- env[[paste0("expmat_gtex_",GTEx_TCGA_Map[params[[3]],"GTEx"])]]
+    tcga_aracne_ready_gexp <- env[[paste0("expmat_tcga_",GTEx_TCGA_Map[params[[3]],"TCGA"])]]
+    gc()
+    
+    ### get target genes
+    gtex_regulon <- rownames(gtex_aracne_net[[2]][[params[[2]]]])
+    tcga_regulon <- rownames(tcga_aracne_net[[2]][[params[[2]]]])
+    gtex_regulon_symbol <- entrezIDtoSymbol(gtex_regulon)
+    tcga_regulon_symbol <- entrezIDtoSymbol(tcga_regulon)
+    
+    ### determine GTEx exclusive or TCGA exclusive
+    if(is.na(gtex_regulon_pathway_result[params[[1]],"geneID"])) {
+      exclusive <- "TCGA"
+    } else {
+      exclusive <- "GTEx"
+    }
+    
+    ### found pathway genes
+    if(exclusive == "GTEx") {
+      found_pathway_genes <- gtex_regulon[which(gtex_regulon_symbol %in% strsplit(gtex_regulon_pathway_result[params[[1]],"geneID"], split = "/", fixed = TRUE)[[1]])]
+    } else {
+      found_pathway_genes <- tcga_regulon[which(tcga_regulon_symbol %in% strsplit(tcga_regulon_pathway_result[params[[1]],"geneID"], split = "/", fixed = TRUE)[[1]])]
+    }
+    
+    ### add rank column to deresult
+    deresult <- data.frame(deresult, rank=rank(deresult[,"stat"], ties.method = "min"),
+                           stringsAsFactors = FALSE, check.names = FALSE)
+    
+    ### create a sub directory for the results
+    subdirPath <- paste0("GO_", substring(params[[1]], 4), "_Hub_", params[[2]])
+    dir.create(file.path(params[[9]], subdirPath), showWarnings = FALSE)
+    
+    ### 1. A visualized network (graph) of the given hub and target genes.
+    
+    ### load required library
+    if(!require(igraph, quietly = TRUE)) {
+      install.packages("igraph")
+      require(igraph, quietly = TRUE)
+    }
+    
+    ### make an edge list for graph
+    edgeList <- matrix(NA, length(gtex_regulon)+length(tcga_regulon), 2)
+    edgeList[1:length(gtex_regulon),1] <- paste0("GTEx_", params[[2]])
+    edgeList[1:length(gtex_regulon),2] <- gtex_regulon
+    edgeList[(length(gtex_regulon)+1):nrow(edgeList),1] <- paste0("TCGA_", params[[2]])
+    edgeList[(length(gtex_regulon)+1):nrow(edgeList),2] <- tcga_regulon
+    
+    ### visualize the graph
+    net_graph <- graph.edgelist(edgeList, directed=FALSE)
+    
+    node_color <- rep("black", length(V(net_graph)))
+    node_color[which(startsWith(V(net_graph)$name, "GTEx"))] <- "blue"
+    node_color[which(startsWith(V(net_graph)$name, "TCGA"))] <- "blue"
+    node_color[which(V(net_graph)$name == intersect(gtex_regulon, tcga_regulon))] <- "orange"
+    node_color[which(V(net_graph)$name %in% as.character(found_pathway_genes))] <- "red"
+    
+    ### graph in Entrez ID
+    png(paste0(params[[9]], subdirPath, "/Hub_", params[[2]], "_target_genes_entrez.png"),
+        width = 1800, height = 1300, res = 150)
+    plot(net_graph, main=paste0("Hub ", params[[2]], "'s Target Genes"),
+         vertex.label.color=node_color, vertex.shape="none", layout=layout_with_dh)
+    legend("topleft", xpd = TRUE, title = "Gene Color",
+           legend = c("Hubs", "Shared Targets", paste0(params[[1]], "_Genes"), "The Other Targets"),
+           fill = c("blue", "orange", "red", "black"), cex = 1, box.lty = 1)
+    dev.off()
+    
+    ### graph in gene symbol
+    edgeList <- matrix(NA, length(gtex_regulon)+length(tcga_regulon), 2)
+    edgeList[1:length(gtex_regulon),1] <- paste0("GTEx_", entrezIDtoSymbol(params[[2]]))
+    edgeList[1:length(gtex_regulon),2] <- entrezIDtoSymbol(gtex_regulon)
+    edgeList[(length(gtex_regulon)+1):nrow(edgeList),1] <- paste0("TCGA_", entrezIDtoSymbol(params[[2]]))
+    edgeList[(length(gtex_regulon)+1):nrow(edgeList),2] <- entrezIDtoSymbol(tcga_regulon)
+    net_graph <- graph.edgelist(edgeList, directed=FALSE)
+    
+    png(paste0(params[[9]], subdirPath, "/Hub_", entrezIDtoSymbol(params[[2]]), "_target_genes_symbol.png"),
+        width = 1800, height = 1300, res = 150)
+    plot(net_graph, main=paste0("Hub ", entrezIDtoSymbol(params[[2]]), "'s Target Genes"),
+         vertex.label.color=node_color, vertex.shape="none", layout=layout_with_dh)
+    legend("topleft", xpd = TRUE, title = "Gene Color",
+           legend = c("Hubs", "Shared Targets", paste0(params[[1]], "_Genes"), "The Other Targets"),
+           fill = c("blue", "orange", "red", "black"), cex = 1, box.lty = 1)
+    dev.off()
+    
+    ### 2. A Venn diagram between GTEx & TCGA regulons
+    
+    ### load required library
+    if(!require(VennDiagram)) {
+      source("https://bioconductor.org/biocLite.R")
+      biocLite("VennDiagram")
+      require(VennDiagram)
+    }
+    if(!require(gridExtra, quietly = TRUE)) {
+      install.packages("gridExtra")
+      require(gridExtra, quietly = TRUE)
+    }
+    
+    ### draw the venn diagram
+    v <- venn.diagram(list(gtex_regulon, tcga_regulon),
+                      category.names = c("GTEx", "TCGA"),
+                      cat.cex = 1.0, cex = 1.5,
+                      filename = NULL)
+    png(paste0(params[[9]], subdirPath, "/Hub_", params[[2]], "_regulon_venn.png"),
+        width = 1200, height = 1000, res = 180)
+    grid.arrange(gTree(children=v),
+                 top=paste0("Hub ", params[[2]], "'s Regulons"),
+                 bottom="")
+    dev.off()
+    
+    ### 3. A table of Aracne info + DE analysis result of the found targets
+    
+    ### get Aracne info of the found targets
+    if(exclusive == "GTEx") {
+      aracne_de_table <- gtex_aracne_net[[2]][[params[[2]]]][found_pathway_genes,]
+    } else {
+      aracne_de_table <- tcga_aracne_net[[2]][[params[[2]]]][found_pathway_genes,]
+    }
+    
+    ### get DE info of the found targts
+    aracne_de_table <- merge(aracne_de_table, deresult[found_pathway_genes,], by="row.names", all=FALSE)
+    rownames(aracne_de_table) <- aracne_de_table[,1]
+    aracne_de_table <- aracne_de_table[,-c(1,2)]
+    colnames(aracne_de_table) <- c(paste0("MI_",params[[2]]), paste0("MoA_",params[[2]]),
+                                   paste0("Likelihood_",params[[2]]), "MI_Pval",
+                                   "DE_baseMean", "DE_log2FC", "DE_lfcSE",
+                                   "DE_stat", "DE_Pval", "DE_FDR", "DE_Rank")
+    aracne_de_table <- data.frame(Target_Entrez_ID=rownames(aracne_de_table),
+                                  Gene_Symbol=entrezIDtoSymbol(rownames(aracne_de_table)),
+                                  aracne_de_table,
+                                  stringsAsFactors = FALSE, check.names = FALSE)
+    
+    ### write out the Aracne info + DE analysis result table
+    write.table(aracne_de_table, file = paste0(params[[9]], subdirPath,
+                                               "/Hub_", params[[2]], "_", exclusive,
+                                               "_target_genes_info.txt"),
+                sep = "\t", row.names = FALSE)
+    
+    ### 4. A heatmap of the gene expression of the found target genes in both GTEx and TCGA
+    
+    ### load required library
+    if(!require(gplots, quietly = TRUE)) {
+      install.packages("gplots")
+      require(gplots, quietly = TRUE)
+    }
+    
+    ### create a matrix for heatmap
+    heatmap_mat <- merge(gtex_aracne_ready_gexp[which(rownames(gtex_aracne_ready_gexp) %in% found_pathway_genes),],
+                         tcga_aracne_ready_gexp[which(rownames(tcga_aracne_ready_gexp) %in% found_pathway_genes),],
+                         by="row.names", all=FALSE)
+    rownames(heatmap_mat) <- heatmap_mat[,1]
+    heatmap_mat <- heatmap_mat[,-1]
+    
+    ### set colside colors
+    col_colors <- c(rep("#F8766D", ncol(gtex_aracne_ready_gexp)), rep("#619CFF", ncol(tcga_aracne_ready_gexp)))
+    names(col_colors) <- c(rep("GTEx", ncol(gtex_aracne_ready_gexp)), rep("TCGA", ncol(tcga_aracne_ready_gexp)))
+    
+    ### create a heatmap
+    png(paste0(params[[9]], subdirPath, "/Hub_", params[[2]], "_targets_expression_heatmap.png"),
+        width = 1550, height = 1500, res = 120)
+    par(oma=c(0,0,0,10))
+    heatmap.3(as.matrix(heatmap_mat), main = paste0("Hub_", params[[2]], "'s Target Expressions"),
+              xlab = "", ylab = "", col=greenred(100),
+              scale="none", key=T, keysize=0.5, dendrogram = 'none', trace = 'none',
+              labRow = rownames(heatmap_mat), labCol = "",
+              Rowv = FALSE, Colv = FALSE,
+              ColSideColors = cbind(as.vector(col_colors)),
+              cexRow = 2.3, cexCol = 1.3, na.rm = TRUE)
+    legend("topright", inset = -0.05, xpd = TRUE, title = "Sample Group",
+           legend = unique(names(col_colors)), fill = unique(col_colors), cex = 1.3, box.lty = 0)
+    dev.off()
+    
+    ### 5. A table and a line graph of MI comparison between GTEx and TCGA
+    
+    ### load required library
+    if(!require(entropy, quietly = TRUE)) {
+      install.packages("entropy")
+      require(entropy, quietly = TRUE)
+    }
+    if(!require(ggplot2, quietly = TRUE)) {
+      install.packages("ggplot2")
+      require(ggplot2, quietly = TRUE)
+    }
+    
+    ### create an empty mi table
+    mi_table <- matrix(NA, length(found_pathway_genes), 8)
+    rownames(mi_table) <- found_pathway_genes
+    colnames(mi_table) <- c("GTEx_MI", "TCGA_MI", "GTEx_MI_PVal", "TCGA_MI_PVal", "GTEx_Pearson", "TCGA_Pearson", "GTEx_Spearman", "TCGA_Spearman")
+    
+    ### calculate MIs
+    gtex_mi <- rep(NA, nrow(gtex_aracne_ready_gexp))
+    names(gtex_mi) <- rownames(gtex_aracne_ready_gexp)
+    tcga_mi <- rep(NA, nrow(tcga_aracne_ready_gexp))
+    names(tcga_mi) <- rownames(tcga_aracne_ready_gexp)
+    set.seed(1234)
+    for(gene in rownames(gtex_aracne_ready_gexp)) {
+      gtex_mi[gene] <- mi.plugin(rbind(gtex_aracne_ready_gexp[params[[2]],],
+                                       gtex_aracne_ready_gexp[gene,]))
+    }
+    for(gene in rownames(tcga_aracne_ready_gexp)) {
+      tcga_mi[gene] <- mi.plugin(rbind(tcga_aracne_ready_gexp[params[[2]],],
+                                       tcga_aracne_ready_gexp[gene,]))
+    }
+    gtex_mi <- gtex_mi[order(gtex_mi)]
+    tcga_mi <- tcga_mi[order(tcga_mi)]
+    
+    ### calculate Correlations
+    for(target in found_pathway_genes) {
+      if(length(which(rownames(gtex_aracne_ready_gexp) == target)) > 0) {
+        ### mi calculation
+        mi_table[target,"GTEx_MI"] <- gtex_mi[target]
+        
+        ### mi p-value
+        mi_table[target,"GTEx_MI_PVal"] <- which(names(gtex_mi) == target) / length(gtex_mi)
+        
+        ### pearson
+        mi_table[target,"GTEx_Pearson"] <- cor(gtex_aracne_ready_gexp[params[[2]],],
+                                               gtex_aracne_ready_gexp[target,],
+                                               method = "pearson")
+        ### spearman
+        mi_table[target,"GTEx_Spearman"] <- cor(gtex_aracne_ready_gexp[params[[2]],],
+                                               gtex_aracne_ready_gexp[target,],
+                                               method = "spearman")
+      }
+      if(length(which(rownames(tcga_aracne_ready_gexp) == target)) > 0) {
+        ### mi calculation
+        mi_table[target,"TCGA_MI"] <- tcga_mi[target]
+        
+        ### mi p-value
+        mi_table[target,"TCGA_MI_PVal"] <- which(names(tcga_mi) == target) / length(tcga_mi)
+        
+        ### pearson
+        mi_table[target,"TCGA_Pearson"] <- cor(tcga_aracne_ready_gexp[params[[2]],],
+                                               tcga_aracne_ready_gexp[target,],
+                                               method = "pearson")
+        ### spearman
+        mi_table[target,"TCGA_Spearman"] <- cor(tcga_aracne_ready_gexp[params[[2]],],
+                                                tcga_aracne_ready_gexp[target,],
+                                                method = "spearman")
+      }
+    }
+    
+    ### write out the mi table
+    write.table(data.frame(Target_Entrez_ID=rownames(mi_table),
+                           Gene_Symbol=entrezIDtoSymbol(rownames(mi_table)),
+                           mi_table,
+                           stringsAsFactors = FALSE, check.names = FALSE),
+                file = paste0(params[[9]], subdirPath,
+                              "/Hub_", params[[2]], "_targets_mi_comparison.txt"),
+                sep = "\t", row.names = FALSE)
+    
+    ### make a data frame for a line graph
+    line_df <- data.frame(matrix(NA, 2*nrow(mi_table), 6))
+    colnames(line_df) <- c("Gene", "MI", "MI_PVal", "Pearson", "Spearman", "Group")
+    line_df[1:nrow(mi_table),"Gene"] <- rownames(mi_table)
+    line_df[1:nrow(mi_table),"MI"] <- mi_table[,"GTEx_MI"]
+    line_df[1:nrow(mi_table),"MI_PVal"] <- mi_table[,"GTEx_MI_PVal"]
+    line_df[1:nrow(mi_table),"Pearson"] <- mi_table[,"GTEx_Pearson"]
+    line_df[1:nrow(mi_table),"Spearman"] <- mi_table[,"GTEx_Spearman"]
+    line_df[1:nrow(mi_table),"Group"] <- "GTEx"
+    line_df[(nrow(mi_table)+1):nrow(line_df),"Gene"] <- rownames(mi_table)
+    line_df[(nrow(mi_table)+1):nrow(line_df),"MI"] <- mi_table[,"TCGA_MI"]
+    line_df[(nrow(mi_table)+1):nrow(line_df),"MI_PVal"] <- mi_table[,"TCGA_MI_PVal"]
+    line_df[(nrow(mi_table)+1):nrow(line_df),"Pearson"] <- mi_table[,"TCGA_Pearson"]
+    line_df[(nrow(mi_table)+1):nrow(line_df),"Spearman"] <- mi_table[,"TCGA_Spearman"]
+    line_df[(nrow(mi_table)+1):nrow(line_df),"Group"] <- "TCGA"
+    
+    ### line graphs
+    p <- vector("list", length = 4)
+    p[[1]] <- ggplot(data = line_df, aes(x=Gene, y=MI, group=Group)) +
+      geom_line(aes(color=Group)) +
+      theme_classic(base_size = 16)
+    p[[2]] <- ggplot(data = line_df, aes(x=Gene, y=MI_PVal, group=Group)) +
+      geom_line(aes(color=Group)) +
+      theme_classic(base_size = 16)
+    p[[3]] <- ggplot(data = line_df, aes(x=Gene, y=Pearson, group=Group)) +
+      geom_line(aes(color=Group)) +
+      theme_classic(base_size = 16)
+    p[[4]] <- ggplot(data = line_df, aes(x=Gene, y=Spearman, group=Group)) +
+      geom_line(aes(color=Group)) +
+      theme_classic(base_size = 16)
+    
+    ### draw out the graphs
+    png(paste0(params[[9]], subdirPath, "/Hub_", params[[2]], "_targets_mi_comparison.png"),
+        width = 2000, height = 1000)
+    multiplot(plotlist = p, cols = 1, title = paste0("Hub_", params[[2]], "_Targets_Correlation_Comparisons"))
+    dev.off()
+    
   }
   
 }
 
 
 uniqueGenomicAlterations <- function(rootDir = "//isilon.c2b2.columbia.edu/ifs/scratch/c2b2/ac_lab/fmg2117/projects/pancancer/cptac/citrusFiles/"){
-	fileNames = c("genomicEvents-blca.dat", "genomicEvents-brca.dat", "genomicEvents-coad.dat", 
-			"genomicEvents-gbm.dat", "genomicEvents-hnsc.dat", "genomicEvents-kirc.dat", 
-			"genomicEvents-kirp.dat", "genomicEvents-laml.dat", "genomicEvents-lgg.dat", 
-			"genomicEvents-lihc.dat", "genomicEvents-luad.dat", "genomicEvents-lusc.dat", 
-			"genomicEvents-ov.dat", "genomicEvents-prad.dat", "genomicEvents-read.dat", 
-			"genomicEvents-sarc.dat", "genomicEvents-skcm.dat", "genomicEvents-stad.dat", 
-			"genomicEvents-thca.dat", "genomicEvents-ucec.dat")
-	
-	res = vector(mode = "integer", length = length(fileNames))
-	names(res) = sapply(fileNames, function(s){return(gsub(".dat", "", 
-								gsub("genomicEvents-", "", s)))})
-			
-	for (i in 1:length(fileNames)){
-		gFile = fileNames[i]
-		logLines(paste("\nProcessing file -> ", gFile))
-		data = as.matrix(read.table(paste(rootDir, gFile, sep=""), header = TRUE))
-		res[i] = length(unique(data[,1]))
-	}
-	return(res)
+  fileNames = c("genomicEvents-blca.dat", "genomicEvents-brca.dat", "genomicEvents-coad.dat", 
+                "genomicEvents-gbm.dat", "genomicEvents-hnsc.dat", "genomicEvents-kirc.dat", 
+                "genomicEvents-kirp.dat", "genomicEvents-laml.dat", "genomicEvents-lgg.dat", 
+                "genomicEvents-lihc.dat", "genomicEvents-luad.dat", "genomicEvents-lusc.dat", 
+                "genomicEvents-ov.dat", "genomicEvents-prad.dat", "genomicEvents-read.dat", 
+                "genomicEvents-sarc.dat", "genomicEvents-skcm.dat", "genomicEvents-stad.dat", 
+                "genomicEvents-thca.dat", "genomicEvents-ucec.dat")
+  
+  res = vector(mode = "integer", length = length(fileNames))
+  names(res) = sapply(fileNames, function(s){return(gsub(".dat", "", 
+                                                         gsub("genomicEvents-", "", s)))})
+  
+  for (i in 1:length(fileNames)){
+    gFile = fileNames[i]
+    logLines(paste("\nProcessing file -> ", gFile))
+    data = as.matrix(read.table(paste(rootDir, gFile, sep=""), header = TRUE))
+    res[i] = length(unique(data[,1]))
+  }
+  return(res)
 }
 
 
 filterDGs <- function(altsPerTumor, threshold = 0.01){
-	for (index in 1:length(varNamesDG)){
-		dg_data = get(varNamesDG[index])
-		numRegs = length(dg_data[[1]][,1])
-		select = rep(TRUE, length=numRegs)
-		correctFactor = numRegs * altsPerTumor[gsub("DG", "", varNamesDG[index])]
-		for (i in 1:numRegs){
-			mods = dg_data[[2]][[dg_data[[1]][i,2]]]
-			mods = mods[mods[,6] < (threshold/correctFactor),,drop=FALSE]
-			if (length(mods) == 0)
-				select[i] = FALSE
-			else
-				dg_data[[2]][[dg_data[[1]][i,2]]] = mods
-		}
-		l1 = dg_data[[1]][select,]
-		l2 = list()
-		# writeLines(paste("Length = ", length(l1)))
-		if (length(l1) > 0){
-			for (i in 1:length(l1[,1])){
-				# writeLines(as.character(i))
-				l2[[i]] = dg_data[[2]][[l1[i,2]]]
-				l1[i,2] = i
-				l1[i,3] = length(l2[[i]][,1]) 
-			}
-			names(l2) = l1[,1]
-			l1 = l1[order(l1[,3], decreasing=TRUE),]
-			rownames(l1) = l1[,1]
-		}
-		
-		res = list()
-		res[[1]] = l1
-		res[[2]] = l2
-		assign(paste(varNamesDG[index],"F", sep=""), res, envir = globalenv())
-	}
+  for (index in 1:length(varNamesDG)){
+    dg_data = get(varNamesDG[index])
+    numRegs = length(dg_data[[1]][,1])
+    select = rep(TRUE, length=numRegs)
+    correctFactor = numRegs * altsPerTumor[gsub("DG", "", varNamesDG[index])]
+    for (i in 1:numRegs){
+      mods = dg_data[[2]][[dg_data[[1]][i,2]]]
+      mods = mods[mods[,6] < (threshold/correctFactor),,drop=FALSE]
+      if (length(mods) == 0)
+        select[i] = FALSE
+      else
+        dg_data[[2]][[dg_data[[1]][i,2]]] = mods
+    }
+    l1 = dg_data[[1]][select,]
+    l2 = list()
+    # writeLines(paste("Length = ", length(l1)))
+    if (length(l1) > 0){
+      for (i in 1:length(l1[,1])){
+        # writeLines(as.character(i))
+        l2[[i]] = dg_data[[2]][[l1[i,2]]]
+        l1[i,2] = i
+        l1[i,3] = length(l2[[i]][,1]) 
+      }
+      names(l2) = l1[,1]
+      l1 = l1[order(l1[,3], decreasing=TRUE),]
+      rownames(l1) = l1[,1]
+    }
+    
+    res = list()
+    res[[1]] = l1
+    res[[2]] = l2
+    assign(paste(varNamesDG[index],"F", sep=""), res, envir = globalenv())
+  }
 }
 
 
@@ -9211,19 +9693,19 @@ filterDGs <- function(altsPerTumor, threshold = 0.01){
 # modID and the j-th TF on the i-th tumor. Values are temporariry stored as 
 # string to facilitate export to an Excel file.
 getModInfo <- function(modID, top20CommontTFs){
-	results = matrix("", length(varNamesDG), length(top20CommontTFs))
-	colnames(results) = entrezIDtoSymbol(top20CommontTFs)
-	rownames(results) = varNamesDG
-	for (i in 1:length(top20CommontTFs)){
-		l = tfDGDetails(top20CommontTFs[i], modGeneID=modID)
-		for (j in 1:length(varNamesDG)){
-			if (is.null(l[[j]]))
-				results[i, j] = ""
-			else
-				results[i, j] = toString(l[[j]][1,6])
-		}
-	}
-	return(results)
+  results = matrix("", length(varNamesDG), length(top20CommontTFs))
+  colnames(results) = entrezIDtoSymbol(top20CommontTFs)
+  rownames(results) = varNamesDG
+  for (i in 1:length(top20CommontTFs)){
+    l = tfDGDetails(top20CommontTFs[i], modGeneID=modID)
+    for (j in 1:length(varNamesDG)){
+      if (is.null(l[[j]]))
+        results[i, j] = ""
+      else
+        results[i, j] = toString(l[[j]][1,6])
+    }
+  }
+  return(results)
 }
 
 
@@ -9332,21 +9814,21 @@ getInteractomeGenes <- function(nets, count = TRUE, hubs_only = FALSE, common = 
 #		to an ARACNe network.
 # *****************************************************************************	
 plotReg <- function(net){
-	if (is.character(net))
-		net = get(net)
-	colTF="red"
-	colCoTF = "blue"
-	colSign = "green"
-	plot(log(net[[1]][,3]), t="l", main="", xlab = "Ordered hub gene index", ylab = "log(Regulon size)")
-	for (i in 1:nrow(net[[1]])){
-		if (is.tf(net[[1]][i, 1]))
-			abline(v = i, col = colTF)
-		if (is.cotf(net[[1]][i, 1]))
-			abline(v = i, col = colCoTF)
-		if (is.sign(net[[1]][i, 1]))
-			abline(v = i, col = colSign)
-	}
-	lines(log(net[[1]][,3]), type = "p")
+  if (is.character(net))
+    net = get(net)
+  colTF="red"
+  colCoTF = "blue"
+  colSign = "green"
+  plot(log(net[[1]][,3]), t="l", main="", xlab = "Ordered hub gene index", ylab = "log(Regulon size)")
+  for (i in 1:nrow(net[[1]])){
+    if (is.tf(net[[1]][i, 1]))
+      abline(v = i, col = colTF)
+    if (is.cotf(net[[1]][i, 1]))
+      abline(v = i, col = colCoTF)
+    if (is.sign(net[[1]][i, 1]))
+      abline(v = i, col = colSign)
+  }
+  lines(log(net[[1]][,3]), type = "p")
 }
 
 
@@ -9376,47 +9858,47 @@ plotReg <- function(net){
 # * The description of gene G.
 # *****************************************************************************	
 summarizeGO <- function(net1GO, net2GO){
-	commonHubs = intersect(names(net1GO), names(net2GO))
-	sumGO = matrix(nrow = length(commonHubs), ncol = 8)
-	colnames(sumGO) = c("Gene", "net1GO", "net2GO", "SameGO", "BrcaReg", "NbrcaReg", "Common", "Description")
-	for (i in 1:length(commonHubs)){
-		eid = commonHubs[i]
-		sumGO[i, 1] = entrezIDtoSymbol(eid)
-		sumGO[i, 2] = nrow(net1GO[[eid]])
-		sumGO[i, 3] = nrow(net2GO[[eid]])
-		sumGO[i, 4] = length(intersect(net1GO[[eid]]$GO.ID, net2GO[[eid]]$GO.ID))
-		sumGO[i, 5] = nrow(brca[[2]][[eid]])
-		sumGO[i, 6] = nrow(nbrca[[2]][[eid]])
-		sumGO[i, 7] = length(intersect(abs(brca[[2]][[eid]][,1]), abs(nbrca[[2]][[eid]][,1])))
-		sumGO[i, 8] = entrezIDtoDescription(eid)
-	}
-	rownames(sumGO) = commonHubs
-	sumGO = data.frame(sumGO)
-	return(sumGO)
+  commonHubs = intersect(names(net1GO), names(net2GO))
+  sumGO = matrix(nrow = length(commonHubs), ncol = 8)
+  colnames(sumGO) = c("Gene", "net1GO", "net2GO", "SameGO", "BrcaReg", "NbrcaReg", "Common", "Description")
+  for (i in 1:length(commonHubs)){
+    eid = commonHubs[i]
+    sumGO[i, 1] = entrezIDtoSymbol(eid)
+    sumGO[i, 2] = nrow(net1GO[[eid]])
+    sumGO[i, 3] = nrow(net2GO[[eid]])
+    sumGO[i, 4] = length(intersect(net1GO[[eid]]$GO.ID, net2GO[[eid]]$GO.ID))
+    sumGO[i, 5] = nrow(brca[[2]][[eid]])
+    sumGO[i, 6] = nrow(nbrca[[2]][[eid]])
+    sumGO[i, 7] = length(intersect(abs(brca[[2]][[eid]][,1]), abs(nbrca[[2]][[eid]][,1])))
+    sumGO[i, 8] = entrezIDtoDescription(eid)
+  }
+  rownames(sumGO) = commonHubs
+  sumGO = data.frame(sumGO)
+  return(sumGO)
 }
 
 
 compareGOterms <- function(net1GO, net2GO, top=20){
-	# Count how many times each GO term is found enriched. In other words, for each enriched
-	# GO terms, find how many hub genes have regulons enriched for genes annotated to that 
-	# term
-	n1Top = sort(table(unlist(sapply(net1GO, function(x){return(x[,1])}))), decreasing = T)
-	n2Top = sort(table(unlist(sapply(net2GO, function(x){return(x[,1])}))), decreasing = T)
-	
-	common = intersect(names(n1Top[1:top]), names(n2Top[1:top]))
-	n1Only = setdiff(names(n1Top[1:top]), names(n2Top[1:top]))
-	n2Only = setdiff(names(n2Top[1:top]), names(n1Top[1:top]))
-	res = lapply(list(common, n1Only, n2Only), function(termList){
-				res = matrix(nrow = length(termList), ncol = 3)
-				colnames(res) = c("n1Count", "n2Count", "Description")
-				rownames(res) = termList
-				res[, 1] = n1Top[termList]
-				res[, 2] = n2Top[termList]
-				res[, 3] = goTermMap[termList]
-				res[is.na(res)] = 0
-				return(data.frame(res))
-			})
-	return(res)
+  # Count how many times each GO term is found enriched. In other words, for each enriched
+  # GO terms, find how many hub genes have regulons enriched for genes annotated to that 
+  # term
+  n1Top = sort(table(unlist(sapply(net1GO, function(x){return(x[,1])}))), decreasing = T)
+  n2Top = sort(table(unlist(sapply(net2GO, function(x){return(x[,1])}))), decreasing = T)
+  
+  common = intersect(names(n1Top[1:top]), names(n2Top[1:top]))
+  n1Only = setdiff(names(n1Top[1:top]), names(n2Top[1:top]))
+  n2Only = setdiff(names(n2Top[1:top]), names(n1Top[1:top]))
+  res = lapply(list(common, n1Only, n2Only), function(termList){
+    res = matrix(nrow = length(termList), ncol = 3)
+    colnames(res) = c("n1Count", "n2Count", "Description")
+    rownames(res) = termList
+    res[, 1] = n1Top[termList]
+    res[, 2] = n2Top[termList]
+    res[, 3] = goTermMap[termList]
+    res[is.na(res)] = 0
+    return(data.frame(res))
+  })
+  return(res)
 }
 
 
@@ -9548,27 +10030,27 @@ compareGOterms <- function(net1GO, net2GO, top=20){
 #			}))
 
 temp <- function(gid){
-	if (is.character(gid))
-		gid = geneSymbolToEntrezId(gid)
-	
-	par(mfrow=c(4,5))
-	sapply(varNames, function(var){
-				vipers = get(paste(var, "VP", sep=""))[[1]]
-				vipers = vipers[vipers[, 1] == gid,2]
-				plot(density(vipers), main=var)
-			})
-	
-	x = panCancer[[2]][[which(panCancer[[1]][,1] == geneSymbolToEntrezId("MYSM1"))]]
-	y = sapply(unique(x[, 1]), function(gid){return(length(which(x[,1] == gid)))})
-	names(y) = unique(x[, 1])
-	y = sort(y, decreasing=TRUE)
-	
-	sapply(t, function(geneId){
-				return(sapply(varNames, function(net){
-									return(which(get(net)[[1]][,1] == geneId))
-								}))})
+  if (is.character(gid))
+    gid = geneSymbolToEntrezId(gid)
   
-	t = sapply(normal[[2]], function(e){y=e[,1]; return(length(y[y>0]))})
+  par(mfrow=c(4,5))
+  sapply(varNames, function(var){
+    vipers = get(paste(var, "VP", sep=""))[[1]]
+    vipers = vipers[vipers[, 1] == gid,2]
+    plot(density(vipers), main=var)
+  })
+  
+  x = panCancer[[2]][[which(panCancer[[1]][,1] == geneSymbolToEntrezId("MYSM1"))]]
+  y = sapply(unique(x[, 1]), function(gid){return(length(which(x[,1] == gid)))})
+  names(y) = unique(x[, 1])
+  y = sort(y, decreasing=TRUE)
+  
+  sapply(t, function(geneId){
+    return(sapply(varNames, function(net){
+      return(which(get(net)[[1]][,1] == geneId))
+    }))})
+  
+  t = sapply(normal[[2]], function(e){y=e[,1]; return(length(y[y>0]))})
   
 }
 
@@ -9946,74 +10428,74 @@ GTEx_network_centrality_analysis <- function (network_name, somatic_mutation_fil
 # aracne_tf_network (i.e. all tfs), columns are all cotfs, and the values are the FET scores 2. 
 # a dataframe that shows which pairs are in the PPI network and their mutual information
 AracnePrePPI_TF_coTF <-function (aracne_cotf_network,aracne_tf_network,ppi_network){
-	library(igraph)
-	library(caret)
-	library(randomForest)
-	library(pryr)
-	source("~/jb3401/scripts/Utils/rFunctions.R")
-	setwd("/Users/joshuabroyde/jb3401/scripts/R_sessions")
-	#load("/Volumes/jb3401/archive-af_lab/GTEx/Aracne/Lung_vst/Lung_vst_6cols.rda",verbose=T)
-	aracne_cotf<- read.delim(aracne_cotf_network,header=F)
-	aracne_tf <- read.delim(aracne_tf_network,header=F)
-	#now read in the PrePPI network
-	preppi_df=read.delim(ppi_network,header=F)
-
-	#only keep pvalues at zero
-	aracne_cotf=aracne_cotf[aracne_cotf$V4==0,]
-	aracne_tf=aracne_tf[aracne_tf$V4==0,]
-	aracne_tf$V1=as.character(aracne_tf$V1)
-	aracne_tf$V2=as.character(aracne_tf$V2)
-	aracne_cotf$V2=as.character(aracne_cotf$V2)
-	aracne_cotf$V1=as.character(aracne_cotf$V1)
-	#do pairwise fets of shared regulons
-	aracne_network=network[network$pvalue==0,]
-	count=0
-	all_tfs=unique(sort(aracne_tf$V1))
-	all_tfs=as.character(all_tfs)
-	all_cotfs=unique(sort(aracne_cotf$V1))
-	all_cotfs=as.character(all_cotfs)
-	all_gene_counts=len(unique(sorted(flattenList(c(aracne_tf$V2,aracne_cotf$V2)))))
-	df_1=namedrowscolsDataframe(all_tfs,all_cotfs)
-	#do all pairwise fisher exact tests, and store in a datafreame call df_1
-	for (i in all_tfs){
-		the_tf_regulon=aracne_tf[aracne_tf$V1==i,'V2']
-		for (j in all_cotfs){
-			the_co_tf_regulon=aracne_cotf[aracne_cotf$V1==j,'V2']
-			the_intersection=intersection(the_tf_regulon,the_co_tf_regulon)
-			the_pvalue=fisher.test(matrix(c(len(the_intersection),len(the_tf_regulon),len(the_co_tf_regulon),all_gene_counts),ncol = 2))$p.value
-			df_1[i,j]=the_pvalue
-			print(count) #print count to see progress
-			count=count+1
-		}
-	}
-	all_tfs_cotfs=unique(sorted(flattenList(c(all_tfs,all_cotfs))))
-
-	preppi_df$V1=as.character(preppi_df$V1)
-	preppi_df$V2=as.character(preppi_df$V2)
-	preppi_df=preppi_df[preppi_df$V1 %in% all_tfs,]
-	preppi_df=preppi_df[preppi_df$V2 %in% all_cotfs,]
-	preppi_df$V4=1
-	for (i in 1:nrow(preppi_df)){
-		p1=preppi_df[i,1]
-		p2=preppi_df[i,2]
-		the_fet_score=df_1[p1,p2]
-		preppi_df[i,4]=the_fet_score
-		print(p1)
-	} 
-	pdf("TF-CoTF_HIST.pdf")
-	hist(unlist(df_1),freq = FALSE,breaks = c(0,.05,.1,.15,.2,.25,.3,.35,.4,.45,.5,.55,.6,.65,.7,.75,.8,.85,.9,1))
-	hist(preppi_df$V4,freq = FALSE,add=T,col=rgb(0,0,1,0.5),breaks = c(0,.05,.1,.15,.2,.25,.3,.35,.4,.45,.5,.55,.6,.65,.7,.75,.8,.85,.9,1))
-	dev.off()
-	all_values=unlist(df_1)
-	#This is a fisher exact test for the .05 threshold
-	preppi_below_.05=nrow(preppi_df[preppi_df$V4<=.05,])
-	all_preppi=nrow(preppi_df)
-	all_below_.05=len(all_values[all_values<=.05])
-	all_all=len(all_values[all_values<=1.1])
-	fisher_results=fisher.test(matrix(c(preppi_below_.05,all_preppi,all_below_.05,all_all),ncol=2))
-return(c(df_1,preppi_df))
-#Save the file if you want to go back to it.
-#save.image(file=".PrePPI_TF_coTF_Aracne_analysis.RData")
+  library(igraph)
+  library(caret)
+  library(randomForest)
+  library(pryr)
+  source("~/jb3401/scripts/Utils/rFunctions.R")
+  setwd("/Users/joshuabroyde/jb3401/scripts/R_sessions")
+  #load("/Volumes/jb3401/archive-af_lab/GTEx/Aracne/Lung_vst/Lung_vst_6cols.rda",verbose=T)
+  aracne_cotf<- read.delim(aracne_cotf_network,header=F)
+  aracne_tf <- read.delim(aracne_tf_network,header=F)
+  #now read in the PrePPI network
+  preppi_df=read.delim(ppi_network,header=F)
+  
+  #only keep pvalues at zero
+  aracne_cotf=aracne_cotf[aracne_cotf$V4==0,]
+  aracne_tf=aracne_tf[aracne_tf$V4==0,]
+  aracne_tf$V1=as.character(aracne_tf$V1)
+  aracne_tf$V2=as.character(aracne_tf$V2)
+  aracne_cotf$V2=as.character(aracne_cotf$V2)
+  aracne_cotf$V1=as.character(aracne_cotf$V1)
+  #do pairwise fets of shared regulons
+  aracne_network=network[network$pvalue==0,]
+  count=0
+  all_tfs=unique(sort(aracne_tf$V1))
+  all_tfs=as.character(all_tfs)
+  all_cotfs=unique(sort(aracne_cotf$V1))
+  all_cotfs=as.character(all_cotfs)
+  all_gene_counts=len(unique(sorted(flattenList(c(aracne_tf$V2,aracne_cotf$V2)))))
+  df_1=namedrowscolsDataframe(all_tfs,all_cotfs)
+  #do all pairwise fisher exact tests, and store in a datafreame call df_1
+  for (i in all_tfs){
+    the_tf_regulon=aracne_tf[aracne_tf$V1==i,'V2']
+    for (j in all_cotfs){
+      the_co_tf_regulon=aracne_cotf[aracne_cotf$V1==j,'V2']
+      the_intersection=intersection(the_tf_regulon,the_co_tf_regulon)
+      the_pvalue=fisher.test(matrix(c(len(the_intersection),len(the_tf_regulon),len(the_co_tf_regulon),all_gene_counts),ncol = 2))$p.value
+      df_1[i,j]=the_pvalue
+      print(count) #print count to see progress
+      count=count+1
+    }
+  }
+  all_tfs_cotfs=unique(sorted(flattenList(c(all_tfs,all_cotfs))))
+  
+  preppi_df$V1=as.character(preppi_df$V1)
+  preppi_df$V2=as.character(preppi_df$V2)
+  preppi_df=preppi_df[preppi_df$V1 %in% all_tfs,]
+  preppi_df=preppi_df[preppi_df$V2 %in% all_cotfs,]
+  preppi_df$V4=1
+  for (i in 1:nrow(preppi_df)){
+    p1=preppi_df[i,1]
+    p2=preppi_df[i,2]
+    the_fet_score=df_1[p1,p2]
+    preppi_df[i,4]=the_fet_score
+    print(p1)
+  } 
+  pdf("TF-CoTF_HIST.pdf")
+  hist(unlist(df_1),freq = FALSE,breaks = c(0,.05,.1,.15,.2,.25,.3,.35,.4,.45,.5,.55,.6,.65,.7,.75,.8,.85,.9,1))
+  hist(preppi_df$V4,freq = FALSE,add=T,col=rgb(0,0,1,0.5),breaks = c(0,.05,.1,.15,.2,.25,.3,.35,.4,.45,.5,.55,.6,.65,.7,.75,.8,.85,.9,1))
+  dev.off()
+  all_values=unlist(df_1)
+  #This is a fisher exact test for the .05 threshold
+  preppi_below_.05=nrow(preppi_df[preppi_df$V4<=.05,])
+  all_preppi=nrow(preppi_df)
+  all_below_.05=len(all_values[all_values<=.05])
+  all_all=len(all_values[all_values<=1.1])
+  fisher_results=fisher.test(matrix(c(preppi_below_.05,all_preppi,all_below_.05,all_all),ncol=2))
+  return(c(df_1,preppi_df))
+  #Save the file if you want to go back to it.
+  #save.image(file=".PrePPI_TF_coTF_Aracne_analysis.RData")
 }
 
 #This function creates two histograms (overlaid on each other) to compare Fisher Exact (FET)
@@ -10033,43 +10515,43 @@ return(c(df_1,preppi_df))
 
 network_arance_histogram <- function(ppi_df,FET_df,all_tfs,all_cotfs,outfile)
 {
-	preppi_df=ppi_df
-	df_1=FET_df
-	colnames(preppi_df)=c("V1","V2","V3")
-	rownames(preppi_df)=NULL
-	preppi_df$V1=as.character(preppi_df$V1)
-	preppi_df$V2=as.character(preppi_df$V2)
-	preppi_df=preppi_df[preppi_df$V1 %in% all_tfs,]
-	preppi_df=preppi_df[preppi_df$V2 %in% all_cotfs,]
-	preppi_df[,4]=1
-	#return(preppi_df)
-	for (i in 1:nrow(preppi_df)){
-		p1=preppi_df[i,1]
-		p2=preppi_df[i,2]
-		the_fet_score=df_1[p1,p2]
-		preppi_df[i,4]=the_fet_score
-		print(p1)
-	} 
-	pdf(outfile)
-	hist(unlist(df_1),freq = FALSE,breaks = c(0,.05,.1,.15,.2,.25,.3,.35,.4,.45,.5,.55,.6,.65,.7,.75,.8,.85,.9,.95,1))
-	hist(preppi_df$V4,freq = FALSE,add=T,col=rgb(0,0,1,0.5),breaks = c(0,.05,.1,.15,.2,.25,.3,.35,.4,.45,.5,.55,.6,.65,.7,.75,.8,.85,.9,.95,1))
-	dev.off()
-	return(preppi_df)
-	
+  preppi_df=ppi_df
+  df_1=FET_df
+  colnames(preppi_df)=c("V1","V2","V3")
+  rownames(preppi_df)=NULL
+  preppi_df$V1=as.character(preppi_df$V1)
+  preppi_df$V2=as.character(preppi_df$V2)
+  preppi_df=preppi_df[preppi_df$V1 %in% all_tfs,]
+  preppi_df=preppi_df[preppi_df$V2 %in% all_cotfs,]
+  preppi_df[,4]=1
+  #return(preppi_df)
+  for (i in 1:nrow(preppi_df)){
+    p1=preppi_df[i,1]
+    p2=preppi_df[i,2]
+    the_fet_score=df_1[p1,p2]
+    preppi_df[i,4]=the_fet_score
+    print(p1)
+  } 
+  pdf(outfile)
+  hist(unlist(df_1),freq = FALSE,breaks = c(0,.05,.1,.15,.2,.25,.3,.35,.4,.45,.5,.55,.6,.65,.7,.75,.8,.85,.9,.95,1))
+  hist(preppi_df$V4,freq = FALSE,add=T,col=rgb(0,0,1,0.5),breaks = c(0,.05,.1,.15,.2,.25,.3,.35,.4,.45,.5,.55,.6,.65,.7,.75,.8,.85,.9,.95,1))
+  dev.off()
+  return(preppi_df)
+  
 }
 
 
 #This function converts the regulon object to a dataframe
 #e.g. Skin_not_sun_df=RegulonToDataframe(SkinNotSun)
 RegulonToDataframe <- function(regulon_object){
-	temp=regulon_object[[2]][1][[1]]
-	for (i in 2:len(regulon_object[[2]])){
-		temp=rbind(temp,regulon_object[[2]][i][[1]])
-		print(i)
-	}
-		rownames(temp)=NULL
-		temp_df=as.data.frame(temp)
-		return(temp_df)
+  temp=regulon_object[[2]][1][[1]]
+  for (i in 2:len(regulon_object[[2]])){
+    temp=rbind(temp,regulon_object[[2]][i][[1]])
+    print(i)
+  }
+  rownames(temp)=NULL
+  temp_df=as.data.frame(temp)
+  return(temp_df)
 }
 
 
@@ -10092,7 +10574,7 @@ RegulonToDataframe <- function(regulon_object){
 #3	10009	1.00000e+00	1.000000e+00	2.91621e-222
 
 pairwiseFET <- function (aracne_network_dataframe){
-
+  
   library(igraph)
   library(reshape2)
   library(data.table)
@@ -10150,20 +10632,20 @@ pairwiseFET <- function (aracne_network_dataframe){
   the_final_matrix_pairwise_next$hub_1_size=the_final_matrix_pairwise_next$hub_1_size-the_final_matrix_pairwise_next$the_intersection
   the_final_matrix_pairwise_next$hub_2_size=the_final_matrix_pairwise_next$hub_2_size-the_final_matrix_pairwise_next$the_intersection
   the_final_matrix_pairwise_next$the_total=the_final_matrix_pairwise_next$the_total-the_final_matrix_pairwise_next$hub_1_size-the_final_matrix_pairwise_next$hub_2_size-the_final_matrix_pairwise_next$the_intersection
-
+  
   #Get all FET Scores, this is the part of the function that takes a long time
   all_pvalues=apply(the_final_matrix_pairwise_next,1, 
-  	function(i)
-  	 {
-  	 x=unlist(i)
-  	 fisher.test(matrix(c(x[3],x[1],x[2],x[4]),ncol=2))$p.value
-  	 }
-  	)
+                    function(i)
+                    {
+                      x=unlist(i)
+                      fisher.test(matrix(c(x[3],x[1],x[2],x[4]),ncol=2))$p.value
+                    }
+  )
   
-    the_final_matrix_pairwise$FET_pvalue=all_pvalues
+  the_final_matrix_pairwise$FET_pvalue=all_pvalues
   
   
-    return(the_final_matrix_pairwise)
+  return(the_final_matrix_pairwise)
 }
 
 
@@ -10178,33 +10660,33 @@ pairwiseFET <- function (aracne_network_dataframe){
 #usage example: e.g the_neighborhoods=randomWalkerRegulon(TF_CoTF_all_pairwise_FET)
 #This function takes about 2 hours for a 2200 x 22000 matrix.
 randomWalkerRegulon <- function (regulon_mat){
-	source("~/jb3401/scripts/Utils/rFunctions.R")
+  source("~/jb3401/scripts/Utils/rFunctions.R")
   #diag(TF_CoTF_all_pairwise_FET)=1
-	library(igraph)
-	library(reshape2)
-	log_transformed_matrix=-log10(regulon_mat)
-	#replace diagonal with 0
-	diag(log_transformed_matrix)=0
-	#replace Inf with second highest value:
-	log_transformed_matrix=replaceInfwithSecondhighest(log_transformed_matrix)
-
-	#remove interactions that are zero
-	log_transformed_matrix_df=melt(as.matrix(log_transformed_matrix))
-	log_transformed_matrix_df_over_zero=log_transformed_matrix_df[log_transformed_matrix_df$value>0,]
-	#create a graph out of the interaction matrix, where the weight is negative log pvalue
-	colnames(log_transformed_matrix_df_over_zero)=c("protein1","protein2","weight")
-	rel_df=as.data.frame(log_transformed_matrix_df_over_zero)
-	colnames(rel_df)=c("Hub","Target","weight")
-	g= graph.empty(n=0, directed=FALSE)
-	g=graph_from_data_frame(d=rel_df,directed = FALSE)
-	#do the random walk for each one
-	pairwise_random_walk=personalizedPagerank_pairwise(g,V(g)$name,V(g)$name)
-	pairwise_random_walk_df=as.data.frame(pairwise_random_walk)
-	#scale the results by converting to z scores:
-	scaled_pairwise_random_walk=t(scale(t(pairwise_random_walk)))
-	scaled_pairwise_random_walk_df=as.data.frame(scaled_pairwise_random_walk)
-	return(scaled_pairwise_random_walk_df)
-
+  library(igraph)
+  library(reshape2)
+  log_transformed_matrix=-log10(regulon_mat)
+  #replace diagonal with 0
+  diag(log_transformed_matrix)=0
+  #replace Inf with second highest value:
+  log_transformed_matrix=replaceInfwithSecondhighest(log_transformed_matrix)
+  
+  #remove interactions that are zero
+  log_transformed_matrix_df=melt(as.matrix(log_transformed_matrix))
+  log_transformed_matrix_df_over_zero=log_transformed_matrix_df[log_transformed_matrix_df$value>0,]
+  #create a graph out of the interaction matrix, where the weight is negative log pvalue
+  colnames(log_transformed_matrix_df_over_zero)=c("protein1","protein2","weight")
+  rel_df=as.data.frame(log_transformed_matrix_df_over_zero)
+  colnames(rel_df)=c("Hub","Target","weight")
+  g= graph.empty(n=0, directed=FALSE)
+  g=graph_from_data_frame(d=rel_df,directed = FALSE)
+  #do the random walk for each one
+  pairwise_random_walk=personalizedPagerank_pairwise(g,V(g)$name,V(g)$name)
+  pairwise_random_walk_df=as.data.frame(pairwise_random_walk)
+  #scale the results by converting to z scores:
+  scaled_pairwise_random_walk=t(scale(t(pairwise_random_walk)))
+  scaled_pairwise_random_walk_df=as.data.frame(scaled_pairwise_random_walk)
+  return(scaled_pairwise_random_walk_df)
+  
 }
 
 
@@ -10214,33 +10696,33 @@ randomWalkerRegulon <- function (regulon_mat){
 #then the scores of row gene A are the probably if getting to the other genes when doing pagerank/rwr when starting at "geneA".
 #"g" is a graph object of the underlying network generated by igraph  
 personalizedPagerank_pairwise <- function (g,list_1,list_2){
-	pp_matrix=namedrowscolsDataframe(list_1,list_2)
-	input_vect=as.vector(rep(0,len(V(g)$name)))
-	names(input_vect)=V(g)$name
-	input_vect_old=input_vect
-	count=1
-	for (i in list_1){
-		input_vect=input_vect_old
-		input_vect[i]=1
-		z=page_rank(g,personalized = input_vect)[1]
-		z=z[[1]]
-		results=z[list_2]
-		pp_matrix[i,names(results)]=results
-		print(count)
-		count=count+1
-	}
-	return(pp_matrix)
+  pp_matrix=namedrowscolsDataframe(list_1,list_2)
+  input_vect=as.vector(rep(0,len(V(g)$name)))
+  names(input_vect)=V(g)$name
+  input_vect_old=input_vect
+  count=1
+  for (i in list_1){
+    input_vect=input_vect_old
+    input_vect[i]=1
+    z=page_rank(g,personalized = input_vect)[1]
+    z=z[[1]]
+    results=z[list_2]
+    pp_matrix[i,names(results)]=results
+    print(count)
+    count=count+1
+  }
+  return(pp_matrix)
 }
 
 
 # function to replace Inf with the second highest value
 replaceInfwithSecondhighest <- function(the_dataframe) {
-	new_value=sort(unique(unlist(the_dataframe)),decreasing = T)[2]
-	the_dataframe2=do.call(data.frame,lapply(the_dataframe, function(x) replace(x, is.infinite(x),new_value)))
-	the_dataframe2=as.data.frame(the_dataframe2)
-	rownames(the_dataframe2)=rownames(the_dataframe)
-	colnames(the_dataframe2)=colnames(the_dataframe)
-	return(the_dataframe2)
+  new_value=sort(unique(unlist(the_dataframe)),decreasing = T)[2]
+  the_dataframe2=do.call(data.frame,lapply(the_dataframe, function(x) replace(x, is.infinite(x),new_value)))
+  the_dataframe2=as.data.frame(the_dataframe2)
+  rownames(the_dataframe2)=rownames(the_dataframe)
+  colnames(the_dataframe2)=colnames(the_dataframe)
+  return(the_dataframe2)
 }
 
 aracneConservationStatistics <- function(file_null,file_real,output_plot,output_rda){
@@ -10531,16 +11013,16 @@ compareAracneToString <- function(){
 #		names(res) = mat_names.
 # *********************************************************************************
 getGeneExpression <- function(gene, mat_names = NULL){
-	if(is.na(gene) || is.null(gene))
-		return(NA)
-
-	gene <- as.entrezId(gene)
-	if (is.null(mat_names))
-		mat_names = matNames
-	res = lapply(mat_names, function(mat){
-				mat = get(mat)
-				return(as.numeric(mat[as.character(gene), ]))
-			})
-	names(res) = mat_names
-	return(res)
+  if(is.na(gene) || is.null(gene))
+    return(NA)
+  
+  gene <- as.entrezId(gene)
+  if (is.null(mat_names))
+    mat_names = matNames
+  res = lapply(mat_names, function(mat){
+    mat = get(mat)
+    return(as.numeric(mat[as.character(gene), ]))
+  })
+  names(res) = mat_names
+  return(res)
 }
