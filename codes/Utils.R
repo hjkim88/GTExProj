@@ -1595,11 +1595,13 @@ replace.NA <- function(mat, val){
 # * save:		if TRUE, save plot to file. Otherwise just plot on screen.
 # * f_name:		if save == TRUE, this is the full pathname of the file were the plot will be saved.
 # * width, height, res:	values of graphical parameters to use when generating the plot.
-# * xlab, ylab, main:	titles for x-axis, y-axis, and entire plot, respectively 
+# * xlab, ylab, main:	titles for x-axis, y-axis, and entire plot, respectively
+# * pch:		plot parameter, specifying the plot point type. The default pch = 1 drwaws open circles.
+#		Another useful setting is pch = 19, this draws full circles.
 mdsPlot <- function(mat, plot_names = FALSE, alt_names = NULL, groups = NULL, dist_fun = NULL,
 		dist_options = c("euclidean", "maximum", "manhattan", "canberra", "binary", "minkowski", "pearson", "spearman", "kendall"), 
 		save = FALSE, f_name = "./mds_plot.png", width = 1000, height = 1000, res = 130,
-		xlab = "", ylab="", main=""){
+		xlab = "", ylab="", main="", pch = 1){
 	
   ### load library
   if(!require(ArgumentCheck)) {
@@ -1703,13 +1705,16 @@ mdsPlot <- function(mat, plot_names = FALSE, alt_names = NULL, groups = NULL, di
     ###
 	if (length(unique(as.character(groups))) < 6)
 		colors = c("black", "red", "blue", "magenda", "green")[1:length(unique(as.character(groups)))]
-	else
-		colors = rainbow(length(unique(as.character(groups))))
+	else{
+		require(randomcoloR)
+		colors = distinctColorPalette(length(unique(as.character(groups))))
+		# colors = rainbow(length(unique(as.character(groups))))
+	}
     names(colors) = unique(as.character(groups))
     
     ### make a MDS plot
     plot(Dimension1, Dimension2, main=main, xlab=xlab, ylab=ylab,
-         col = colors[as.character(groups)])
+         col = colors[as.character(groups)], pch = pch)
     legend("topright", legend = unique(as.character(groups)),
            col = colors[unique(as.character(groups))], pch = 15,
            title = "Sample Groups", cex = 0.7)
@@ -1964,16 +1969,35 @@ readRNAseqData <- function(file_names,
 ### A function to perform DE analysis with limma ###
 ####################################################
 #' @title limmaWithComparisons
-#' @param normCnt normalized count matrix
-#' @param grp a character vector of class info of the samples
-#' @param exp_class a string of the experiment group's name
-#' @param ctrl_class a string of the control group's name
-#' @param bat_eff a character vector of batch effect info of the samples
-#' @return data.frame
+#' @param normCnt A numeric matrix where rows are genes and columns are samples and where
+#'		normCnt[i, j] is the normalized expression (in log-scale) of the i-th gene on
+#'		the j-th sample. colnames(normCnt) provides the sample names and rownames(normCnt)
+#'		contains the genes ids (either entrez ids or gene symbols).
+#' @param grp A vector of length ncol(normCnt) where names(grp) = colnames(normCnt). 
+#' 		It assigns each sample in normCnt to a class.
+#' @param exp_class A chracter string, must be a member of the string vector unique(grp).
+#'		Specifies which annotation class to use as the "case" in the comparison.
+#' @param ctrl_class A chracter string, must be a member of the string vector unique(grp).
+#'		Specifies which annotation class to use as the "reference" in the comparison.
+#' @param bat_eff If NULL, no batch effect is used in the analysis. Otherwise, it is a 
+#'		a character vector of length ncol(normCnt) specifying batch membership for each 
+#'		sample. Specifically:
+#'		- names(bat_eff) = colnames(normCnt)
+#'		- The values bat_eff[i] represent batch ids 
+#'		- If bat_eff[i] == bat_eff[j], this means that the samples names(bat_eff)[i]
+#'			and names(bat_eff)[j] come from the same batch.
+#' @param thresh Numeric. Filters out from the results genes with adjusted
+#' 		p-value larger than this value
+#' @adj_method: A method for adjusting the p-values to account for multiple testing.
+#'   	Must be either "BH" (Benjamini-Hochberg) or "BY" (Bonferroni) or "holm" (HOLM).
+#' @return data.frame Data frame comprising the results of the differential gene 
+#' 		expression analysis. Each row represents a gene and contains comparison 
+#' 		statistics.
 #' @export
 #' @author Hyunjin Kim
 ####################################################
-limmaWithComparisons <- function(normCnt, grp, exp_class, ctrl_class, bat_eff=NULL) {
+limmaWithComparisons <- function(normCnt, grp, exp_class, ctrl_class, bat_eff=NULL, 
+		thresh = 1, adj_method = c("BH", "BY", "holm")) {
   
   ### load library
   if(!require(limma)) {
@@ -2011,10 +2035,11 @@ limmaWithComparisons <- function(normCnt, grp, exp_class, ctrl_class, bat_eff=NU
   fit2 <- eBayes(fit2)
   
   ### get the differentially expressed genes
-  result <- topTable(fit2, adjust.method="BH", number=Inf)
+  result <- topTable(fit2, adjust.method=adj_method[1], number=Inf)
   
-  ### order based on adj.p.val
+  ### order based on adj.p.val and filter out low significance genes
   result <- result[order(result$adj.P.Val),]
+  result <- result[result$adj.P.Val <= thresh, ,drop = FALSE]
   
   return(result)
 }
@@ -2028,11 +2053,13 @@ limmaWithComparisons <- function(normCnt, grp, exp_class, ctrl_class, bat_eff=NU
 #' @param exp_class a string of the experiment group's name
 #' @param ctrl_class a string of the control group's name
 #' @param bat_eff a character vector of batch effect info of the samples
+#' @param thresh numeric. Filters out from the results genes with adjusted
+#' 		p-value larger than this value
 #' @return data.frame
 #' @export
 #' @author Hyunjin Kim
 ####################################################
-deseqWithComparisons <- function(rCnt, grp, exp_class, ctrl_class, bat_eff=NULL) {
+deseqWithComparisons <- function(rCnt, grp, exp_class, ctrl_class, bat_eff=NULL, thresh = 1) {
   
   ### load library
   if(!require(DESeq2)) {
@@ -2072,9 +2099,73 @@ deseqWithComparisons <- function(rCnt, grp, exp_class, ctrl_class, bat_eff=NULL)
   if(length(which(is.na(deresults$padj))) > 0) {
     deresults$padj[which(is.na(deresults$padj))] <- 1
   }
-  deresults <- deresults[order(deresults$padj, na.last = TRUE),]
+  deresults <- deresults[order(deresults$padj, na.last = TRUE), ,drop = FALSE]
+  deresults <- deresults[deresults$padj <= thresh, ,drop = FALSE]
   
   return(data.frame(deresults))
+}
+
+
+#******************************************************************************
+# Takes as input a matrix of numbers and plots the density of each matrix column
+#******************************************************************************
+#' @title multiDensityPlot
+#' @param	mat 	input numeric matrix
+#' @param	groups	either NULL or a character vector specifying group membership for each
+#' 		column in "mat". In the latter case, names(group) must be set to 
+#' 		colnames(mat) and group[i] = XYZ indicates that the column names(groups)[i]
+#' 		belongs to group XYZ. Density lines for matrix columns belonging to the same
+#' 		group are plotted with the same color.
+#' @param	xlim 	Numeric. The x-axis range will be set to (0, xlim)
+#' @param	ylim 	Numeric. The y-axis range will be set to (0, ylim)
+#' @param	save 	If TRUE, the plot image will be saved to a file
+#' @param	f_name	The name of the file to save the plot, if save == TRUE
+#' @param	width	Integer. The width, in pixels, for the plot image
+#' @param	height	Integer. The height, in pixels, for the plot image
+#' @param	res		Integer. The resolution for the image. The parameters widht, height,
+#' 		and res are used when save == TRUE.
+#' @param xlab Legend of x-axis
+#' @param ylab Legend of y-axis
+#' @param main Plot title
+#' @export
+####################################################
+multiDensityPlot <- function(mat, groups = NULL, xlim = NULL, ylim = NULL,
+		save = FALSE, f_name = "./multi_density_plot.png", width = 1000, height = 1000, res = 130,
+		xlab = "", ylab="", main=""){
+	require(randomcoloR)
+	
+	### if requested, save the plot as a png format
+	if(save){
+		png(f_name, width = width, height = height, res = res)
+	}
+	
+	if (is.null(groups)){
+		groups = rep("single", ncol(mat))
+		colnames(mat) = 1:ncol(mat)
+		names(groups) = colnames(mat)
+	}
+	N = length(unique(groups))
+	cols = distinctColorPalette(N)
+	u_groups = unique(groups)
+	for (i in 1:length(u_groups))
+		groups[which(groups == u_groups[i])] = cols[i]
+	if (is.null(xlim) && is.null(ylim))
+		plot(density(mat[, 1]), col = groups[colnames(mat)[1]], main=main, xlab=xlab, ylab=ylab)
+	else if (is.null(ylim))
+		plot(density(mat[, 1]), col = groups[colnames(mat)[1]], xlim = c(0, xlim), 
+				main=main, xlab=xlab, ylab=ylab)
+	else if (is.null(xlim))
+		plot(density(mat[, 1]), col = groups[colnames(mat)[1]], ylim = c(0, ylim), 
+				main=main, xlab=xlab, ylab=ylab)
+	else
+		plot(density(mat[, 1]), col = groups[colnames(mat)[1]], xlim = c(0, xlim), 
+				ylim = c(0, ylim), main=main, xlab=xlab, ylab=ylab)
+	for (i in 2:ncol(mat))
+		lines(density(mat[, i]), col = groups[colnames(mat)[i]])
+	legend('topright', legend = u_groups, col=cols, lty=1, lwd = 3)
+	
+	if(save)
+		dev.off()
 }
 
 #
