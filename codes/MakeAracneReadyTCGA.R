@@ -85,7 +85,9 @@ makeAracneReady_TCGA <- function(preprocessedRDAPath="//isilon.c2b2.columbia.edu
       }
     }
   }
-  tcga_sample_info <- tcga_sample_info[-rIdx,]
+  if(length(rIdx) > 0) {
+    tcga_sample_info <- tcga_sample_info[-rIdx,]
+  }
   
   
   ### make all the raw count matrices have samples only appeared in the tcga_sample_info
