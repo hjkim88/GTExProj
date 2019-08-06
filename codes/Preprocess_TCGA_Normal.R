@@ -16,8 +16,8 @@
 #                             outputDir="./results/aracne_ready/TCGA_normal/")
 ###
 
-tcga_normal <- function(preprocessedRDAPath="./data/RDA_Files/TCGA_33_RAW_COUNTS.rda",
-                        outputDir="./results/aracne_ready/TCGA_normal/") {
+tcga_normal <- function(preprocessedRDAPath="//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/TCGA_33_RAW_COUNTS.rda",
+                        outputDir="//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/TCGA_BRCA_Normal/") {
   
   ### load library
   if(!require(org.Hs.eg.db, quietly = TRUE)) {
