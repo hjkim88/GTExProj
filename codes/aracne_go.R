@@ -1284,3 +1284,522 @@ investigate_interesting_regulon_pathways <- function(params) {
   dev.off()
   
 }
+
+
+
+#' For each interactome GO annotation variable in vars, go down the list of annotated 
+#' hubs and extract all GO terms whose adjusted p-value is less than pval. Then
+#' tabulate the results, i.e., count how many hubs are annotated to each term.  
+#' 
+#' This code assumes that the file containing the GO analysis results has been already loaded:
+#'		/ifs/archive/shares/af_lab/GTEx/RDA_Files/RegulonPathwayAnnotation.rda
+#' 
+#' @title goTermCounts
+#' @param	vars 	a character string vector; contains a subset of the strings in the
+#' 		varGOnames. if NULL, the code runs as if vars = varGOnames.
+#' @param	pval	threshold for the adjusted p-values of the GO term enrichment. Only 
+#' 		terms enriched at 'pval' or less are considered.
+#' @param 	annot_mode	Either "description" (the default) or "id". The value of this 
+#' 		argument specifies how the results table is named, using full GO term descrptions
+#' 		or GO term ids.
+#' @return 	A vector of counts, with one entry per GO term. The entry correponsing to GO
+#' 		term T contains the number of hub genes annotated to the term T at the prescribed
+#' 		significance threshold. Vector entries are named with either the corresponding GO
+#' 		term description of ID, depending on the value of the argument 'annot_mode'. 
+#' @export
+
+goTermCounts <- function(vars = NULL, pval = 1, annot_mode = c("description", "id")){
+	if (is.null(vars))
+		vars = varGOnames
+	if (!is.character(vars))
+		stop("Argument 'vars' must be a character string vector.")
+	if (length(vars) == 1){
+		res = sort(table(unlist(sapply(get(vars), function(x){
+											return(x[x$p.adjust <= pval, ]$ID)}))), decreasing=TRUE)
+		if (annot_mode[1] == "description")
+			names(res) = goTermMap[names(res)]
+		return(res)
+	}
+	res = lapply(vars, goTermCounts, pval = pval)
+	names(res) = vars
+	return(res)
+}
+
+#' Return the GO term annotations for multiple hub genes, ordered by adjusted p-value
+#' Choose only terms that clear an adsusted p-value treshold.
+#' 
+#' @param	hubs	vector containing the query hub genes (gene symbols, as charcter strings; 
+#' 		or entrez IDs; as integers of characater strings)
+#' @param 	netGO	tne name of a variable listed in varGOnames. It can be either a 
+#' 		character string of the actual variable. The results objects contains hub gene
+#' 		annotations from this interactome.
+#' @param	pval	the adjusted p-value threshold. Only GO terms where p-adust <= pval
+#' 		will be included in results.
+#' @return 	A data frame containing the ordered list of GO terms. The data frame has 4 
+#' 		columns listing (1) the entrez ID of a qury hub, (2) the GO term ID annotating the 
+#' 		hub, (3) the description of hte GO term, and (4) the adjusted p-value for the term
+#' 		enrichment.
+getGOtermsManyHubs <- function(hubs, netGO, pval=1){
+	if (is.null(hubs) || is.na(hubs) || (length(hubs) < 1))
+		return(NULL)
+	if (is.character(netGO))
+		netGO = get(netGO)
+	hubs = as.entrezId(hubs)
+	if (sum(hubs %in% names(netGO)) == 0)
+		return(NULL)
+	hubs = hubs[hubs %in% names(netGO)]
+	t = netGO[hubs]
+	t_len = sapply(t, nrow)
+	r_names = unlist(sapply(1:length(t_len), function(i){
+						return(rep(names(t_len)[i], t_len[i]))
+					}))
+	res = Reduce(rbind, t)[, c("ID", "Description", "p.adjust")]
+	res = cbind(Hub = I(r_names), res) # The method I() protects against auto-conversion to factors
+	res = res[order(res$p.adjust), ]
+	return(res[res$p.adjust <= pval, ])
+}
+
+#' For a query gene G, retrieve the GO annotations of its regulators R and order them
+#' according to adjusted p.value. Use only regulators R such that the interacion (R, G)
+#' clears MI and p-value thresholds.
+#' 
+#' @param 	gene	The query gene. Either a charcter string representing a gene symbol;
+#' 		or and integer/string representing an entrez ID.
+#' @param 	nets	A character stings vector containing interactome variable names. It must 
+#' 		be a sub-vector of varNames; or, if NULL, it is treatead as nets = varNames. Specifies
+#' 		which interactomes to use for retrieving GO term annotations.
+#' @param 	mi		The MI threshold.
+#' @param	pval	The p-value thrshold.
+#' @param 	aggregate	Specifies if he results will be aggregated into a single data frame
+#' 
+#' @return 	Either a list (if aggregate == FALSE and length(nets) > 1) or a data frame. In the 
+#' 		first case each list member corrsponds to a network in 'nets' and contains the ordered
+#' 		GO term annotations from that network only, as a data frame. In the latter case, the data
+#' 		frames of all networks are concatenated through recursive calls to the rbind method. In 
+#' 		either case, each data frame row represents a GO term and provides the term details (id,
+#' 		description, adjusted p-value) as well as the network name and hub gene entrez ID 
+#' 		contributing the regulon that was annotated to that term.  
+annotateGene <- function(gene, nets = NULL, mi=0, pval = 1, aggregate = TRUE){
+	if (is.null(nets))
+		nets = varNames
+	if (!is.character(nets))
+		stop("annotateGene: argument 'net' must be a character vector of interactome variable names")
+	if (length(nets) == 1){
+		regs = getRegulators(gene, net=nets, mi = mi, pval = pval)
+		# If "gene" is itself a hub gene, make sure to consider its own regulon annotatation
+		if (!is.na(gene.type(gene))){
+			if (!is.null(regs))
+				regs = union(as.entrezId(regs), as.entrezId(gene))
+			else
+				regs = as.entrezId(gene)
+		}
+		res = getGOtermsManyHubs(regs, paste(nets, "GO", sep=""))
+		if (!is.null(res)){
+			# The method I() protects against auto-conversion to factors
+			res = cbind(Net = I(rep(nets, nrow(res))), res) 
+			res = res[order(res$p.adjust), ]
+		}
+		return(res)
+	} else
+		res = lapply(nets, function(net){
+					return(annotateGene(gene, nets=net, mi=mi, pval=pval))
+				})
+	names(res) = nets
+	# Remove nulls
+	res = res[!sapply(res, is.null)]
+	if (!aggregate)
+		return(res)
+	# Flatten the results into one data frame, odering by adjusted p.value
+	res = Reduce(rbind, res)
+	res = res[order(res$p.adjust), ]
+	return(res)
+}
+
+
+#' Takes the output of annotateGene and counts how many networks hubs appear 
+#' in, taking into consideration only GO terms with adjusted p-value below
+#' a threshold.
+#' 
+#' @param	go_annot	The result of a call to method annotateGene()
+#' @param	pval		The p-value threshold
+#' 
+#' @return 	The go_annot object is first filtered to retain rows (i.e., GO terms)
+#' 		with p.adjust <= pval. The method then identifies all hubs listed in the surviving
+#' 		GO terms and counts the number of interactomes each hub appears in. If a hub H appears
+#' 		in N interactomes, then for each interactome the method records the minimum p.adjust
+#' 		among all terms corresponding to H in that interactome, thus creating a length-N vector 
+#' 		M(H) of p-values. The method returns a data frame with one row per hub H, comprising
+#' 		the following values:
+#' 				N	mean(M(H))	deviation(M(H))		netNames
+#' 		where rows are named after H and ranked in decreasing order of N. 'netNames' is a 
+#' 		concatenation of the names of the N networks.
+summarizeHubs <- function(go_annot, pval=1){
+	if (is.null(go_annot) || is.na(go_annot) || length(go_annot)<1 || 
+			(is.data.frame(go_annot) && nrow(go_annot) < 1))
+		return(NULL)
+	if (!is.data.frame(go_annot))
+		go_annot = Reduce(rbind, go_annot)
+	
+	# Retain only annotatotions that clear the p-value theshold
+	go_annot = go_annot[go_annot$p.adjust <= pval, , drop = FALSE]
+	if (nrow(go_annot) < 1)
+		return(NULL)
+	# get list of hubs that appear at least once
+	hubs = unique((go_annot$Hub))
+	res = data.frame(Count=rep(0, length(hubs)), Mean=rep(0, length(hubs)),
+			Dev = rep(0, length(hubs)), Nets = rep("", length(hubs)), stringsAsFactors = FALSE)
+	rownames(res) = hubs
+	for(h in hubs){
+		h_nets = unique(go_annot[go_annot$Hub == h, ]$Net)
+		res[h, ]$Count = length(h_nets)
+		min_pvals = sapply(h_nets, function(hn){
+					return(min(go_annot[go_annot$Hub==h & go_annot$Net==hn, ]$p.adjust))
+				}
+		)
+		res[h, ]$Mean = mean(min_pvals)
+		res[h, ]$Dev = sd(min_pvals)
+		res[h, ]$Nets = paste(h_nets, collapse="|")
+	}
+	res = res[order(res$Count, decreasing=TRUE),]
+}
+
+
+# ********************************
+# ********** wgcnaGOFET ********** 
+# ********************************
+# wgcnaGOFET.R
+# Kenneth C. Smith
+# July 24 2019
+#
+#
+# For each GO-annotated regulon for a given tissue, determine the overlap of genes annotated to GO terms with
+# WGCNA-discovered modules and calculate over-representation using Fisher's Exact Test.
+#
+# Depends on:
+# "labProjects/Common/Utils.R"
+#
+# Inputs:
+#   tissueObjName        : String with the name of the regulon GO object to retrieve.
+#   wgcnaNetworkType     : alternatives are "signedAdj_signedTOM", "unsignedAdj_unsignedTOM"
+#   goRegulonsPath       : Path to .RData file with the GO annotations for (one or more) ARACNe interactomes
+#   modulesByRegulonPath : Path to .RData file containing the "modulesByRegulon" object for 
+#                          the desired tissue and WGCNA network type. It contains the WGCNA
+#                          module assignments for each regulon gene.
+#   saveOnly             : if TRUE, saves the results objects to disk, but returns TRUE to to calling routine.
+#                        : if FALSE, returns the results objects to the calling routine (typically for inspetion/debugging).
+#   logging              : (default FALSE) if TRUE, write each tested FET contingency table to stdout.
+#                          Warning messages are always printed.
+#
+# Outputs:
+#   If "saveOnly" is FALSE, a list with the two objects described below is returned.
+#   If "saveOnly" is TRUE, the return value is TRUE or FALSE for success or failure.
+#   In addition, an output .RData file is created with the two objects described below, and a README function.
+#   The output file name is based on the tissue and network type, 
+#     e.g. "wgcna_LungGO_signedAdj_signedTOM_FET.RData".  The two objects contain data.frame(s) 
+#   with FET over-representation results of regulon GO-term genes in modules, sorted by P-value:
+#   - resultsList: results by regulon in the form of a list,
+#                  with each entry given the name of the regulon hub gene, and containing a data.frame.
+#   - resultsDF:   all of the results in the form of a flat data.frame.
+#
+# Results data.frame: In each output object, the data.frame has the following fields:
+#  - hubGeneID:        hub gene EntrezID
+#  - goTermID:         GO Term ID
+#  - description:      GO term description field
+#  - modID:            WGCNA module ID, starting with 0, where 0 indicates genes not assigned to any module
+#  - regulonSize:      count of genes in regulon
+#  - genesInModuleCnt: count of genes in the module given by modID
+#  - genesInGOTerm:    count of regulon genes annotated to goTermID 
+#  - hitsInModule:     intersection of genesInGOTerm and genesInModuleCnt
+#  - FET_Pvalue:       P-value of Fisher's Exact test of hitsInModule
+#  - Odds:             \"Estimate\" odds value from of Fisher's Exact test of hitsInModule
+
+### Components of input object modulesByRegulon ###
+# regulonSize - number of genes in regulon
+# powerEstimate - the accepted power B value
+# powerIndex - index in the power table of the accepted power row
+# rSquared - the value of the actual, accepted R^2 
+# RsquaredCut - the value of the final cutoff threshold used.
+# targetThreshold - logical - was the initial threshold met (TRUE) or not (FALSE)?
+# modsCnt - how many modules were returned, including module 0 (grey), which is unassigned genes.
+# modsDetails - details about individual modules: number of genes, color assignment
+# modsAssign - integer module assignement of each gene, including module 0 (unassigned)
+# slope - slope of fit line
+# sft - the entire power table
+
+# library("org.Hs.eg.db")  # should already be loaded by Utils.R
+
+wgcnaGOFET <- function(tissueObjName,        # e.g. "LungGO" (an object in "RegulonPathwayAnnotation.rda")
+                       wgcnaNetworkType,     # e.g.  "signedAdj_signedTOM"
+                       goRegulonsPath,       # e.g.  "./RegulonPathwayAnnotation.rda" 
+                       modulesByRegulonPath, # e.g. "./wgcna_GTEX_Lung_modules_final.RData",
+                       saveOnly = TRUE, 
+                       logging = FALSE) {
+
+  # Just do this once
+  # library("org.Hs.eg.db")  # should already be loaded by Utils.R
+  xx <- as.list(org.Hs.egALIAS2EG)
+  map <- geneSymbolToEntrezId(names(xx))  # Utils.R
+  geneSymbolToEntrezIdStandalone <- function(goGeneNames) {
+    value <- map[goGeneNames]
+    return(value)
+  }
+  
+  # ********** subroutine: moduleGOFET() ********** 
+  # Determine whether the genes of a given GO term are overrepresented in a module using
+  # Fisher's Exact Test.
+  # - moduleHitsCnt : a vector (moduleID, count) with the distribution of genes in the GO term among the discovered modules.
+  # - hubModules    : the result of running WGCNA on the regulon
+  # - genesInGOTerm : the number of genes in the regulon which have been annotated to the GO term.
+  # - hubGeneID        : EntrezID of regulon hub gene 
+  moduleGOFET <- function(moduleHitsCnt, hubModules, genesInGOTerm, hubGeneID, goTermID, goTermDesc, logging = FALSE) {
+  
+    modID <- moduleHitsCnt[1]
+    genesInModuleCnt <- hubModules$modsDetails$memberCnt[hubModules$modsDetails$modId == modID]
+    hitsInModule <- as.integer(moduleHitsCnt[2])  # number of GO genes in this module
+    
+    N <- hubModules$regulonSize
+    m <- genesInGOTerm  #  count of genes annotated to GO-term and present in regulon
+    n <- genesInModuleCnt
+    k <- hitsInModule
+    # Matrix is filled by columns
+    fMatLocal <- matrix(c(k, m - k, n - k, N - n - m + k), nrow = 2, 
+                        dimnames = list(c("In Module", "Not In Module"),     # row names
+                                        c("In GO Term", "Not In GO Term")))  # col names
+    
+    fRes <- fisher.test(fMatLocal, alternative = "greater")
+    if (logging) {
+      print(paste("moduleID", modID))
+      print(fMatLocal)
+      print(paste("P-value:", fRes$p.value))
+      writeLines("")
+    }
+    
+    resultsDF4 <- data.frame(hubGeneID, 
+                             goTermID, 
+                             description = goTermDesc,
+                             modID,
+                             regulonSize = hubModules$regulonSize,
+                             genesInModuleCnt,
+                             genesInGOTerm, 
+                             hitsInModule,
+                             FET_Pvalue = fRes$p.value,
+                             Odds = fRes$estimate,
+                             row.names = NULL)
+    return(resultsDF4)
+    
+  }
+ 
+  
+  # ********** subroutine: intersectOneGOTermWithModules() # ********** 
+  # For a GO term previously found enriched in a regulon, match up its genes in the regulon
+  # with their module assignments from WGCNA, and then call moduleGOFET() to determine if
+  # there is overrepresentation of the GO term genes in the modules.
+  # - hubGOData  : GO results hub gene
+  # - hubGeneID  : EntrezID of regulon hub gene 
+  # - hubModules : WGCNA modules for hub gene
+  intersectOneGOTermWithModules <- function(hubGOData, hubGeneID, hubModules, logging = FALSE) {
+    
+    goTermID    <- hubGOData$ID
+    goTermDesc  <- hubGOData$Description
+    goGeneCount <- hubGOData$Count
+    # Extract the vector of regulon gene names assigned to the given GO term
+    goGeneNames <- hubGOData$geneID # character string with gene names separated by "/".
+    goGeneNames <- unlist(strsplit(goGeneNames, split = "/"))
+    
+    writeLines(paste(">>> GO Term", goTermID))
+    
+
+    
+    # This should never happen...
+    if (length(goGeneNames) == 0) {
+      print(paste(">>> Warning 3: No genes for GO term found, skipping:", goTermID))
+      return(NULL)
+    }
+    
+    # This should never happen...
+    if (length(goGeneNames) != goGeneCount) {
+      print(paste(">>> Warning 4: Expected", goGeneCount, "gene names for GO term, found",  length(goGeneNames)))
+    }
+    
+    goEntrezIDs <- geneSymbolToEntrezIdStandalone(goGeneNames)  # named EntrezIDs, where names are the gene symbols.
+    # (wrapping in as.character() creates unnamed EntrezIDs)
+    
+    # Verify we got back as many genes for the GO term as in the original annotation
+    # Note that the above function reports some terms multiply mapped, guess it just returns first.
+    if (length(goEntrezIDs) != goGeneCount) {
+      print(paste(">>> Warning 5: Expected", goGeneCount, "EnrezIDs for GO term, found",  length(goEntrezIDs)))
+    }
+    
+    # Match up GO-term genes with module assignments
+    moduleGoOverlap <- hubModules$modsAssign[match(goEntrezIDs, names(hubModules$modsAssign))]
+    if (any(is.na(moduleGoOverlap))) {
+      print(">>> Warning 6: one or more EntrezIDs not found in modules")
+      w <- which(is.na(moduleGoOverlap))
+      print(paste("    unmatched EntrezIDs are:", paste(goEntrezIDs[w], collapse=", ")))
+      moduleGoOverlap <- moduleGoOverlap[!w]
+    }
+    
+    # This can happen e.g. if no EntrezIDs matched in previous step
+    if(length(moduleGoOverlap) == 0) {
+      print(paste(">>> Warning 7: No EntrezIDs found in modules, skipping:", goTermID))
+      return(NULL)
+    }
+  
+    module <- moduleGoOverlap  # only way to rename first column... col.names does not work
+    tab <- table(module)  # A table summarizing how many times each module appears
+    # strange but true, can't go straight from table to matrix 
+    moduleHitsCnt <- as.data.frame(tab, stringsAsFactors = FALSE)  # table gets transposed here!
+    moduleHitsCnt <- as.matrix(moduleHitsCnt) 
+    
+    # Note that not all modules may be represented for a given GO term.
+    resultsDF3 <- lapply(split(moduleHitsCnt, row(moduleHitsCnt)), moduleGOFET,  
+                         hubModules, genesInGOTerm = length(moduleGoOverlap), 
+                         hubGeneID, goTermID, goTermDesc, logging)
+    resultsDF3 <- do.call("rbind", resultsDF3)
+    return(resultsDF3)
+  }
+  
+  # ********** subroutine: intersectOneRegulonsGOTermsAndModules() ********** 
+  # For a GO-annotated regulon, determine the overlap of genes annotated to GO terms
+  # with WGCNA-discovered modules and calculate the Fisher's Exact Test of each overlap.
+  # - hubGeneID        : EntrezID of regulon hub gene 
+  # - tissueGO         : R list object containing the GO annotations for all ARACNe regulons for a given tissue.
+  # - modulesByRegulonPath : complete path to a .RData file containing the "modulesByRegulon" object for 
+  #                          the desired tissue and WGCNA network type. 
+  intersectOneRegulonsGOTermsAndModules <- function(hubGeneID, tissueGO, modulesByRegulon, logging = FALSE) {
+    
+    hubGOData   <- tissueGO[[hubGeneID]] # data.frame
+    hubModules  <- modulesByRegulon[[hubGeneID]]
+    
+    
+    if (logging) {
+      writeLines("\n####################")
+      print(paste("Hub gene:", hubGeneID))
+      print(paste("Number of GO terms for this hub:", nrow(hubGOData)))
+      writeLines("")
+    }
+    
+    if(length(hubModules) == 0) {
+      print(paste("Warning 1: WGCNA not run for hub", hubGeneID))
+      return(NULL)
+    }
+    
+    if (is.na(hubModules$modsAssign)) {  # almost all fields of hubModules are set to NA in this case...
+      print(paste(">>> Warning 2: No modules found for hub gene:", hubGeneID))
+      return(NULL)
+    }
+    
+    resultsDF2 <- lapply(split(hubGOData, hubGOData$ID), intersectOneGOTermWithModules, hubGeneID, hubModules, logging)
+    resultsDF2 <- do.call("rbind", resultsDF2)
+  
+    if(!is.null(resultsDF2)) {
+      resultsDF2 <- resultsDF2[order(resultsDF2$FET_Pvalue), ] # sort by P-value within each regulon hub gene
+    }
+    return(resultsDF2)
+  } 
+  
+  README <- function() {
+    writeLines(paste(rep("#", 100), collapse = ""))
+    writeLines("FET Over-representation analysis of Lung regulon GO term genes")
+    writeLines("with their WGCNA module assignments.")
+    writeLines("")
+    writeLines("For each GO-annotated regulon, we determined the overlap of genes")
+    writeLines("annotated to individual GO terms with WGCNA-discovered modules")
+    writeLines("and calculated over-representation using Fisher's Exact Test.")
+    writeLines("")
+    writeLines("Objects in this file are:")
+    writeLines(" - wgcna_Lung: results by regulon in the form of a list, ")
+    writeLines("    with each entry given the name of the regulon hub gene,")
+    writeLines("    and containing a data.frame")
+    writeLines(" - wgcna_LungDF: all of the results in the form of a flat data.frame.")
+    writeLines("")
+    writeLines("For both objects, the data.frame has the following columns:")
+    writeLines(" - hubGeneID: - hub gene EntrezID")
+    writeLines(" - goTermID: GO Term ID") 
+    writeLines(" - description: GO term description field")
+    writeLines(" - modID: WGCNA module ID, starting with 0, where 0 indicates genes not assigned to any module")
+    writeLines(" - regulonSize: count of genes in regulon")
+    writeLines(" - genesInModuleCnt: count of genes in the module given by modID")
+    writeLines(" - genesInGOTerm: count of regulon genes annotated to goTermID") 
+    writeLines(" - hitsInModule: intersection of genesInGOTerm and genesInModuleCnt")
+    writeLines(" - FET_Pvalue: P-value of Fisher's Exact test of hitsInModule")
+    writeLines(" - Odds = \"Estimate\" value from of Fisher's Exact test of hitsInModule")
+    writeLines(paste(rep("#", 100), collapse = ""))
+  }
+
+  ############################
+  # This is the main routine #
+  ############################
+  
+  # start the clock
+  ptm <- proc.time()
+  
+  # Name the final results file to reflect signed/unsigned network status
+  resultsFileBase <- paste("wgcna", tissueObjName, wgcnaNetworkType, "FET", sep = "_")
+  resultsFile     <- paste0(resultsFileBase, ".RData")
+  logFile         <- paste(resultsFileBase, "log.txt", sep = "_")
+  sessionInfoFile <- paste(resultsFileBase, "sessionInfo.txt", sep = "_")
+  
+  
+  
+  if (logging) {
+    sink(logFile)
+  }  
+  
+  
+  loaded <- load(modulesByRegulonPath) # loads object "modulesByRegulon" (list)
+  print(loaded)
+  modulesByRegulon <- get(loaded)  # accept any object name
+  
+  goNames <- load(goRegulonsPath)  # each object is a tissue name with "GO" appended.  Also "varGOnames", "READMEGO" 
+  
+  # Verify valid name
+  tissueObjName <- grep(tissueObjName, goNames, value = TRUE)
+  # varGOnames also has the list of tissueGO objects
+  
+  if (length(tissueObjName) == 0) {
+    print("GO object not found for:", tissueObjName)
+    if (logging) {
+      sink()  # turn off sink
+      closeAllConnections() # someimes calling sink() doesn't work in RStudio
+    }
+    return(FALSE)
+  } 
+  
+  tissueGO <- get(tissueObjName)
+
+  resultsList <- sapply(names(tissueGO), intersectOneRegulonsGOTermsAndModules, tissueGO, 
+                        modulesByRegulon, logging, 
+                        simplify = FALSE, USE.NAMES = TRUE)  # preserve the hubGeneID with USE.NAMES = TRUE.
+  resultsList <- lapply(resultsList, "rownames<-", NULL)  # get rid of unneeded rownames
+  resultsDF <- do.call("rbind", resultsList)
+  rownames(resultsDF) <- NULL                             # get rid of unneeded rownames
+  
+  resultsListName = paste0("wgcna_", tissueObjName) 
+  resultsDFName = paste0("wgcna_", tissueObjName, "DF")
+  
+  assign(resultsListName, resultsList)
+  assign(resultsDFName, resultsDF)
+  
+  if (!is.null(resultsFile)) {
+    save(list = c(resultsListName, resultsDFName), README, file = resultsFile)
+  }
+  
+  # Stop the clock
+  elapsedTime <- proc.time() - ptm
+  writeLines("System Time:")
+  print(elapsedTime)  # print to log file
+  if (logging) {
+    sink()  # turn off sink
+    closeAllConnections() # someimes calling sink() doesn't work in RStudio
+    print(elapsedTime)  # print to console also
+  }
+  
+  writeLines(capture.output(sessionInfo()), sessionInfoFile)
+  
+  if(!saveOnly) {
+     return(list(resultsAsList = resultsList, resultsAsDF = resultsDF))
+  } else {
+    return (TRUE)
+  }
+}
