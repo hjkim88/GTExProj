@@ -153,4 +153,4 @@ README <- function() {
 
 ### save the results as a RDA file
 save(list = c(Schultz_Gene_Expression_Names, "Schultz_Gene_Expression_Names", "GTEx_TCGA_Map", "README"),
-     file = "C:/Research/CUMC/GTExProj/data/RDA_Files/All_20_Schultz_Gene_Expressions.rda")
+     file = "C:/Research/CUMC/GTExProj/data/RDA_Files/All_21_Schultz_Gene_Expressions.rda")
