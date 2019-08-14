@@ -8758,7 +8758,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
     for(i in 1:nrow(GTEx_TCGA_Map)) {
       
       ### file name for the output
-      fileName <- paste("TCGA", toupper(GTEx_TCGA_Map[i,2]), "GTEX", toupper(GTEx_TCGA_Map[i,1]), "ViperMat", params[[5]], params[[6]], params[[7]], sep = "_")
+      fileName <- paste("TCGA", toupper(GTEx_TCGA_Map[i,2]), "GTEX", toupper(GTEx_TCGA_Map[i,1]), "ViperMat", params[[4]], params[[5]], params[[6]], sep = "_")
       
       ### get raw counts
       gtex_gexp <- get(paste0("Schultz_Gene_Expression_GTEx_", GTEx_TCGA_Map[i,1]))
