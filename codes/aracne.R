@@ -8692,6 +8692,152 @@ oneOffs<- function (which = "freq_mods", params=NULL){
     
   }
   
+  # ******************************** which = Viper_activity_all3 ********************************
+  # Create Viper activity score tables. This is similar to which = viper_acitivity_all, but
+  # this is only for TCGA tissues and only for TCGA-GTEx mapping tissues.
+  # Match each TCGA cancer A to its corresponding GTEx tissue B. Generate the viper profile
+  # for each sample in A by using as reference the “best” 100 samples from B, based on RIN value.
+  # For the null model, we employ gene expression data of GTEx and TCGA from Schultz's group.
+  # They preprocessed GTEx and TCGA data with the same pipeline and batch corrected.
+  #
+  # params[[1]]: The file path of the "All_21_Schultz_Gene_Expressions.rda" file
+  #              (a character vector of length 1)
+  # params[[2]]: The file path of the "TCGA_26_Regulons.rda" file
+  #              (a character vector of length 1)
+  # params[[3]]: The file path of the "GTEx_Data_V6_SampleData.csv" file
+  #              (a character vector of length 1)
+  # params[[4]]: Number of samples for reference (null) model
+  #              (an integer value)
+  # params[[5]]: Method when making viper signature (should be either "zscore", "ttest", or "mean")
+  #              (a character vector of length 1)
+  # params[[6]]: Permutation number for viper signature
+  #              (an integer value)
+  # params[[7]]: Output directory
+  #              (A character vector of length 1)
+  #
+  # e.g., params = list("//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_21_Schultz_Gene_Expressions.rda",
+  #                     "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/TCGA_26_Regulons.rda",
+  #                     "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/Annotations/GTEx_Data_V6_SampleData.csv",
+  #                     100, "zscore", 1000,
+  #                     "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/results/viper/TCGA/gtex_associated/")
+  # e.g., params = list("./data/RDA_Files/All_21_Schultz_Gene_Expressions.rda", "./data/RDA_Files/TCGA_26_Regulons.rda", "./data/GTEx_Data_V6_SampleData.csv", 100, "zscore", 1000, "./results/viper/TCGA/gtex_associated/")
+  
+  if(which == "Viper_activity_all3") {
+    
+    ### argument checking
+    assertString(params[[1]])
+    assertString(params[[2]])
+    assertString(params[[3]])
+    assertIntegerish(params[[4]])
+    assertString(params[[5]])
+    assertIntegerish(params[[6]])
+    assertString(params[[7]])
+    
+    ### load required data
+    load(params[[1]])
+    load(params[[2]])
+    
+    ### remove unnecessary objects
+    GTEx_TCGA_Map <- GTEx_TCGA_Map[intersect(which(!is.na(GTEx_TCGA_Map[,3])), which(!is.na(GTEx_TCGA_Map[,4]))),]
+    rm(list = setdiff(tcgaRegNames, paste0("regulon_tcga_", unique(GTEx_TCGA_Map[,2]))))
+    tcgaRegNames <- paste0("regulon_tcga_", unique(GTEx_TCGA_Map[,2]))
+    gc()
+    
+    ### load sample info
+    sampleInfo <- read.csv(params[[3]], check.names = FALSE, stringsAsFactors = FALSE)
+    rownames(sampleInfo) <- sampleInfo$SAMPID
+    
+    ### make RIN info
+    rin <- sampleInfo$SMRIN
+    names(rin) <- sampleInfo$SAMPID
+    
+    ### make an empty list for the result RDA
+    vipermat <- vector("list", length = nrow(GTEx_TCGA_Map))
+    
+    ### for each tissue mapping between GTEx and TCGA, perform the analysis
+    for(i in 1:nrow(GTEx_TCGA_Map)) {
+      
+      ### file name for the output
+      fileName <- paste("TCGA", toupper(GTEx_TCGA_Map[i,2]), "GTEX", toupper(GTEx_TCGA_Map[i,1]), "ViperMat", params[[5]], params[[6]], params[[7]], sep = "_")
+      
+      ### get raw counts
+      gtex_gexp <- get(paste0("Schultz_Gene_Expression_GTEx_", GTEx_TCGA_Map[i,1]))
+      tcga_gexp <- get(paste0("Schultz_Gene_Expression_TCGA_", GTEx_TCGA_Map[i,2]))
+      
+      ### only retain the top params[[4]] samples in GTEx raw counts based on RIN
+      target_samples <- names(rin[colnames(gtex_gexp)][order(-rin[colnames(gtex_gexp)])])
+      if(length(target_samples) > as.integer(params[[4]])) {
+        target_samples <- target_samples[1:as.integer(params[[4]])]
+      }
+      gtex_gexp <- gtex_gexp[,target_samples, drop = FALSE]
+      
+      ### combine the gtex and tcga raw counts
+      combined_gexp <- merge(gtex_gexp, tcga_gexp, by = "row.names")
+      rownames(combined_gexp) <- combined_gexp[,1]
+      combined_gexp <- combined_gexp[,-1]
+      combined_gexp <- combined_gexp[order(as.numeric(rownames(combined_gexp))),]
+      
+      ### viper signature - an input for viper activity
+      vpsig <- viperSignature(eset = as.matrix(combined_gexp[,which(startsWith(colnames(combined_gexp), "TCGA"))]),
+                              ref = as.matrix(combined_gexp[,which(startsWith(colnames(combined_gexp), "GTEX"))]),
+                              method = as.character(params[[5]]),
+                              per = as.integer(params[[6]]),
+                              seed = 1,
+                              verbose = FALSE)
+      
+      ### get TCGA regulon object for viper activity
+      tcga_regulon <- get(paste0("regulon_tcga_", GTEx_TCGA_Map[i,2]))
+      
+      # ### remove non-existing genes from the regulon
+      # existing_genes <- intersect(rownames(gtex_gexp), rownames(tcga_gexp))
+      # tcga_regulon <- tcga_regulon[which(names(tcga_regulon) %in% existing_genes)]
+      # tcga_regulon <- lapply(tcga_regulon, function(x) {
+      #   retain_idx <- which(names(x[[1]]) %in% existing_genes)
+      #   y <- list(x[[1]][retain_idx], x[[2]][retain_idx])
+      #   names(y) <- c("tfmode", "likelihood")
+      #   return(y)
+      # })
+      
+      ### compute viper activity table
+      vpres <- viper(vpsig, tcga_regulon, verbose = FALSE)
+      
+      ### write out the viper activity table
+      write.table(vpres, file = paste0(params[[7]], fileName, ".txt"), sep = "\t", row.names = TRUE, quote = FALSE)
+      
+      ### save the result
+      vipermat[[i]] <- vpres
+      
+      ### garbage collection
+      gc()
+      
+    }
+    
+    ### name the result
+    names(vipermat) <- apply(GTEx_TCGA_Map, 1, function(x) paste("TCGA", toupper(x[2]), "GTEX", toupper(x[1]), sep = "_"))
+    
+    ### make a README
+    README <- function() {
+      writeLines(paste(rep("#", 100), collapse = ""))
+      writeLines("The \"vipermat\" is a list that contains 12 matrices.")
+      writeLines("For viper profiles, gene expression data of Schultz's group have been used.")
+      writeLines("The gene expression data of both GTEx and TCGA were from the same pipeline and")
+      writeLines("batch effect between the two was also corrected.")
+      writeLines("Each matrix is a viper signature (viper activity table) of a TCGA tissue that")
+      writeLines("used the reference model as the corresponding GTEx tissue.")
+      writeLines("The \"GTEx_TCGA_Map\" has the tissue mapping information between GTEx and TCGA.")
+      writeLines("The matrices were generated as the following:")
+      writeLines("Match each TCGA cancer A to its corresponding GTEx tissue B. Generate the viper profile")
+      writeLines("for each sample in A by using as reference the best 100 samples from B, based on RIN value.")
+      writeLines("The \"names(vipermat)\" indicates which viper matrices are for which tissues.")
+      writeLines("The format is \"TCGA_[A tissue]_GTEX_[B tissue].")
+      writeLines(paste(rep("#", 100), collapse = ""))
+    }
+    
+    ### make RDA file with all the objects
+    save(list = c("vipermat", "GTEx_TCGA_Map", "README"), file = paste0(params[[7]], paste("All", nrow(GTEx_TCGA_Map), "GTEx", "vs", "TCGA", "ViperMats.rda", sep = "_")))
+    
+  }
+  
 }
 
 
