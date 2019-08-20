@@ -15,8 +15,6 @@ if (Sys.info()["nodename"] == "C2B2AFPL8"){
 } else if (Sys.info()["nodename"] == "afdev5.c2b2.columbia.edu"){
 	UTILS_FILE = "/ifs/home/c2b2/af_lab/floratos/cvs/labProjects/Common/Utils.R"
 	ARACNE_GO_FILE = "/ifs/home/c2b2/af_lab/floratos/cvs/labProjects/GTEx/R/aracne_go.R"
-} else if (Sys.info()["nodename"] == "C2B2AFPD10"){
-	UTILS_FILE = "C:/Users/floratos/eclipse-workspace/R/labProjects/Common/Utils.R"
 } else if (Sys.info()["nodename"] == "C2B2AFPD11"){
 	UTILS_FILE = "C:/Users/floratos/workspace/R/labProjects/Common/Utils.R"
 	ARACNE_GO_FILE = "C:/Users/floratos/workspace/R/labProjects/GTEx/R/aracne_go.R"
@@ -8835,6 +8833,52 @@ oneOffs<- function (which = "freq_mods", params=NULL){
     
     ### make RDA file with all the objects
     save(list = c("vipermat", "GTEx_TCGA_Map", "README"), file = paste0(params[[7]], paste("All", nrow(GTEx_TCGA_Map), "GTEx", "vs", "TCGA", "ViperMats.rda", sep = "_")))
+    
+  }
+  
+  # ************************** which = exclusive_conservation_analysis **************************
+  # After running "regulonConservationMode()", we have a matrix with one row per hub gene
+  # and three columns titled "GTEX", "TCGA", and "BOTH", listing the number of interactome pairs
+  # where the hub gene regulon is conserved at a FET-pvalue above a given p-value threshold.
+  # Now starting from the matrix, we would like to give answers to five questions below:
+  #
+  # 1. How the top activated hubs based on Viper activity (GTEx vs TCGA) are enriched
+  #    with the significance score?
+  # 2. How the driver mutation genes (that can be derived by TCGA MAF file) are enriched
+  #    with the significance score?
+  # 3. How the DE genes (GTEx vs TCGA) are enriched with the score?
+  # 4. How the known cancer genes (that can be downloaded from COSMIC database) are enriched
+  #    with the significance score?
+  # 5. What is the correlation between the significance score and the number of
+  #    total mutations in regulons?
+  #
+  # For those questions, this function will generate tables that have summaries of
+  # [enrichment score, correlation, and p-values], and GSEA figures, correlation plots. 
+  #
+  # params[[1]]: The name of returned object from regulonConservationMode()
+  #              (a character vector of length 1)
+  # params[[2]]: The sample collection name of interest (GTEX/TCGA/BOTH)
+  #              (a character vector of length 1)
+  # params[[3]]: The cut-off number of non-interesting collections
+  #              (e.g., if  params[[2]] == "GTEX" and params[[3]] == 10,
+  #               then remove hubs that have the "TCGA" count < 10 and the "BOTH" count < 10
+  #              (an integer value)
+  # params[[4]]: Output directory
+  #              (A character vector of length 1)
+  #
+  # e.g., params = list("t", "TCGA", 10, "./results/exclusive_conservation/")
+  # e.g., params = list("t", "TCGA", 10, "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/results/exclusive_conservation/")
+  
+  if(which == "exclusive_conservation_analysis") {
+    
+    ### argument checking
+    assertString(params[[1]])
+    assertString(params[[2]])
+    assertIntegerish(params[[3]])
+    assertString(params[[4]])
+    
+    
+    
     
   }
   
