@@ -3277,7 +3277,7 @@ makeGraphs <- function (which = "mods_events", save = FALSE, fName = NULL,
 				abline(v = l, col = "red")
 		}
 	}
-	
+  
 	if(save)
 		dev.off()
 }
@@ -8866,8 +8866,8 @@ oneOffs<- function (which = "freq_mods", params=NULL){
   # params[[4]]: Output directory
   #              (A character vector of length 1)
   #
-  # e.g., params = list("t", "TCGA", 10, "./results/exclusive_conservation/")
   # e.g., params = list("t", "TCGA", 10, "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/results/exclusive_conservation/")
+  # e.g., params = list("t", "TCGA", 10, "./results/exclusive_conservation/")
   
   if(which == "exclusive_conservation_analysis") {
     
@@ -8877,8 +8877,64 @@ oneOffs<- function (which = "freq_mods", params=NULL){
     assertIntegerish(params[[3]])
     assertString(params[[4]])
     
+    ### get exclusivity counts
+    exclusivity_cnt <- get(params[[1]])
+    
+    ### filter the counts with the parameters
+    exclusivity_cnt <- exclusivity_cnt[order(exclusivity_cnt[,params[[2]]], decreasing = TRUE),]
+    exclusivity_cnt <- exclusivity_cnt[exclusivity_cnt[,""] < params[[3]],]
+    exclusivity_cnt <- exclusivity_cnt[exclusivity_cnt[,""] < params[[3]],]
+
     
     
+    
+  }
+  
+  # ***************************** which = two_vipers_ma_plot *****************************
+  # Draw a MA plot with two Viper matrices to examine difference between them.
+  # params[[1]]: The name of the first Viper matrix
+  # params[[2]]: The name of the second Viper matrix
+  # params[[3]]: The tissue name
+  # params[[4]]: The output directory
+  # e.g., params=list("vmat1", "vmat2", "TCGA_BRCA_GTEX_BREAST", "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/results/viper/TCGA/ma_plots/")
+  # e.g., params=list("vmat1", "vmat2", "TCGA_BRCA_GTEX_BREAST", "./results/viper/TCGA/ma_plots/")
+  
+  if (which == "two_vipers_ma_plot"){
+    
+    ### argument checking
+    assertString(params[[1]])
+    assertString(params[[2]])
+    assertString(params[[3]])
+    assertString(params[[4]])
+    
+    ### get two viper matrices
+    vmat1 <- get(params[[1]])
+    vmat2 <- get(params[[2]])
+    
+    ### get shared hubs and samples
+    shared_hubs <- intersect(rownames(vmat1), rownames(vmat2))
+    shared_samples <- intersect(colnames(vmat1), colnames(vmat2))
+    
+    ### only retain shared rows and columns
+    vmat1 <- vmat1[shared_hubs, shared_samples]
+    vmat2 <- vmat2[shared_hubs, shared_samples]
+    
+    ### create a directory for the tissue
+    dir.create(paste0(params[[4]], params[[3]]))
+    
+    ### draw MA plots
+    for(i in 1:length(shared_samples)) {
+      x <- apply(cbind(vmat1[,i], vmat2[,i]), 1, mean)
+      y <- vmat1[,i] - vmat2[,i]
+      
+      png(paste0(params[[4]], params[[3]], "/", "MA_Plot_", shared_samples[i], ".png"),
+          width = 1200, height = 1000, res = 130)
+      plot(x = x, y = y,
+           xlab = "Average NES", ylab = "NES Difference",
+           main = paste0(params[[3]], "_", shared_samples[i]))
+      abline(lm(y~x), col="red")
+      dev.off()
+    }
     
   }
   
