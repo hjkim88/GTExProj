@@ -3940,7 +3940,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
 	}
 	# ----- Identify regulators that are highly active across multiple tumors. -----
 	# This code expects that the params argument to have the following entries:
-	# * params[[1]]:	The minimum number ot top-N tunor lists that a regulator needs to
+	# * params[[1]]:	The minimum number of top-N tunor lists that a regulator needs to
 	#					appear, in order to be reported.
 	# * params[[2]]:	A character value (either "P", "N", or "B") prescribing how to order
 	#					regulators accrording to their average activity.
@@ -3951,7 +3951,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
 	# * If params[[2]] == "P", then we order from most positive to most negative.
 	# * If params[[2]] == "N", then we order from most negative to most positive.
 	# * If params[[2]] == "B", then we consider absoulte values and order from higher to lower.
-	# After orsering the reguators as described above we then take the N top regulators in each tumor 
+	# After ordering the reguators as described above we then take the N top regulators in each tumor 
 	# (N = 50, 100, 150)  and look for repeated occurrences, i.e., regulators that appear in multiple top-N 
 	# lists. Finally, we report regulators that are found in at least "min" top-N lists, where min is the
 	# values of the argument params[[1]]
@@ -8863,11 +8863,41 @@ oneOffs<- function (which = "freq_mods", params=NULL){
   #              (e.g., if  params[[2]] == "GTEX" and params[[3]] == 10,
   #               then remove hubs that have the "TCGA" count < 10 and the "BOTH" count < 10
   #              (an integer value)
-  # params[[4]]: Output directory
+  # params[[4]]: The file path of the "All_12_GTEx_vs_TCGA_ViperMats.rda" file
+  #              (a character vector of length 1)
+  # params[[5]]: The number of top active hubs from the Viper
+  #              (an integer value)
+  # params[[6]]: The file path of the "TCGA_26_Driver_Mutations.rda" file
+  #              (a character vector of length 1)
+  # params[[7]]: The number of top driver mutations that will be used
+  #              (an integer value)
+  # params[[8]]: The file path of the "All_12_GTEx_TCGA_DE_Results.rda" file
+  #              (a character vector of length 1)
+  # params[[9]]: The cut-off adjusted p-value of the DE genes that will be used
+  #              (a number)
+  # params[[10]]: Output directory
   #              (A character vector of length 1)
   #
-  # e.g., params = list("t", "TCGA", 10, "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/results/exclusive_conservation/")
-  # e.g., params = list("t", "TCGA", 10, "./results/exclusive_conservation/")
+  # e.g., params = list("t", "TCGA", 10,
+  #                     "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_12_GTEx_vs_TCGA_ViperMats.rda",
+  #                     100,
+  #                     "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/TCGA_26_Driver_Mutations.rda",
+  #                     50,
+  #                     "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_12_GTEx_TCGA_DE_Results.rda",
+  #                     0.01,
+  #                     "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/results/exclusive_conservation/")
+  # e.g., params = list("t", "TCGA", 10,
+  #                     "./data/RDA_Files/All_12_GTEx_vs_TCGA_ViperMats.rda",
+  #                     100,
+  #                     "./data/RDA_Files/TCGA_26_Driver_Mutations.rda",
+  #                     50,
+  #                     "./data/RDA_Files/All_12_GTEx_TCGA_DE_Results.rda",
+  #                     0.01,
+  #                     "./results/exclusive_conservation/")
+  #
+  # load("./data/RDA_Files/All_62_ARACNE.rda")
+  # oneOffs("generate_exclusivity_scores")
+  # t <- regulonConservationMode(0.01)
   
   if(which == "exclusive_conservation_analysis") {
     
@@ -8876,15 +8906,110 @@ oneOffs<- function (which = "freq_mods", params=NULL){
     assertString(params[[2]])
     assertIntegerish(params[[3]])
     assertString(params[[4]])
+    assertIntegerish(params[[5]])
+    assertString(params[[6]])
+    assertIntegerish(params[[7]])
+    assertString(params[[8]])
+    assertNumeric(params[[9]])
+    assertString(params[[10]])
+    
+    ### load required libraries
+    if(!require("fgsea", quietly = TRUE)) {
+      source("https://bioconductor.org/biocLite.R")
+      biocLite("fgsea")
+      require("fgsea", quietly = TRUE)
+    }
+    if(!require(ggplot2, quietly = TRUE)) {
+      install.packages("ggplot2")
+      require(ggplot2, quietly = TRUE)
+    }
     
     ### get exclusivity counts
     exclusivity_cnt <- get(params[[1]])
     
     ### filter the counts with the parameters
     exclusivity_cnt <- exclusivity_cnt[order(exclusivity_cnt[,params[[2]]], decreasing = TRUE),]
-    exclusivity_cnt <- exclusivity_cnt[exclusivity_cnt[,""] < params[[3]],]
-    exclusivity_cnt <- exclusivity_cnt[exclusivity_cnt[,""] < params[[3]],]
-
+    filterIdx <- which(colnames(exclusivity_cnt) != params[[2]])
+    for(idx in filterIdx) {
+      exclusivity_cnt <- exclusivity_cnt[exclusivity_cnt[,idx] < params[[3]],]
+    }
+    
+    ### load Viper activity scores
+    load(params[[4]])
+    
+    #
+    ### Question #1 for each TCGA tissue (Top Active Hubs from Viper)
+    #
+    ### create a directory for the Q1 results
+    dir.create(paste0(params[[10]], "viper"))
+    
+    ### make empty lists
+    top_active_hubs <- vector("list", length = length(vipermat))
+    names(top_active_hubs) <- names(vipermat)
+    
+    ### get top active hubs
+    for(i in 1:length(vipermat)) {
+      means <- apply(vipermat[[i]], 1, mean)
+      means <- means[order(-abs(means))]
+      top_active_hubs[[i]] <- entrezIDtoSymbol(names(means)[1:params[[5]]])
+    }
+    
+    ### run GSEA
+    gsea_result <- fgsea(pathways = top_active_hubs, stats = exclusivity_cnt[,params[[2]]], nperm = 10000)
+    
+    ### remove rows with negative NES
+    ### because they are highly enriched with 0 counts
+    ### and we have no interests on them
+    retainIdx <- which(gsea_result[,"NES"] >= 0)
+    gsea_result <- gsea_result[retainIdx,]
+    top_active_hubs <- top_active_hubs[retainIdx]
+    
+    ### write the result table
+    result_table <- data.frame(Viper_Tissue=gsea_result$pathway,
+                               PVal=gsea_result$pval,
+                               Adj_PVal=gsea_result$padj,
+                               ES=gsea_result$ES,
+                               NES=gsea_result$NES,
+                               Hub_Set_Size=gsea_result$size,
+                               stringsAsFactors = FALSE, check.names = FALSE)
+    write.table(result_table, file = paste0(params[[10]], "viper/Viper_Hubs_Enrichment_With_Conservation_Counts.txt"),
+                sep = "\t", row.names = FALSE)
+    
+    ### plot GSEA results
+    for(i in 1:length(top_active_hubs)) {
+      png(paste0(params[[10]], "viper/GSEA_", names(top_active_hubs)[i], ".png"),
+          width = 1200, height = 1000, res = 130)
+      print(plotEnrichment(top_active_hubs[[i]],exclusivity_cnt[,params[[2]]]) +
+              labs(title = paste0("GSEA_", names(top_active_hubs)[i])))
+      dev.off()
+    }
+    
+    ### plot correlation results
+    for(i in 1:length(top_active_hubs)) {
+      ### get viper scores for the tissue
+      means <- apply(vipermat[[i]], 1, mean)
+      names(means) <- entrezIDtoSymbol(names(means))
+      
+      ### common shared genes
+      common_genes <- intersect(names(means), rownames(exclusivity_cnt))
+      
+      ### draw a scatter plot
+      x <- exclusivity_cnt[common_genes,params[[2]]]
+      y <- means[common_genes]
+      png(paste0(params[[10]], "viper/Cor_", names(top_active_hubs)[i], ".png"),
+          width = 1200, height = 1000, res = 130)
+      plot(x = x, y = y, pch = 19, col = "black",
+           main = paste0("Correlation_", names(top_active_hubs)[i], "\n",
+                        "P.Cor = ", round(cor(as.numeric(x), as.numeric(y), use = "pairwise.complete.obs"), 5)),
+           xlab = "Exclusive Conservation Counts",
+           ylab = "Average Viper NES")
+      abline(lm(as.numeric(y)~as.numeric(x)), col="blue", lwd=2)
+      dev.off()
+    }
+    
+    #
+    ### Question #2 for each TCGA tissue (Driver Mutation Genes)
+    #
     
     
     
