@@ -8432,6 +8432,82 @@ oneOffs<- function (which = "freq_mods", params=NULL){
 		
 	}
 	
+  # ******************************** which = MakeDEGRDA2 ********************************
+  # Perform DE analysis on all the 29 tissue mappings between GTEx and TCGA.
+  # The Aracne-ready files are normalized, cleaned (removed genes
+  # that have 0 or 1 across all samples), and even do not contain complete set
+  # of samples (Because 100 <= the number of samples <= 200 is ideal for
+  # running Aracne run). Therefore, the files are not suitable for DE analysis
+  # between GTEx and TCGA. This function uses raw count matrices for a tissue
+  # that already has an Aracne network. There will be no cleaning, no normalization,
+  # and no sample selection. And using the raw counts, DE analysis will be performed
+  # between GTEx and TCGA samples. The DE results of 29 mappings will be saved as 
+  # a RDA file.
+  #
+  # params[[1]]: The file path of the "All_62_raw_counts" file
+  #              (a character vector of length 1)
+  # params[[2]]: The file path of the "GTEx_TCGA_Map.rda" file
+  #              (a character vector of length 1)
+  # params[[3]]: The result RDA file path
+  #              (a character vector of length 1)
+  #
+  # e.g., params = list("//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_62_raw_counts.rda",
+  #                     "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/GTEx_TCGA_Map.rda",
+  #                     "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_29_GTEx_vs_TCGA_DE_Results.rda")
+  # e.g., params = list("./data/RDA_Files/All_62_raw_counts.rda", "./data/RDA_Files/GTEx_TCGA_Map.rda", "./data/RDA_Files/All_29_GTEx_vs_TCGA_DE_Results.rda")
+  
+  if(which == "MakeDEGRDA2") {
+    
+    ### argument checking
+    assertString(params[[1]])
+    assertString(params[[2]])
+    assertString(params[[3]])
+    
+    ### load the raw counts
+    load(params[[1]])
+    load(params[[2]])
+    
+    ### create an empty DER_names
+    der_names <- NULL
+    
+    ### for each tissue mapping between GTEx and TCGA, perform DE analysis
+    for(i in 1:nrow(GTEx_TCGA_Map)) {
+      
+      ### get gene expressions
+      gtex_gexp <- get(paste0("rcntmat_", GTEx_TCGA_Map[i,"GTEx"]))
+      tcga_gexp <- get(paste0("rcntmat_tcga_", GTEx_TCGA_Map[i,"TCGA"]))
+      
+      ### common shared genes between GTEx and TCGA
+      common_genes <- intersect(rownames(gtex_gexp), rownames(tcga_gexp))
+      
+      ### DE analysis
+      gexp <- cbind(gtex_gexp[common_genes,], tcga_gexp[common_genes,])
+      group <- c(rep("GTEx", ncol(gtex_gexp)), rep("TCGA", ncol(tcga_gexp)))
+      deresult <- deseqWithComparisons(rCnt = gexp, grp = group, exp_class = "GTEx", ctrl_class = "TCGA")
+      
+      ### save the DE result to a variable
+      der_names <- c(der_names, paste0("DEG_GTEx_", GTEx_TCGA_Map[i,"GTEx"], "_vs_TCGA_", toupper(GTEx_TCGA_Map[i,"TCGA"])))
+      assign(der_names[i], deresult, envir = globalenv())
+      
+    }
+    
+    ### set README function
+    README <- function() {
+      writeLines(paste(rep("#", 100), collapse = ""))
+      writeLines("A RDA file that contains DE analysis results using raw counts between")
+      writeLines("GTEx and TCGA of 29 tissue mappings. The raw counts are not cleaned,")
+      writeLines("not normalized, and include all the raw samples. And using the raw counts,")
+      writeLines("DE analysis was performed between GTEx and TCGA samples.")
+      writeLines("The \"DEG_GTEx_TISSUE_vs_TCGA_TISSUE\" object is a data frame that has")
+      writeLines("a DE result of the corresponding GTEx-TCGA comparison of the TISSUE.")
+      writeLines(paste(rep("#", 100), collapse = ""))
+    }
+    
+    ### save the DE result matrices in a RDA file
+    save(list = c("der_names", der_names, "README"), file = params[[3]])
+    
+  }
+  
 	# ********************* which = generate_exclusivity_scores *************************
 	# Computes and "exclusivity score" for every hub gene, a number that measures how strongly 
 	# regulons are conserved within interactomes from the same sample collection (GTEx or TCGA) 
@@ -8846,11 +8922,8 @@ oneOffs<- function (which = "freq_mods", params=NULL){
   #    with the significance score?
   # 2. How the driver mutation genes (that can be derived by TCGA MAF file) are enriched
   #    with the significance score?
-  # 3. How the DE genes (GTEx vs TCGA) are enriched with the score?
-  # 4. How the known cancer genes (that can be downloaded from COSMIC database) are enriched
-  #    with the significance score?
-  # 5. What is the correlation between the significance score and the number of
-  #    total mutations in regulons?
+  # 3. How the top exclusively conserved hubs are enriched with the Viper NES? 
+  # 4. How the DE genes (GTEx vs TCGA) are enriched with the score?
   #
   # For those questions, this function will generate tables that have summaries of
   # [enrichment score, correlation, and p-values], and GSEA figures, correlation plots. 
@@ -8865,12 +8938,12 @@ oneOffs<- function (which = "freq_mods", params=NULL){
   #              (an integer value)
   # params[[4]]: The file path of the "All_12_GTEx_vs_TCGA_ViperMats.rda" file
   #              (a character vector of length 1)
-  # params[[5]]: The number of top active hubs from the Viper
+  # params[[5]]: The number of top active hubs that will be used for Q2 & Q3
   #              (an integer value)
-  # params[[6]]: The file path of the "TCGA_26_Driver_Mutations.rda" file
+  # params[[6]]: The file path of the "TCGA_33_Driver_Mutation_Genes.rda" file
   #              (a character vector of length 1)
-  # params[[7]]: The number of top driver mutations that will be used
-  #              (an integer value)
+  # params[[7]]: The cut-off FDR of top driver mutation genes that will be used
+  #              (a number)
   # params[[8]]: The file path of the "All_12_GTEx_TCGA_DE_Results.rda" file
   #              (a character vector of length 1)
   # params[[9]]: The cut-off adjusted p-value of the DE genes that will be used
@@ -8881,16 +8954,16 @@ oneOffs<- function (which = "freq_mods", params=NULL){
   # e.g., params = list("t", "TCGA", 10,
   #                     "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_12_GTEx_vs_TCGA_ViperMats.rda",
   #                     100,
-  #                     "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/TCGA_26_Driver_Mutations.rda",
-  #                     50,
+  #                     "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/TCGA_33_Driver_Mutation_Genes.rda",
+  #                     0.1,
   #                     "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_12_GTEx_TCGA_DE_Results.rda",
   #                     0.01,
   #                     "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/results/exclusive_conservation/")
   # e.g., params = list("t", "TCGA", 10,
   #                     "./data/RDA_Files/All_12_GTEx_vs_TCGA_ViperMats.rda",
   #                     100,
-  #                     "./data/RDA_Files/TCGA_26_Driver_Mutations.rda",
-  #                     50,
+  #                     "./data/RDA_Files/TCGA_33_Driver_Mutation_Genes.rda",
+  #                     0.1,
   #                     "./data/RDA_Files/All_12_GTEx_TCGA_DE_Results.rda",
   #                     0.01,
   #                     "./results/exclusive_conservation/")
@@ -8908,7 +8981,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
     assertString(params[[4]])
     assertIntegerish(params[[5]])
     assertString(params[[6]])
-    assertIntegerish(params[[7]])
+    assertNumeric(params[[7]])
     assertString(params[[8]])
     assertNumeric(params[[9]])
     assertString(params[[10]])
@@ -8923,6 +8996,10 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       install.packages("ggplot2")
       require(ggplot2, quietly = TRUE)
     }
+    if(!require(xlsx, quietly = TRUE)) {
+      install.packages("xlsx")
+      require(xlsx, quietly = TRUE)
+    }
     
     ### get exclusivity counts
     exclusivity_cnt <- get(params[[1]])
@@ -8934,16 +9011,16 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       exclusivity_cnt <- exclusivity_cnt[exclusivity_cnt[,idx] < params[[3]],]
     }
     
-    ### load Viper activity scores
-    load(params[[4]])
-    
     #
     ### Question #1 for each TCGA tissue (Top Active Hubs from Viper)
     #
+    ### load Viper activity scores
+    load(params[[4]])
+    
     ### create a directory for the Q1 results
     dir.create(paste0(params[[10]], "viper"))
     
-    ### make empty lists
+    ### make an empty list
     top_active_hubs <- vector("list", length = length(vipermat))
     names(top_active_hubs) <- names(vipermat)
     
@@ -9010,9 +9087,142 @@ oneOffs<- function (which = "freq_mods", params=NULL){
     #
     ### Question #2 for each TCGA tissue (Driver Mutation Genes)
     #
+    ### load driver mutation gene info
+    load(params[[6]])
     
+    ### create a directory for the Q1 results
+    dir.create(paste0(params[[10]], "DMG"))
     
+    ### make an empty list
+    dm_genes <- vector("list", length = length(tcga_driver_mutation_genes))
+    names(dm_genes) <- names(tcga_driver_mutation_genes)
     
+    ### get mutation driver genes with the cut-off FDR
+    for(i in 1:length(tcga_driver_mutation_genes)) {
+      tIdx <- which(tcga_driver_mutation_genes[[i]][,"fdr"] < params[[7]])
+      if(length(tIdx) == 0) {
+        dm_genes[[i]] <- NA
+      } else {
+        dm_genes[[i]] <- as.character(tcga_driver_mutation_genes[[i]]$Hugo_Symbol[tIdx])
+      }
+    }
+    
+    ### run GSEA
+    gsea_result <- fgsea(pathways = dm_genes, stats = exclusivity_cnt[,params[[2]]], nperm = 10000)
+    
+    ### remove rows with negative NES
+    ### because they are highly enriched with 0 counts
+    ### and we have no interests on them
+    retainIdx <- which(gsea_result[,"NES"] >= 0)
+    gsea_result <- gsea_result[retainIdx,]
+    dm_genes <- dm_genes[which(names(dm_genes) %in% gsea_result$pathway)]
+    
+    ### write the result table
+    result_table <- data.frame(DMG_Tissue=gsea_result$pathway,
+                               PVal=gsea_result$pval,
+                               Adj_PVal=gsea_result$padj,
+                               ES=gsea_result$ES,
+                               NES=gsea_result$NES,
+                               Hub_Set_Size=gsea_result$size,
+                               stringsAsFactors = FALSE, check.names = FALSE)
+    write.table(result_table, file = paste0(params[[10]], "DMG/DMG_Enrichment_With_Conservation_Counts.txt"),
+                sep = "\t", row.names = FALSE)
+    
+    ### plot GSEA results
+    for(i in 1:length(dm_genes)) {
+      png(paste0(params[[10]], "DMG/GSEA_", names(dm_genes)[i], ".png"),
+          width = 1200, height = 1000, res = 130)
+      print(plotEnrichment(dm_genes[[i]],exclusivity_cnt[,params[[2]]]) +
+              labs(title = paste0("GSEA_", names(dm_genes)[i])))
+      dev.off()
+    }
+    
+    #
+    ### Question #3 for each TCGA tissue (Top exclusively conservative hubs)
+    #
+    ### create a directory for the Q3 results
+    dir.create(paste0(params[[10]], "ECH"))
+    
+    ### get top exclusively conservative hubs
+    top_ECHs <- rownames(exclusivity_cnt)[1:params[[5]]]
+    
+    ### A function to correct p-values with Benjamini-Hochberg approach
+    correct_bh <- function(pvs) {
+      
+      temp <- cbind(p=pvs, No=seq(1:length(pvs)))
+      
+      if(length(which(is.na(temp[,"p"]))) > 0) {
+        temp[which(is.na(temp[,"p"])),"p"] <- 1
+      }
+      
+      temp <- temp[order(temp[,"p"]),]
+      temp <- cbind(temp, Rank=seq(1:length(pvs)), BH=1)
+      
+      
+      temp[length(pvs), "BH"] <- temp[length(pvs), "p"]
+      for(i in (length(pvs)-1):1) {
+        temp[i,"BH"] <- min(temp[i+1, "BH"], temp[i,"p"]*length(pvs)/temp[i,"Rank"])
+      }
+      
+      temp <- temp[order(temp[,"No"]),]
+      
+      return(as.numeric(temp[,"BH"]))
+    }
+    
+    ### iteratively perform GSEA per each case per each sample
+    for(case in names(vipermat)) {
+      ### create a directory for the given case
+      dir.create(paste0(params[[10]], "ECH/", case))
+      
+      ### GSEA per each sample
+      for(i in 1:ncol(vipermat[[case]])) {
+        ### get stats ready
+        stats <- vipermat[[case]][,i]
+        stats <- stats[order(stats)]
+        names(stats) <- entrezIDtoSymbol(names(stats))
+        
+        ### run GSEA
+        temp_list <- list(top_ECHs)
+        names(temp_list) <- colnames(vipermat[[case]])[i]
+        temp <- fgsea(pathways = temp_list, stats = stats, nperm = 10000)
+        if(i == 1) {
+          gsea_result <- temp
+        } else {
+          gsea_result <- rbind(gsea_result, temp)
+        }
+      }
+      
+      ### calculate FDRs
+      gsea_result <- gsea_result[order(gsea_result$pval),]
+      gsea_result$padj <- correct_bh(gsea_result$pval)
+      
+      ### draw GSEA plot if the case's FDR < 0.01
+      mIdx <- which(gsea_result$padj < 0.01)
+      for(i in 1:length(mIdx)) {
+        ### get stats ready
+        stats <- vipermat[[case]][,gsea_result$pathway[mIdx[i]]]
+        stats <- stats[order(stats)]
+        names(stats) <- entrezIDtoSymbol(names(stats))
+        
+        ### draw the plot
+        png(paste0(params[[10]], "ECH/", case, "/GSEA_", case, "_", gsea_result$pathway[mIdx[i]], ".png"),
+            width = 1200, height = 1000, res = 130)
+        print(plotEnrichment(top_ECHs, stats) +
+                labs(title = paste0("GSEA_", case, "_", gsea_result$pathway[mIdx[i]])))
+        dev.off()
+      }
+      
+      ### write out the GSEA table
+      result_table <- data.frame(Viper_Sample=gsea_result$pathway,
+                                 PVal=gsea_result$pval,
+                                 Adj_PVal=gsea_result$padj,
+                                 ES=gsea_result$ES,
+                                 NES=gsea_result$NES,
+                                 Hub_Set_Size=gsea_result$size,
+                                 stringsAsFactors = FALSE, check.names = FALSE)
+      write.table(result_table, file = paste0(params[[10]], "ECH/", case, "/ECH_Enrichment_With_Viper_Profiles.txt"),
+                  sep = "\t", row.names = FALSE)
+    }
   }
   
   # ***************************** which = two_vipers_ma_plot *****************************
