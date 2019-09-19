@@ -9397,47 +9397,49 @@ oneOffs<- function (which = "freq_mods", params=NULL){
                       top = paste0("Vital Status Difference Between Two Sample Groups"))
     ggsave(file = paste0(result_dir, "pie_chart_vital_status_", tissue, ".png"), g1, width = 20, height = 12)
     
-    ### beeswarm plot with the day_to_death
-    ggplot(gsea_result[which(!is.na(gsea_result$Day_To_Death)),], aes_string(x="Significance", y="Day_To_Death")) +
-      theme_classic(base_size = 16) +
-      geom_boxplot() +
-      geom_beeswarm(aes_string(color="Significance"), na.rm = TRUE) +
-      stat_compare_means() +
-      labs(x = paste0("GSEA FDR < ", params[[2]]), y = "Survival (Days)") +
-      theme(legend.position = "None")
-    ggsave(filename = paste0(result_dir, "beeswarm_plot_survival(days)_", tissue, ".png"), width = 12, height = 10)
-    
-    ### survival plot with the day_to_death
-    gsea_result$Day_To_Death <- as.numeric(gsea_result$Day_To_Death)
-    gsea_result$Vital[gsea_result$Vital == "Alive"] <- 0
-    gsea_result$Vital[gsea_result$Vital == "Dead"] <- 1
-    gsea_result$Vital <- as.numeric(gsea_result$Vital)
-    
-    gsea_result$Significance[which(gsea_result$Significance == "YES")] <- paste0("GSEA FDR < ", params[[2]])
-    gsea_result$Significance[which(gsea_result$Significance == "NO")] <- paste0("GSEA FDR >= ", params[[2]])
-    
-    fit <- survfit(as.formula(paste("Surv(Day_To_Death, Vital)", "~", "Significance")), data = gsea_result)
-    p3 <- ggsurvplot(
-            fit,
-            data = gsea_result,
-            title = paste0("Survival Differences Between Two Groups In ", tissue),
-            legend.labs = levels(as.factor(gsea_result[,"Significance"])),
-            risk.table = TRUE,
-            tables.col = "strata",
-            pval = TRUE,
-            conf.int = TRUE,
-            conf.int.style = "ribbon",
-            xlab = "Time in Days",
-            break.time.by = round(max(gsea_result$Day_To_Death, na.rm = TRUE)/5),
-            ggtheme = theme_classic(),
-            risk.table.y.text.col = TRUE,
-            risk.table.height = 0.25,
-            risk.table.y.text = FALSE,
-            ncensor.plot = FALSE,
-            ncensor.plot.height = 0.25
-          )
-    ggsave(filename = paste0(result_dir, "survival_plot_", tissue, ".png"),
-           plot = print(p3), width = 12, height = 10)
+    if(length(unique(gsea_result$Vital)) > 1 && length(unique(gsea_result$Significance)) > 1) {
+      ### beeswarm plot with the day_to_death
+      ggplot(gsea_result[which(!is.na(gsea_result$Day_To_Death)),], aes_string(x="Significance", y="Day_To_Death")) +
+        theme_classic(base_size = 16) +
+        geom_boxplot() +
+        geom_beeswarm(aes_string(color="Significance"), na.rm = TRUE) +
+        stat_compare_means() +
+        labs(x = paste0("GSEA FDR < ", params[[2]]), y = "Survival (Days)") +
+        theme(legend.position = "None")
+      ggsave(filename = paste0(result_dir, "beeswarm_plot_survival(days)_", tissue, ".png"), width = 12, height = 10)
+      
+      ### survival plot with the day_to_death
+      gsea_result$Day_To_Death <- as.numeric(gsea_result$Day_To_Death)
+      gsea_result$Vital[gsea_result$Vital == "Alive"] <- 0
+      gsea_result$Vital[gsea_result$Vital == "Dead"] <- 1
+      gsea_result$Vital <- as.numeric(gsea_result$Vital)
+      
+      gsea_result$Significance[which(gsea_result$Significance == "YES")] <- paste0("GSEA FDR < ", params[[2]])
+      gsea_result$Significance[which(gsea_result$Significance == "NO")] <- paste0("GSEA FDR >= ", params[[2]])
+      
+      fit <- survfit(as.formula(paste("Surv(Day_To_Death, Vital)", "~", "Significance")), data = gsea_result)
+      p3 <- ggsurvplot(
+              fit,
+              data = gsea_result,
+              title = paste0("Survival Differences Between Two Groups In ", tissue),
+              legend.labs = levels(as.factor(gsea_result[,"Significance"])),
+              risk.table = TRUE,
+              tables.col = "strata",
+              pval = TRUE,
+              conf.int = TRUE,
+              conf.int.style = "ribbon",
+              xlab = "Time in Days",
+              break.time.by = round(max(gsea_result$Day_To_Death, na.rm = TRUE)/5),
+              ggtheme = theme_classic(),
+              risk.table.y.text.col = TRUE,
+              risk.table.height = 0.25,
+              risk.table.y.text = FALSE,
+              ncensor.plot = FALSE,
+              ncensor.plot.height = 0.25
+            )
+      ggsave(filename = paste0(result_dir, "survival_plot_", tissue, ".png"),
+             plot = print(p3), width = 12, height = 10)
+    }
     
   }
   
