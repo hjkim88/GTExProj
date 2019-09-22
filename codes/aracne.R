@@ -8928,9 +8928,15 @@ oneOffs<- function (which = "freq_mods", params=NULL){
   # For those questions, this function will generate tables that have summaries of
   # [enrichment score, correlation, and p-values], and GSEA figures, correlation plots. 
   #
-  # params[[1]]: The name of returned object from regulonConservationMode()
+  # params[[1]]: 1. The name of returned object from regulonConservationMode()
+  #              2. or the name of returned object from oneOffs("generate_exclusivity_scores")
+  #              if you want to run this function with the second option above,
+  #              params[[2]] should be "NONE".
   #              (a character vector of length 1)
-  # params[[2]]: The sample collection name of interest (GTEX/TCGA/BOTH)
+  # params[[2]]: The sample collection name of interest (GTEX/TCGA/BOTH/NONE)
+  #              The "None" indicates that the there will be no filtering and params[[1]] is
+  #              a returned result from oneOffs("generate_exclusivity_scores").
+  #              i.e., params[[1]] = "reg_exclusivity_scores" 
   #              (a character vector of length 1)
   # params[[3]]: The cut-off number of non-interesting collections
   #              (e.g., if  params[[2]] == "GTEX" and params[[3]] == 10,
@@ -9001,140 +9007,142 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       require(xlsx, quietly = TRUE)
     }
     
-    ### get exclusivity counts
-    exclusivity_cnt <- get(params[[1]])
-    
-    ### filter the counts with the parameters
-    exclusivity_cnt <- exclusivity_cnt[order(exclusivity_cnt[,params[[2]]], decreasing = TRUE),]
-    filterIdx <- which(colnames(exclusivity_cnt) != params[[2]])
-    for(idx in filterIdx) {
-      exclusivity_cnt <- exclusivity_cnt[exclusivity_cnt[,idx] < params[[3]],]
-    }
-    
-    #
-    ### Question #1 for each TCGA tissue (Top Active Hubs from Viper)
-    #
-    ### load Viper activity scores
-    load(params[[4]])
-    
-    ### create a directory for the Q1 results
-    dir.create(paste0(params[[10]], "viper"))
-    
-    ### make an empty list
-    top_active_hubs <- vector("list", length = length(vipermat))
-    names(top_active_hubs) <- names(vipermat)
-    
-    ### get top active hubs
-    for(i in 1:length(vipermat)) {
-      means <- apply(vipermat[[i]], 1, mean)
-      means <- means[order(-abs(means))]
-      top_active_hubs[[i]] <- entrezIDtoSymbol(names(means)[1:params[[5]]])
-    }
-    
-    ### run GSEA
-    gsea_result <- fgsea(pathways = top_active_hubs, stats = exclusivity_cnt[,params[[2]]], nperm = 10000)
-    
-    ### remove rows with negative NES
-    ### because they are highly enriched with 0 counts
-    ### and we have no interests on them
-    retainIdx <- which(gsea_result[,"NES"] >= 0)
-    gsea_result <- gsea_result[retainIdx,]
-    top_active_hubs <- top_active_hubs[retainIdx]
-    
-    ### write the result table
-    result_table <- data.frame(Viper_Tissue=gsea_result$pathway,
-                               PVal=gsea_result$pval,
-                               Adj_PVal=gsea_result$padj,
-                               ES=gsea_result$ES,
-                               NES=gsea_result$NES,
-                               Hub_Set_Size=gsea_result$size,
-                               stringsAsFactors = FALSE, check.names = FALSE)
-    write.table(result_table, file = paste0(params[[10]], "viper/Viper_Hubs_Enrichment_With_Conservation_Counts.txt"),
-                sep = "\t", row.names = FALSE)
-    
-    ### plot GSEA results
-    for(i in 1:length(top_active_hubs)) {
-      png(paste0(params[[10]], "viper/GSEA_", names(top_active_hubs)[i], ".png"),
-          width = 1200, height = 1000, res = 130)
-      print(plotEnrichment(top_active_hubs[[i]],exclusivity_cnt[,params[[2]]]) +
-              labs(title = paste0("GSEA_", names(top_active_hubs)[i])))
-      dev.off()
-    }
-    
-    ### plot correlation results
-    for(i in 1:length(top_active_hubs)) {
-      ### get viper scores for the tissue
-      means <- apply(vipermat[[i]], 1, mean)
-      names(means) <- entrezIDtoSymbol(names(means))
+    if(params[[2]] != "None") {
+      ### get exclusivity counts
+      exclusivity_cnt <- get(params[[1]])
       
-      ### common shared genes
-      common_genes <- intersect(names(means), rownames(exclusivity_cnt))
-      
-      ### draw a scatter plot
-      x <- exclusivity_cnt[common_genes,params[[2]]]
-      y <- means[common_genes]
-      png(paste0(params[[10]], "viper/Cor_", names(top_active_hubs)[i], ".png"),
-          width = 1200, height = 1000, res = 130)
-      plot(x = x, y = y, pch = 19, col = "black",
-           main = paste0("Correlation_", names(top_active_hubs)[i], "\n",
-                        "P.Cor = ", round(cor(as.numeric(x), as.numeric(y), use = "pairwise.complete.obs"), 5)),
-           xlab = "Exclusive Conservation Counts",
-           ylab = "Average Viper NES")
-      abline(lm(as.numeric(y)~as.numeric(x)), col="blue", lwd=2)
-      dev.off()
-    }
-    
-    #
-    ### Question #2 for each TCGA tissue (Driver Mutation Genes)
-    #
-    ### load driver mutation gene info
-    load(params[[6]])
-    
-    ### create a directory for the Q1 results
-    dir.create(paste0(params[[10]], "DMG"))
-    
-    ### make an empty list
-    dm_genes <- vector("list", length = length(tcga_driver_mutation_genes))
-    names(dm_genes) <- names(tcga_driver_mutation_genes)
-    
-    ### get mutation driver genes with the cut-off FDR
-    for(i in 1:length(tcga_driver_mutation_genes)) {
-      tIdx <- which(tcga_driver_mutation_genes[[i]][,"fdr"] < params[[7]])
-      if(length(tIdx) == 0) {
-        dm_genes[[i]] <- NA
-      } else {
-        dm_genes[[i]] <- as.character(tcga_driver_mutation_genes[[i]]$Hugo_Symbol[tIdx])
+      ### filter the counts with the parameters
+      exclusivity_cnt <- exclusivity_cnt[order(exclusivity_cnt[,params[[2]]], decreasing = TRUE),]
+      filterIdx <- which(colnames(exclusivity_cnt) != params[[2]])
+      for(idx in filterIdx) {
+        exclusivity_cnt <- exclusivity_cnt[exclusivity_cnt[,idx] < params[[3]],]
       }
-    }
-    
-    ### run GSEA
-    gsea_result <- fgsea(pathways = dm_genes, stats = exclusivity_cnt[,params[[2]]], nperm = 10000)
-    
-    ### remove rows with negative NES
-    ### because they are highly enriched with 0 counts
-    ### and we have no interests on them
-    retainIdx <- which(gsea_result[,"NES"] >= 0)
-    gsea_result <- gsea_result[retainIdx,]
-    dm_genes <- dm_genes[which(names(dm_genes) %in% gsea_result$pathway)]
-    
-    ### write the result table
-    result_table <- data.frame(DMG_Tissue=gsea_result$pathway,
-                               PVal=gsea_result$pval,
-                               Adj_PVal=gsea_result$padj,
-                               ES=gsea_result$ES,
-                               NES=gsea_result$NES,
-                               Hub_Set_Size=gsea_result$size,
-                               stringsAsFactors = FALSE, check.names = FALSE)
-    write.table(result_table, file = paste0(params[[10]], "DMG/DMG_Enrichment_With_Conservation_Counts.txt"),
-                sep = "\t", row.names = FALSE)
-    
-    ### plot GSEA results
-    for(i in 1:length(dm_genes)) {
-      png(paste0(params[[10]], "DMG/GSEA_", names(dm_genes)[i], ".png"),
-          width = 1200, height = 1000, res = 130)
-      print(plotEnrichment(dm_genes[[i]],exclusivity_cnt[,params[[2]]]) +
-              labs(title = paste0("GSEA_", names(dm_genes)[i])))
-      dev.off()
+      
+      #
+      ### Question #1 for each TCGA tissue (Top Active Hubs from Viper)
+      #
+      ### load Viper activity scores
+      load(params[[4]])
+      
+      ### create a directory for the Q1 results
+      dir.create(paste0(params[[10]], "viper"))
+      
+      ### make an empty list
+      top_active_hubs <- vector("list", length = length(vipermat))
+      names(top_active_hubs) <- names(vipermat)
+      
+      ### get top active hubs
+      for(i in 1:length(vipermat)) {
+        means <- apply(vipermat[[i]], 1, mean)
+        means <- means[order(-abs(means))]
+        top_active_hubs[[i]] <- entrezIDtoSymbol(names(means)[1:params[[5]]])
+      }
+      
+      ### run GSEA
+      gsea_result <- fgsea(pathways = top_active_hubs, stats = exclusivity_cnt[,params[[2]]], nperm = 10000)
+      
+      ### remove rows with negative NES
+      ### because they are highly enriched with 0 counts
+      ### and we have no interests on them
+      retainIdx <- which(gsea_result[,"NES"] >= 0)
+      gsea_result <- gsea_result[retainIdx,]
+      top_active_hubs <- top_active_hubs[retainIdx]
+      
+      ### write the result table
+      result_table <- data.frame(Viper_Tissue=gsea_result$pathway,
+                                 PVal=gsea_result$pval,
+                                 Adj_PVal=gsea_result$padj,
+                                 ES=gsea_result$ES,
+                                 NES=gsea_result$NES,
+                                 Hub_Set_Size=gsea_result$size,
+                                 stringsAsFactors = FALSE, check.names = FALSE)
+      write.table(result_table, file = paste0(params[[10]], "viper/Viper_Hubs_Enrichment_With_Conservation_Counts.txt"),
+                  sep = "\t", row.names = FALSE)
+      
+      ### plot GSEA results
+      for(i in 1:length(top_active_hubs)) {
+        png(paste0(params[[10]], "viper/GSEA_", names(top_active_hubs)[i], ".png"),
+            width = 1200, height = 1000, res = 130)
+        print(plotEnrichment(top_active_hubs[[i]],exclusivity_cnt[,params[[2]]]) +
+                labs(title = paste0("GSEA_", names(top_active_hubs)[i])))
+        dev.off()
+      }
+      
+      ### plot correlation results
+      for(i in 1:length(top_active_hubs)) {
+        ### get viper scores for the tissue
+        means <- apply(vipermat[[i]], 1, mean)
+        names(means) <- entrezIDtoSymbol(names(means))
+        
+        ### common shared genes
+        common_genes <- intersect(names(means), rownames(exclusivity_cnt))
+        
+        ### draw a scatter plot
+        x <- exclusivity_cnt[common_genes,params[[2]]]
+        y <- means[common_genes]
+        png(paste0(params[[10]], "viper/Cor_", names(top_active_hubs)[i], ".png"),
+            width = 1200, height = 1000, res = 130)
+        plot(x = x, y = y, pch = 19, col = "black",
+             main = paste0("Correlation_", names(top_active_hubs)[i], "\n",
+                          "P.Cor = ", round(cor(as.numeric(x), as.numeric(y), use = "pairwise.complete.obs"), 5)),
+             xlab = "Exclusive Conservation Counts",
+             ylab = "Average Viper NES")
+        abline(lm(as.numeric(y)~as.numeric(x)), col="blue", lwd=2)
+        dev.off()
+      }
+      
+      #
+      ### Question #2 for each TCGA tissue (Driver Mutation Genes)
+      #
+      ### load driver mutation gene info
+      load(params[[6]])
+      
+      ### create a directory for the Q1 results
+      dir.create(paste0(params[[10]], "DMG"))
+      
+      ### make an empty list
+      dm_genes <- vector("list", length = length(tcga_driver_mutation_genes))
+      names(dm_genes) <- names(tcga_driver_mutation_genes)
+      
+      ### get mutation driver genes with the cut-off FDR
+      for(i in 1:length(tcga_driver_mutation_genes)) {
+        tIdx <- which(tcga_driver_mutation_genes[[i]][,"fdr"] < params[[7]])
+        if(length(tIdx) == 0) {
+          dm_genes[[i]] <- NA
+        } else {
+          dm_genes[[i]] <- as.character(tcga_driver_mutation_genes[[i]]$Hugo_Symbol[tIdx])
+        }
+      }
+      
+      ### run GSEA
+      gsea_result <- fgsea(pathways = dm_genes, stats = exclusivity_cnt[,params[[2]]], nperm = 10000)
+      
+      ### remove rows with negative NES
+      ### because they are highly enriched with 0 counts
+      ### and we have no interests on them
+      retainIdx <- which(gsea_result[,"NES"] >= 0)
+      gsea_result <- gsea_result[retainIdx,]
+      dm_genes <- dm_genes[which(names(dm_genes) %in% gsea_result$pathway)]
+      
+      ### write the result table
+      result_table <- data.frame(DMG_Tissue=gsea_result$pathway,
+                                 PVal=gsea_result$pval,
+                                 Adj_PVal=gsea_result$padj,
+                                 ES=gsea_result$ES,
+                                 NES=gsea_result$NES,
+                                 Hub_Set_Size=gsea_result$size,
+                                 stringsAsFactors = FALSE, check.names = FALSE)
+      write.table(result_table, file = paste0(params[[10]], "DMG/DMG_Enrichment_With_Conservation_Counts.txt"),
+                  sep = "\t", row.names = FALSE)
+      
+      ### plot GSEA results
+      for(i in 1:length(dm_genes)) {
+        png(paste0(params[[10]], "DMG/GSEA_", names(dm_genes)[i], ".png"),
+            width = 1200, height = 1000, res = 130)
+        print(plotEnrichment(dm_genes[[i]],exclusivity_cnt[,params[[2]]]) +
+                labs(title = paste0("GSEA_", names(dm_genes)[i])))
+        dev.off()
+      }
     }
     
     #
@@ -9144,8 +9152,12 @@ oneOffs<- function (which = "freq_mods", params=NULL){
     dir.create(paste0(params[[10]], "ECH"))
     
     ### get top exclusively conservative hubs
-    ### top_ECHs <- entrezIDtoSymbol(names(reg_exclusivity_scores)[1:params[[5]]])
-    top_ECHs <- rownames(exclusivity_cnt)[1:params[[5]]]
+    if(params[[2]] != "None") {
+      top_ECHs <- rownames(exclusivity_cnt)[1:params[[5]]]
+    } else {
+      exclusivity_cnt <- get(params[[1]])
+      top_ECHs <- entrezIDtoSymbol(names(exclusivity_cnt)[1:params[[5]]])
+    }
     
     ### A function to correct p-values with Benjamini-Hochberg approach
     correct_bh <- function(pvs) {
@@ -9194,7 +9206,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
         
         ### progress print
         if(i %% 10 == 0) {
-          writeLines(paste("PROGRESS", i, "/", ncol(vipermat[[case]])))
+          writeLines(paste(case, "PROGRESS", i, "/", ncol(vipermat[[case]])))
         }
       }
       
@@ -9231,6 +9243,56 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       write.table(result_table, file = paste0(params[[10]], "ECH/", case, "/ECH_Enrichment_With_Viper_Profiles.txt"),
                   sep = "\t", row.names = FALSE)
     }
+    
+    ### GSEA of random hubs on the Viper profiles
+    ### create a directory for the random results
+    dir.create(paste0(params[[10]], "random"))
+    
+    ### random hubs
+    set.seed(1234)
+    top_ECHs <- entrezIDtoSymbol(names(exclusivity_cnt)[sample(length(exclusivity_cnt), params[[5]])])
+    
+    ### GSEA per tissue case
+    for(case in names(vipermat)) {
+      ### GSEA per each sample
+      for(i in 1:ncol(vipermat[[case]])) {
+        ### get stats ready
+        stats <- vipermat[[case]][,i]
+        stats <- stats[order(stats)]
+        names(stats) <- entrezIDtoSymbol(names(stats))
+        
+        ### run GSEA
+        temp_list <- list(top_ECHs)
+        names(temp_list) <- colnames(vipermat[[case]])[i]
+        temp <- fgsea(pathways = temp_list, stats = stats, nperm = 10000)
+        if(i == 1) {
+          gsea_result <- temp
+        } else {
+          gsea_result <- rbind(gsea_result, temp)
+        }
+        
+        ### progress print
+        if(i %% 10 == 0) {
+          writeLines(paste(case, "PROGRESS", i, "/", ncol(vipermat[[case]])))
+        }
+      }
+      
+      ### calculate FDRs
+      gsea_result <- gsea_result[order(gsea_result$pval),]
+      gsea_result$padj <- correct_bh(gsea_result$pval)
+      
+      ### write out the GSEA table
+      result_table <- data.frame(Viper_Sample=gsea_result$pathway,
+                                 PVal=gsea_result$pval,
+                                 Adj_PVal=gsea_result$padj,
+                                 ES=gsea_result$ES,
+                                 NES=gsea_result$NES,
+                                 Hub_Set_Size=gsea_result$size,
+                                 stringsAsFactors = FALSE, check.names = FALSE)
+      write.table(result_table, file = paste0(params[[10]], "random/", case, "_RH_Enrichment_With_Viper_Profiles.txt"),
+                  sep = "\t", row.names = FALSE)
+    }
+    
   }
   
   # ***************************** which = two_vipers_ma_plot *****************************
@@ -9287,10 +9349,13 @@ oneOffs<- function (which = "freq_mods", params=NULL){
   # The table contains a column with sample names and a column of their GSEA FDRs.
   # Here, we distinguish the samples into two groups: 1. signicantly enriched, 2. otherwise
   # and then see survival rate between the two groups.
+  #
   # params[[1]]: The file path of the GSEA result table file
   #              (a character vector of length 1)
   # params[[2]]: FDR cut-off for determining the significant group
   #              (a number)
+  # e.g., params=list("//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/results/exclusive_conservation/ECH/reg_exclusivity/top_100_hubs/TCGA_BRCA_GTEX_BREAST/ECH_Enrichment_With_Viper_Profiles.txt",
+  #                   0.01)
   # e.g., params=list("./results/exclusive_conservation/ECH/reg_exclusivity/top_100_hubs/TCGA_BRCA_GTEX_BREAST/ECH_Enrichment_With_Viper_Profiles.txt",
   #                   0.01)
   
@@ -9440,6 +9505,56 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       ggsave(filename = paste0(result_dir, "survival_plot_", tissue, ".png"),
              plot = print(p3), width = 12, height = 10)
     }
+    
+  }
+  
+  # ***************************** which = investigate_echs *****************************
+  # 
+  #
+  # params[[1]]: The file path of the GSEA result table file
+  #              (a character vector of length 1)
+  # params[[2]]: FDR cut-off for determining the significant group
+  #              (a number)
+  # e.g., params=list("//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/results/exclusive_conservation/ECH/reg_exclusivity/top_100_hubs/TCGA_BRCA_GTEX_BREAST/ECH_Enrichment_With_Viper_Profiles.txt",
+  #                   0.01)
+  # e.g., params=list("./results/exclusive_conservation/ECH/reg_exclusivity/top_100_hubs/TCGA_BRCA_GTEX_BREAST/ECH_Enrichment_With_Viper_Profiles.txt",
+  #                   0.01)
+  
+  if (which == "investigate_echs") {
+    
+    ### argument checking
+    assertString(params[[1]])
+    assertNumeric(params[[2]])
+    
+    ### load libraries
+    if(!require(ggbeeswarm, quietly = TRUE)) {
+      install.packages("ggbeeswarm")
+      require(ggbeeswarm, quietly = TRUE)
+    }
+    if(!require(ggpubr, quietly = TRUE)) {
+      install.packages("ggpubr")
+      require(ggpubr, quietly = TRUE)
+    }
+    if(!require(gridExtra, quietly = TRUE)) {
+      install.packages("gridExtra")
+      require(gridExtra, quietly = TRUE)
+    }
+    if(!require(survminer, quietly = TRUE)) {
+      install.packages("survminer")
+      require(survminer, quietly = TRUE)
+    }
+    if(!require(survival, quietly = TRUE)) {
+      install.packages("survival")
+      require(survival, quietly = TRUE)
+    }
+    if(!require(TCGAbiolinks, quietly = TRUE)) {
+      if (!requireNamespace("BiocManager", quietly = TRUE))
+        install.packages("BiocManager")
+      BiocManager::install("TCGAbiolinks")
+      require(TCGAbiolinks, quietly = TRUE)
+    }
+    
+    
     
   }
   
