@@ -9608,30 +9608,124 @@ oneOffs<- function (which = "freq_mods", params=NULL){
   # Plus, calculate empirical p-value by ordering all the enrichment counts of all the regulons.
   # The result will be written as txt file in the same directory of the ECH GSEA result file.
   #
-  # params[[1]]: The file path of the GSEA result table file
+  # params[[1]]: The file path of the Aracne RDA file (All_62_ARACNE.rda)
   #              (a character vector of length 1)
   # params[[2]]: The file path of Cosmic Cancer Gene Census
   #              (a character vector of length 1)
-  # params[[3]]: The file path of TCGA Aracne RDA file
+  # params[[3]]: The number of top ECHs that will be tested
+  #              (a number)
+  # params[[4]]: Directory path for the results
   #              (a character vector of length 1)
   #
-  # e.g., params=list("//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/results/exclusive_conservation/ECH/reg_exclusivity/top_100_hubs/TCGA_BRCA_GTEX_BREAST/ECH_Enrichment_With_Viper_Profiles.txt",
+  # e.g., params=list("//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_62_ARACNE.rda",
   #                   "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/Cosmic/Cosmic_Census_100419_all.tsv",
-  #                   "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/TCGA_26_ARACNE.rda")
-  # e.g., params=list("./results/exclusive_conservation/ECH/reg_exclusivity/top_100_hubs/TCGA_BRCA_GTEX_BREAST/ECH_Enrichment_With_Viper_Profiles.txt",
+  #                   100,
+  #                   "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/results/exclusive_conservation/ECH/Cosmic/")
+  # e.g., params=list("./data/RDA_Files/All_62_ARACNE.rda",
   #                   "./data/Cosmic/Cosmic_Census_100419_all.tsv",
-  #                   "./data/RDA_Files/TCGA_26_ARACNE.rda")
+  #                   100,
+  #                   "./results/exclusive_conservation/ECH/Cosmic/")
   
   if (which == "ech_cosmic_analysis") {
     
     ### argument checking
     assertString(params[[1]])
     assertString(params[[2]])
-    assertString(params[[3]])
+    assertNumeric(params[[3]])
+    assertString(params[[4]])
     
     ### load data
+    load(params[[1]])
+    cgc <- read.table(file = params[[2]], header = TRUE, sep = "\t",
+                      stringsAsFactors = FALSE, check.names = FALSE)
     
+    ### get top ECHs
+    oneOffs("generate_exclusivity_scores")
+    echs <- names(reg_exclusivity_scores)[1:params[[3]]]
     
+    ### get TCGA Aracne names
+    tcga_aracne_names <- varNames[grep("tcga", varNames)]
+    
+    ### perform analysis for each TCGA tissue
+    for(aracne_name in tcga_aracne_names) {
+      ### get Aracne network
+      aracne <- get(aracne_name)
+      
+      ### make an empty data frame
+      result_table <- data.frame(matrix(NA, params[[3]], 7))
+      colnames(result_table) <- c("Hub_Gene_Symbol", "Hub_Entrez_ID", "Enriched_Regulons_Gene_Symbol",
+                                  "Enriched_Regulons_Entrez_ID", "PVal", "Enrichment_Count", "Background")
+      
+      ### hub names
+      result_table$Hub_Entrez_ID <- echs
+      result_table$Hub_Gene_Symbol <- entrezIDtoSymbol(echs)
+      rownames(result_table) <- echs
+      
+      ### Fisher's exact test for each hub
+      for(hub in echs) {
+        ### get target genes
+        target_genes <- rownames(aracne[[2]][[hub]])
+        
+        ### compute enriched genes
+        enriched_genes <- intersect(target_genes, as.character(cgc$`Entrez GeneId`))
+        if(length(enriched_genes) > 0) {
+          result_table[hub,"Enriched_Regulons_Entrez_ID"] <- paste(enriched_genes, collapse = "/")
+          result_table[hub,"Enriched_Regulons_Gene_Symbol"] <- paste(entrezIDtoSymbol(enriched_genes), collapse = "/")
+          result_table[hub,"Enrichment_Count"] <- paste0(length(enriched_genes), "/", length(target_genes))
+          
+          x <- length(enriched_genes)
+        } else {
+          result_table[hub,"Enrichment_Count"] <- paste0("0", "/", length(target_genes))
+          
+          x <- 0
+        }
+        result_table[hub,"Background"] <- paste0(nrow(cgc), "/", total_geneNum)
+        
+        ### calculate p-value
+        ### Fisher's exact test
+        ###
+        ###                 regulon   no-regulon
+        ###               -----------------------
+        ### cancer gene   |   X           Y
+        ### no-cancer gene|   Z           W
+        y <- nrow(cgc) - x
+        z <- length(target_genes) - x
+        w <- total_geneNum - x - y - z
+        result_table[hub,"PVal"] <- fisher.test(matrix(c(x, z, y, w), 2, 2))$p.value
+      }
+      
+      ### print out the result table
+      write.table(result_table, file = paste0(params[[4]], aracne_name, "_ech_cosmic_enrichment.txt"),
+                  sep = "\t", row.names = FALSE)
+      
+      ### compute enrichment count for all the hubs in the Aracne network
+      all_hubs <- rownames(aracne[[1]])
+      all_enrichment_cnts <- rep(0, length(all_hubs))
+      names(all_enrichment_cnts) <- all_hubs
+      for(hub in all_hubs) {
+        ### get target genes
+        target_genes <- rownames(aracne[[2]][[hub]])
+        
+        ### compute enriched genes
+        enriched_genes <- intersect(target_genes, as.character(cgc$`Entrez GeneId`))
+        
+        ### add the count
+        all_enrichment_cnts[hub] <- length(enriched_genes)
+      }
+      
+      ### plot all the counts
+      colors <- rep("black", length(all_hubs))
+      names(colors) <- all_hubs
+      colors[echs] <- "red"
+      png(paste0(params[[4]], aracne_name, "_top_", params[[3]], "_echs_cosmic_enrichment_counts.png"),
+          width = 1200, height = 1000, res = 130)
+      plot(all_enrichment_cnts, pch = 19, col = colors,
+           main = paste(aracne_name, "enriched counts"),
+           xlab = "All the hubs in the network",
+           ylab = paste0("Enrichment counts out of ", params[[3]], " top ECHs"))
+      legend("topright", legend = c(paste0("Top ", params[[3]], " ECHs"), "Others"), col=c("red", "black"), pch = 19)
+      dev.off()
+    }
     
   }
   
