@@ -9600,6 +9600,41 @@ oneOffs<- function (which = "freq_mods", params=NULL){
     
   }
   
+  # ***************************** which = ech_cosmic_analysis *****************************
+  # Examine significancy of target genes of the exclusively conserved hubs based on
+  # enrichment with Cosmic Cancer Gene Census (CGC). In each tissue, for all the regulons,
+  # compute how many of those regulons are enriched with the CGC. Using Fisher's exact test,
+  # calculate p-value of the top 100 ECHs (similar to pahtway analysis in each regulon x 100).
+  # Plus, calculate empirical p-value by ordering all the enrichment counts of all the regulons.
+  # The result will be written as txt file in the same directory of the ECH GSEA result file.
+  #
+  # params[[1]]: The file path of the GSEA result table file
+  #              (a character vector of length 1)
+  # params[[2]]: The file path of Cosmic Cancer Gene Census
+  #              (a character vector of length 1)
+  # params[[3]]: The file path of TCGA Aracne RDA file
+  #              (a character vector of length 1)
+  #
+  # e.g., params=list("//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/results/exclusive_conservation/ECH/reg_exclusivity/top_100_hubs/TCGA_BRCA_GTEX_BREAST/ECH_Enrichment_With_Viper_Profiles.txt",
+  #                   "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/Cosmic/Cosmic_Census_100419_all.tsv",
+  #                   "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/TCGA_26_ARACNE.rda")
+  # e.g., params=list("./results/exclusive_conservation/ECH/reg_exclusivity/top_100_hubs/TCGA_BRCA_GTEX_BREAST/ECH_Enrichment_With_Viper_Profiles.txt",
+  #                   "./data/Cosmic/Cosmic_Census_100419_all.tsv",
+  #                   "./data/RDA_Files/TCGA_26_ARACNE.rda")
+  
+  if (which == "ech_cosmic_analysis") {
+    
+    ### argument checking
+    assertString(params[[1]])
+    assertString(params[[2]])
+    assertString(params[[3]])
+    
+    ### load data
+    
+    
+    
+  }
+  
   # ***************************** which = investigate_echs *****************************
   # 
   #
