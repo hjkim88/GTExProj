@@ -9620,7 +9620,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
   # e.g., params=list("//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_62_ARACNE.rda",
   #                   "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/Cosmic/Cosmic_Census_100419_all.tsv",
   #                   100,
-  #                   "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/results/exclusive_conservation/ECH/Cosmic/")
+  #                   "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/exclusive_conservation/ECH/Cosmic/")
   # e.g., params=list("./data/RDA_Files/All_62_ARACNE.rda",
   #                   "./data/Cosmic/Cosmic_Census_100419_all.tsv",
   #                   100,
@@ -9710,7 +9710,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
         enriched_genes <- intersect(target_genes, as.character(cgc$`Entrez GeneId`))
         
         ### add the count
-        all_enrichment_cnts[hub] <- length(enriched_genes)
+        all_enrichment_cnts[hub] <- length(enriched_genes) / length(target_genes)
       }
       
       ### plot all the counts
@@ -9722,7 +9722,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       plot(all_enrichment_cnts, pch = 19, col = colors,
            main = paste(aracne_name, "enriched counts"),
            xlab = "All the hubs in the network",
-           ylab = paste0("Enrichment counts out of ", params[[3]], " top ECHs"))
+           ylab = "Normalized enrichment counts")
       legend("topright", legend = c(paste0("Top ", params[[3]], " ECHs"), "Others"), col=c("red", "black"), pch = 19)
       dev.off()
     }
