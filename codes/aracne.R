@@ -9605,8 +9605,8 @@ oneOffs<- function (which = "freq_mods", params=NULL){
   # enrichment with Cosmic Cancer Gene Census (CGC). In each tissue, for all the regulons,
   # compute how many of those regulons are enriched with the CGC. Using Fisher's exact test,
   # calculate p-value of the top 100 ECHs (similar to pahtway analysis in each regulon x 100).
-  # Plus, calculate empirical p-value by ordering all the enrichment counts of all the regulons.
-  # The result will be written as txt file in the same directory of the ECH GSEA result file.
+  # Plus, calculate p-values of all the regulons in each network and plot their p-values.
+  # The result will be written as TXT and PNG under the params[[4]] directory.
   #
   # params[[1]]: The file path of the Aracne RDA file (All_62_ARACNE.rda)
   #              (a character vector of length 1)
@@ -9698,10 +9698,10 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       write.table(result_table, file = paste0(params[[4]], aracne_name, "_ech_cosmic_enrichment.txt"),
                   sep = "\t", row.names = FALSE)
       
-      ### compute enrichment count for all the hubs in the Aracne network
+      ### compute Fisher's exact test p-values for all the hubs in the Aracne network
       all_hubs <- rownames(aracne[[1]])
-      all_enrichment_cnts <- rep(0, length(all_hubs))
-      names(all_enrichment_cnts) <- all_hubs
+      all_enrichment_pvs <- rep(0, length(all_hubs))
+      names(all_enrichment_pvs) <- all_hubs
       for(hub in all_hubs) {
         ### get target genes
         target_genes <- rownames(aracne[[2]][[hub]])
@@ -9709,20 +9709,32 @@ oneOffs<- function (which = "freq_mods", params=NULL){
         ### compute enriched genes
         enriched_genes <- intersect(target_genes, as.character(cgc$`Entrez GeneId`))
         
-        ### add the count
-        all_enrichment_cnts[hub] <- length(enriched_genes) / length(target_genes)
+        ### calculate p-value
+        ### Fisher's exact test
+        ###
+        ###                 regulon   no-regulon
+        ###               -----------------------
+        ### cancer gene   |   X           Y
+        ### no-cancer gene|   Z           W
+        x <- length(enriched_genes)
+        y <- nrow(cgc) - x
+        z <- length(target_genes) - x
+        w <- total_geneNum - x - y - z
+        
+        ### Fisher's exact test p-value
+        all_enrichment_pvs[hub] <- fisher.test(matrix(c(x, z, y, w), 2, 2))$p.value
       }
       
       ### plot all the counts
       colors <- rep("black", length(all_hubs))
       names(colors) <- all_hubs
       colors[echs] <- "red"
-      png(paste0(params[[4]], aracne_name, "_top_", params[[3]], "_echs_cosmic_enrichment_counts.png"),
+      png(paste0(params[[4]], aracne_name, "_top_", params[[3]], "_echs_cosmic_enrichment_pvals.png"),
           width = 1200, height = 1000, res = 130)
-      plot(all_enrichment_cnts, pch = 19, col = colors,
-           main = paste(aracne_name, "enriched counts"),
+      plot(-log10(all_enrichment_pvs), pch = 19, col = colors,
+           main = paste(aracne_name, "enrichment p-values"),
            xlab = "All the hubs in the network",
-           ylab = "Normalized enrichment counts")
+           ylab = "-log10(Enrichment p-values)")
       legend("topright", legend = c(paste0("Top ", params[[3]], " ECHs"), "Others"), col=c("red", "black"), pch = 19)
       dev.off()
     }
