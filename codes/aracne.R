@@ -9604,7 +9604,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
   # Examine significancy of target genes of the exclusively conserved hubs based on
   # enrichment with Cosmic Cancer Gene Census (CGC). In each tissue, for all the regulons,
   # compute how many of those regulons are enriched with the CGC. Using Fisher's exact test,
-  # calculate p-value of the top 100 ECHs (similar to pahtway analysis in each regulon x 100).
+  # calculate p-value of the top N ECHs (similar to pahtway analysis in each regulon x N).
   # Plus, calculate p-values of all the regulons in each network and plot their p-values.
   # The result will be written as TXT and PNG under the params[[4]] directory.
   #
@@ -9726,68 +9726,192 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       }
       
       ### plot all the counts
-      colors <- rep("black", length(all_hubs))
-      names(colors) <- all_hubs
+      barplot_data <- all_enrichment_pvs[order(all_enrichment_pvs)]
+      barplot_data <- log10(barplot_data)
+      barplot_data[echs] <- -barplot_data[echs]
+      colors <- rep("black", length(barplot_data))
+      names(colors) <- names(barplot_data)
       colors[echs] <- "red"
       png(paste0(params[[4]], aracne_name, "_top_", params[[3]], "_echs_cosmic_enrichment_pvals.png"),
-          width = 1200, height = 1000, res = 130)
-      plot(-log10(all_enrichment_pvs), pch = 19, col = colors,
-           main = paste(aracne_name, "enrichment p-values"),
-           xlab = "All the hubs in the network",
-           ylab = "-log10(Enrichment p-values)")
-      legend("topright", legend = c(paste0("Top ", params[[3]], " ECHs"), "Others"), col=c("red", "black"), pch = 19)
+          width = 2000, height = 1400, res = 130)
+      barplot(barplot_data, col = colors, border = colors,
+              main = paste(toupper(aracne_name), "Comic Cancer Gene Census Enrichment"),
+              xaxt = "n", ylim = c(min(barplot_data, na.rm=TRUE)*1.3, max(barplot_data, na.rm=TRUE)*1.3),
+              xlab = "",
+              ylab = "log10(Enrichment p-values)")
+      legend("topright", legend = c(paste0("Top ", params[[3]], " ECHs"), "Others"), col=c("red", "black"), lty = 1)
       dev.off()
     }
     
   }
   
-  # ***************************** which = investigate_echs *****************************
-  # 
+  # ***************************** which = viper_cosmic_analysis *****************************
+  # Examine significancy of target genes of the high Viper activity hubs based on
+  # enrichment with Cosmic Cancer Gene Census (CGC). In each tissue, for all the regulons,
+  # compute how many of those regulons are enriched with the CGC. Using Fisher's exact test,
+  # calculate p-value of the top N hubs (similar to pahtway analysis in each regulon x N).
+  # Plus, calculate p-values of all the regulons in each network and plot their p-values.
+  # The result will be written as TXT and PNG under the params[[4]] directory.
+  # This is similar to "which = ech_cosmic_analysis" but this time, high viper activity
+  # hubs will be used instead of highly exclusively conserved hubs. 
   #
-  # params[[1]]: The file path of the GSEA result table file
+  # params[[1]]: The file path of the Aracne RDA file (All_62_ARACNE.rda)
   #              (a character vector of length 1)
-  # params[[2]]: FDR cut-off for determining the significant group
+  # params[[2]]: The file path of the Viper profile RDA file (All_12_GTEx_vs_TCGA_ViperMats.rda)
+  #              (a character vector of length 1)
+  # params[[3]]: The file path of Cosmic Cancer Gene Census
+  #              (a character vector of length 1)
+  # params[[4]]: The number of top Viper activity hubs that will be tested
   #              (a number)
-  # e.g., params=list("//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/results/exclusive_conservation/ECH/reg_exclusivity/top_100_hubs/TCGA_BRCA_GTEX_BREAST/ECH_Enrichment_With_Viper_Profiles.txt",
-  #                   0.01)
-  # e.g., params=list("./results/exclusive_conservation/ECH/reg_exclusivity/top_100_hubs/TCGA_BRCA_GTEX_BREAST/ECH_Enrichment_With_Viper_Profiles.txt",
-  #                   0.01)
+  # params[[5]]: Directory path for the results
+  #              (a character vector of length 1)
+  #
+  # e.g., params=list("//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_62_ARACNE.rda",
+  #                   "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_12_GTEx_vs_TCGA_ViperMats.rda",
+  #                   "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/Cosmic/Cosmic_Census_100419_all.tsv",
+  #                   100,
+  #                   "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/viper/TCGA/Cosmic/")
+  # e.g., params=list("./data/RDA_Files/All_62_ARACNE.rda",
+  #                   "./data/RDA_Files/All_12_GTEx_vs_TCGA_ViperMats.rda",
+  #                   "./data/Cosmic/Cosmic_Census_100419_all.tsv",
+  #                   100,
+  #                   "./results/viper/TCGA/Cosmic/")
   
-  if (which == "investigate_echs") {
+  if (which == "viper_cosmic_analysis") {
     
     ### argument checking
     assertString(params[[1]])
-    assertNumeric(params[[2]])
+    assertString(params[[2]])
+    assertString(params[[3]])
+    assertNumeric(params[[4]])
+    assertString(params[[5]])
     
-    ### load libraries
-    if(!require(ggbeeswarm, quietly = TRUE)) {
-      install.packages("ggbeeswarm")
-      require(ggbeeswarm, quietly = TRUE)
-    }
-    if(!require(ggpubr, quietly = TRUE)) {
-      install.packages("ggpubr")
-      require(ggpubr, quietly = TRUE)
-    }
-    if(!require(gridExtra, quietly = TRUE)) {
-      install.packages("gridExtra")
-      require(gridExtra, quietly = TRUE)
-    }
-    if(!require(survminer, quietly = TRUE)) {
-      install.packages("survminer")
-      require(survminer, quietly = TRUE)
-    }
-    if(!require(survival, quietly = TRUE)) {
-      install.packages("survival")
-      require(survival, quietly = TRUE)
-    }
-    if(!require(TCGAbiolinks, quietly = TRUE)) {
-      if (!requireNamespace("BiocManager", quietly = TRUE))
-        install.packages("BiocManager")
-      BiocManager::install("TCGAbiolinks")
-      require(TCGAbiolinks, quietly = TRUE)
-    }
+    ### load data
+    load(params[[1]])
+    load(params[[2]])
+    cgc <- read.table(file = params[[3]], header = TRUE, sep = "\t",
+                      stringsAsFactors = FALSE, check.names = FALSE)
     
-    
+    ### for every available tissue that has Viper profile
+    for(viper_name in names(vipermat)) {
+      ### get viper profile
+      viper_profile <- vipermat[[viper_name]]
+      
+      ### get Aracne network
+      aracne_name <- tolower(paste(strsplit(viper_name, split = "_", fixed = TRUE)[[1]][1:2], collapse = "_"))
+      aracne <- get(aracne_name)
+      
+      ### highest Viper NES hub matrix
+      viper_hub_mat <- matrix(NA, nrow(viper_profile), ncol(viper_profile))
+      colnames(viper_hub_mat) <- colnames(viper_profile)
+      for(colname in colnames(viper_hub_mat)) {
+        viper_hub_mat[,colname] <- names(viper_profile[,colname][order(-abs(viper_profile[,colname]))])
+      }
+      
+      ### give ranks to the hubs based on Viper NES across all samples
+      hub_ranks <- rep(0, nrow(viper_profile))
+      names(hub_ranks) <- rownames(viper_profile)
+      for(hub in names(hub_ranks)) {
+        for(colname in colnames(viper_hub_mat)) {
+          hub_ranks[hub] <- hub_ranks[hub] + which(viper_hub_mat[,colname] == hub)
+        }
+      }
+      hub_ranks <- hub_ranks[order(hub_ranks)]
+      
+      ### get top Viper activity hubs
+      top_viper_hubs <- names(hub_ranks)[1:params[[4]]]
+      
+      ### make an empty data frame
+      result_table <- data.frame(matrix(NA, params[[4]], 7))
+      colnames(result_table) <- c("Hub_Gene_Symbol", "Hub_Entrez_ID", "Enriched_Regulons_Gene_Symbol",
+                                  "Enriched_Regulons_Entrez_ID", "PVal", "Enrichment_Count", "Background")
+      
+      ### hub names
+      result_table$Hub_Entrez_ID <- top_viper_hubs
+      result_table$Hub_Gene_Symbol <- entrezIDtoSymbol(top_viper_hubs)
+      rownames(result_table) <- top_viper_hubs
+      
+      ### Fisher's exact test for each hub
+      for(hub in top_viper_hubs) {
+        ### get target genes
+        target_genes <- rownames(aracne[[2]][[hub]])
+        
+        ### compute enriched genes
+        enriched_genes <- intersect(target_genes, as.character(cgc$`Entrez GeneId`))
+        if(length(enriched_genes) > 0) {
+          result_table[hub,"Enriched_Regulons_Entrez_ID"] <- paste(enriched_genes, collapse = "/")
+          result_table[hub,"Enriched_Regulons_Gene_Symbol"] <- paste(entrezIDtoSymbol(enriched_genes), collapse = "/")
+          result_table[hub,"Enrichment_Count"] <- paste0(length(enriched_genes), "/", length(target_genes))
+          
+          x <- length(enriched_genes)
+        } else {
+          result_table[hub,"Enrichment_Count"] <- paste0("0", "/", length(target_genes))
+          
+          x <- 0
+        }
+        result_table[hub,"Background"] <- paste0(nrow(cgc), "/", total_geneNum)
+        
+        ### calculate p-value
+        ### Fisher's exact test
+        ###
+        ###                 regulon   no-regulon
+        ###               -----------------------
+        ### cancer gene   |   X           Y
+        ### no-cancer gene|   Z           W
+        y <- nrow(cgc) - x
+        z <- length(target_genes) - x
+        w <- total_geneNum - x - y - z
+        result_table[hub,"PVal"] <- fisher.test(matrix(c(x, z, y, w), 2, 2))$p.value
+      }
+      
+      ### print out the result table
+      write.table(result_table, file = paste0(params[[5]], aracne_name, "_tvh_cosmic_enrichment.txt"),
+                  sep = "\t", row.names = FALSE)
+      
+      ### compute Fisher's exact test p-values for all the hubs in the Aracne network
+      all_hubs <- rownames(aracne[[1]])
+      all_enrichment_pvs <- rep(0, length(all_hubs))
+      names(all_enrichment_pvs) <- all_hubs
+      for(hub in all_hubs) {
+        ### get target genes
+        target_genes <- rownames(aracne[[2]][[hub]])
+        
+        ### compute enriched genes
+        enriched_genes <- intersect(target_genes, as.character(cgc$`Entrez GeneId`))
+        
+        ### calculate p-value
+        ### Fisher's exact test
+        ###
+        ###                 regulon   no-regulon
+        ###               -----------------------
+        ### cancer gene   |   X           Y
+        ### no-cancer gene|   Z           W
+        x <- length(enriched_genes)
+        y <- nrow(cgc) - x
+        z <- length(target_genes) - x
+        w <- total_geneNum - x - y - z
+        
+        ### Fisher's exact test p-value
+        all_enrichment_pvs[hub] <- fisher.test(matrix(c(x, z, y, w), 2, 2))$p.value
+      }
+      
+      ### plot all the counts
+      barplot_data <- all_enrichment_pvs[order(all_enrichment_pvs)]
+      barplot_data <- log10(barplot_data)
+      barplot_data[top_viper_hubs] <- -barplot_data[top_viper_hubs]
+      colors <- rep("black", length(barplot_data))
+      names(colors) <- names(barplot_data)
+      colors[top_viper_hubs] <- "red"
+      png(paste0(params[[5]], aracne_name, "_top_", params[[4]], "_tvhs_cosmic_enrichment_pvals.png"),
+          width = 2000, height = 1400, res = 130)
+      barplot(barplot_data, col = colors, border = colors,
+              main = paste(toupper(aracne_name), "Comic Cancer Gene Census Enrichment"),
+              xaxt = "n", ylim = c(min(barplot_data, na.rm=TRUE)*1.3, max(barplot_data, na.rm=TRUE)*1.3),
+              xlab = "",
+              ylab = "log10(Enrichment p-values)")
+      legend("topright", legend = c(paste0("Top ", params[[4]], " ECHs"), "Others"), col=c("red", "black"), lty = 1)
+      dev.off()
+    }
     
   }
   
