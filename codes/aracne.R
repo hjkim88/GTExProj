@@ -9725,7 +9725,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
         all_enrichment_pvs[hub] <- fisher.test(matrix(c(x, z, y, w), 2, 2))$p.value
       }
       
-      ### plot all the counts
+      ### plot all the hubs
       barplot_data <- all_enrichment_pvs[order(all_enrichment_pvs)]
       barplot_data <- log10(barplot_data)
       barplot_data[echs] <- -barplot_data[echs]
@@ -9741,6 +9741,13 @@ oneOffs<- function (which = "freq_mods", params=NULL){
               ylab = "log10(Enrichment p-values)")
       legend("topright", legend = c(paste0("Top ", params[[3]], " ECHs"), "Others"), col=c("red", "black"), lty = 1)
       dev.off()
+      
+      ### plot enrichment
+      input <- list(echs)
+      names(input) <- paste0(aracne_name, "_top_", params[[4]], "_echs_cosmic_enrichment_GSEA")
+      temp <- run_gsea(gene_list = input, signature = list(abs(barplot_data)),
+                       printPlot = TRUE, fdr_cutoff = 1,
+                       printPath = paste0(params[[4]]))
     }
     
   }
@@ -9895,7 +9902,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
         all_enrichment_pvs[hub] <- fisher.test(matrix(c(x, z, y, w), 2, 2))$p.value
       }
       
-      ### plot all the counts
+      ### plot all the hubs
       barplot_data <- all_enrichment_pvs[order(all_enrichment_pvs)]
       barplot_data <- log10(barplot_data)
       barplot_data[top_viper_hubs] <- -barplot_data[top_viper_hubs]
@@ -9911,6 +9918,13 @@ oneOffs<- function (which = "freq_mods", params=NULL){
               ylab = "log10(Enrichment p-values)")
       legend("topright", legend = c(paste0("Top ", params[[4]], " ECHs"), "Others"), col=c("red", "black"), lty = 1)
       dev.off()
+      
+      ### plot enrichment
+      input <- list(top_viper_hubs)
+      names(input) <- paste0(aracne_name, "_top_", params[[4]], "_tvhs_cosmic_enrichment_GSEA")
+      temp <- run_gsea(gene_list = input, signature = list(abs(barplot_data)),
+                printPlot = TRUE, fdr_cutoff = 1,
+                printPath = paste0(params[[5]]))
     }
     
   }
