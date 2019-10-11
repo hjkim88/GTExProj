@@ -2426,9 +2426,6 @@ run_gsea <- function(gene_list,
   sIdx <- which(gsea_result$padj < fdr_cutoff)
   if(printPlot && length(sIdx) > 0) {
     for(i in sIdx) {
-      ### Save default graphical parameters
-      def.par <- par(no.readonly = TRUE)
-      
       ### get required values ready
       if(length(signature) > 1) {
         geneset <- gene_list[[1]]
@@ -2444,6 +2441,7 @@ run_gsea <- function(gene_list,
       if(is.null(fileName)) {
         fileName <- paste0("GSEA_Plot_", i)
       }
+      stats <- stats[!is.na(stats)]
       gsea.hit.indices <- which(names(stats) %in% geneset)
       es.temp <- calcGseaStat(stats, gsea.hit.indices, returnAllExtremes = TRUE)
       if(es.temp$res >= 0) {
@@ -2535,9 +2533,6 @@ run_gsea <- function(gene_list,
       
       ### print out the file
       dev.off()
-      
-      ### Reset to default graphical parameters
-      par(def.par)
     }
   }
   
