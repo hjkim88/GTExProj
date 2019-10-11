@@ -9737,17 +9737,34 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       barplot(barplot_data, col = colors, border = colors,
               main = paste(toupper(aracne_name), "Comic Cancer Gene Census Enrichment"),
               xaxt = "n", ylim = c(min(barplot_data, na.rm=TRUE)*1.3, max(barplot_data, na.rm=TRUE)*1.3),
-              xlab = "",
+              xlab = "All the hubs in the Aracne network",
               ylab = "log10(Enrichment p-values)")
       legend("topright", legend = c(paste0("Top ", params[[3]], " ECHs"), "Others"), col=c("red", "black"), lty = 1)
       dev.off()
       
       ### plot enrichment
       input <- list(echs)
-      names(input) <- paste0(aracne_name, "_top_", params[[4]], "_echs_cosmic_enrichment_GSEA")
+      names(input) <- paste0(aracne_name, "_top_", params[[3]], "_echs_cosmic_enrichment_GSEA")
       temp <- run_gsea(gene_list = input, signature = list(abs(barplot_data)),
                        printPlot = TRUE, fdr_cutoff = 1,
                        printPath = paste0(params[[4]]))
+      
+      ### plot all the hubs (ordering based on regulon size)
+      barplot_data <- barplot_data[all_hubs]
+      barplot_data <- -abs(barplot_data)
+      barplot_data[echs] <- -barplot_data[echs]
+      colors <- rep("black", length(barplot_data))
+      names(colors) <- names(barplot_data)
+      colors[echs] <- "red"
+      png(paste0(params[[4]], aracne_name, "_top_", params[[3]], "_echs_cosmic_enrichment_pvals_RS.png"),
+          width = 2000, height = 1400, res = 130)
+      barplot(barplot_data, col = colors, border = colors,
+              main = paste(toupper(aracne_name), "Comic Cancer Gene Census Enrichment"),
+              xaxt = "n", ylim = c(min(barplot_data, na.rm=TRUE)*1.3, max(barplot_data, na.rm=TRUE)*1.3),
+              xlab = "All the hubs in the Aracne network (Ordered by regulon size)",
+              ylab = "log10(Enrichment p-values)")
+      legend("topright", legend = c(paste0("Top ", params[[3]], " ECHs"), "Others"), col=c("red", "black"), lty = 1)
+      dev.off()
     }
     
   }
@@ -9914,7 +9931,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       barplot(barplot_data, col = colors, border = colors,
               main = paste(toupper(aracne_name), "Comic Cancer Gene Census Enrichment"),
               xaxt = "n", ylim = c(min(barplot_data, na.rm=TRUE)*1.3, max(barplot_data, na.rm=TRUE)*1.3),
-              xlab = "",
+              xlab = "All the hubs in the Aracne network",
               ylab = "log10(Enrichment p-values)")
       legend("topright", legend = c(paste0("Top ", params[[4]], " ECHs"), "Others"), col=c("red", "black"), lty = 1)
       dev.off()
@@ -9925,6 +9942,23 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       temp <- run_gsea(gene_list = input, signature = list(abs(barplot_data)),
                 printPlot = TRUE, fdr_cutoff = 1,
                 printPath = paste0(params[[5]]))
+      
+      ### plot all the hubs (ordering based on regulon size)
+      barplot_data <- barplot_data[all_hubs]
+      barplot_data <- -abs(barplot_data)
+      barplot_data[top_viper_hubs] <- -barplot_data[top_viper_hubs]
+      colors <- rep("black", length(barplot_data))
+      names(colors) <- names(barplot_data)
+      colors[top_viper_hubs] <- "red"
+      png(paste0(params[[5]], aracne_name, "_top_", params[[4]], "_tvhs_cosmic_enrichment_pvals_RS.png"),
+          width = 2000, height = 1400, res = 130)
+      barplot(barplot_data, col = colors, border = colors,
+              main = paste(toupper(aracne_name), "Comic Cancer Gene Census Enrichment"),
+              xaxt = "n", ylim = c(min(barplot_data, na.rm=TRUE)*1.3, max(barplot_data, na.rm=TRUE)*1.3),
+              xlab = "All the hubs in the Aracne network (Ordered by regulon size)",
+              ylab = "log10(Enrichment p-values)")
+      legend("topright", legend = c(paste0("Top ", params[[4]], " ECHs"), "Others"), col=c("red", "black"), lty = 1)
+      dev.off()
     }
     
   }
