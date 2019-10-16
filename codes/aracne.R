@@ -9600,6 +9600,264 @@ oneOffs<- function (which = "freq_mods", params=NULL){
     
   }
   
+  # ***************************** which = survival_ech_difference *****************************
+  # From which = exclusive_conservation_analysis of oneOffs(), we have GSEA result tables that
+  # represent how the selected hubs are enriched with the input signatures (i.e., Viper profiles).
+  # The table contains a column with sample names and a column of their GSEA FDRs.
+  # Here, we will divide the samples into two groups: good and bad survival groups and see
+  # their GSEA FDR differences.
+  #
+  # params[[1]]: The file path of the GSEA result table file
+  #              (a character vector of length 1)
+  # params[[2]]: The survival percentage threshold for determining good or bad survival
+  #              e.g., 
+  #              (a number)
+  # e.g., params=list("//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/results/exclusive_conservation/ECH/reg_exclusivity/top_100_hubs/TCGA_BRCA_GTEX_BREAST/ECH_Enrichment_With_Viper_Profiles.txt",
+  #                   0.01)
+  # e.g., params=list("./results/exclusive_conservation/ECH/reg_exclusivity/top_100_hubs/TCGA_BRCA_GTEX_BREAST/ECH_Enrichment_With_Viper_Profiles.txt",
+  #                   0.01)
+  
+  if (which == "survival_ech_difference") {
+    
+    ### argument checking
+    assertString(params[[1]])
+    assertNumeric(params[[2]])
+    
+    ### load libraries
+    if(!require(ggbeeswarm, quietly = TRUE)) {
+      install.packages("ggbeeswarm")
+      require(ggbeeswarm, quietly = TRUE)
+    }
+    if(!require(ggpubr, quietly = TRUE)) {
+      install.packages("ggpubr")
+      require(ggpubr, quietly = TRUE)
+    }
+    if(!require(gridExtra, quietly = TRUE)) {
+      install.packages("gridExtra")
+      require(gridExtra, quietly = TRUE)
+    }
+    if(!require(survminer, quietly = TRUE)) {
+      install.packages("survminer")
+      require(survminer, quietly = TRUE)
+    }
+    if(!require(survival, quietly = TRUE)) {
+      install.packages("survival")
+      require(survival, quietly = TRUE)
+    }
+    if(!require(TCGAbiolinks, quietly = TRUE)) {
+      if (!requireNamespace("BiocManager", quietly = TRUE))
+        install.packages("BiocManager")
+      BiocManager::install("TCGAbiolinks")
+      require(TCGAbiolinks, quietly = TRUE)
+    }
+    
+    ### load GSEA result table
+    gsea_result <- read.table(file = params[[1]], header = TRUE, sep = "\t",
+                              stringsAsFactors = FALSE, check.names = FALSE)
+    
+    ### get the TCGA tissue name from params[[1]]
+    tissue <- strsplit(params[[1]], split = "/", fixed = TRUE)[[1]]
+    tissue <- tissue[length(tissue)-1]
+    tissue <- strsplit(tissue, split = "_", fixed = TRUE)[[1]][2]
+    tissue <- paste0("TCGA-", tissue)
+    
+    ### load TCGA clinical info
+    tcga_clinical_info <- GDCquery_clinic(project = tissue, type = "clinical")
+    rownames(tcga_clinical_info) <- tcga_clinical_info$submitter_id
+    
+    ### annotate patient ID to the result table
+    gsea_result$Patient_ID <- sapply(gsea_result$Viper_Sample, function(x) substr(x, 1, 12))
+    
+    ### annotate significance to the result table
+    gsea_result$Significance <- "NO"
+    gsea_result$Significance[which(gsea_result$Adj_PVal < params[[2]])] <- "YES"
+    
+    ### annotate survival to the result table
+    gsea_result$Day_To_Death <- tcga_clinical_info[gsea_result$Patient_ID, "days_to_death"]
+    gsea_result$Vital <- tcga_clinical_info[gsea_result$Patient_ID, "vital_status"]
+    
+    ### annotate primary_diagnosis to the result table
+    gsea_result$Primary_Diagnosis <- tcga_clinical_info[gsea_result$Patient_ID, "primary_diagnosis"]
+    
+    ### annotate tumor_stage to the result table
+    gsea_result$Tumor_Stage <- tcga_clinical_info[gsea_result$Patient_ID, "tumor_stage"]
+    
+    ### annotate age_at_diagnosis to the result table
+    gsea_result$Age_At_Diagnosis <- tcga_clinical_info[gsea_result$Patient_ID, "age_at_diagnosis"]
+    
+    ### annotate prior_malignancy to the result table
+    gsea_result$Prior_Malignancy <- tcga_clinical_info[gsea_result$Patient_ID, "prior_malignancy"]
+    
+    ### annotate gender to the result table
+    gsea_result$Gender <- tcga_clinical_info[gsea_result$Patient_ID, "gender"]
+    
+    ### annotate race to the result table
+    gsea_result$Race <- tcga_clinical_info[gsea_result$Patient_ID, "race"]
+    
+    ### annotate age_at_index to the result table
+    gsea_result$Age_At_Index <- tcga_clinical_info[gsea_result$Patient_ID, "age_at_index"]
+    
+    ### annotate treatment_type to the result table
+    gsea_result$Treatment_Type <- tcga_clinical_info[gsea_result$Patient_ID, "treatment_type"]
+    
+    ### annotate treatment_or_therapy to the result table
+    gsea_result$Treatment_Or_Therapy <- tcga_clinical_info[gsea_result$Patient_ID, "treatment_or_therapy"]
+    
+    ### write out the result table
+    write.table(gsea_result, file = paste0(dirname(params[[1]]), "/ECH_Enrichment_With_Info.txt"),
+                sep = "\t", row.names = FALSE)
+    
+    
+    ### create a directory for the survival results
+    result_dir <- paste0(dirname(params[[1]]), "/survival/")
+    dir.create(result_dir)
+    
+    ### pie chart with vital status
+    pie_data <- data.frame(Vital = c("Alive", "Dead", "Alive", "Dead"),
+                           Significance = c("YES", "YES", "NO", "NO"),
+                           Number = c(length(intersect(which(gsea_result$Vital == "Alive"),
+                                                       which(gsea_result$Significance == "YES"))),
+                                      length(intersect(which(gsea_result$Vital == "Dead"),
+                                                       which(gsea_result$Significance == "YES"))),
+                                      length(intersect(which(gsea_result$Vital == "Alive"),
+                                                       which(gsea_result$Significance == "NO"))),
+                                      length(intersect(which(gsea_result$Vital == "Dead"),
+                                                       which(gsea_result$Significance == "NO")))),
+                           stringsAsFactors = FALSE, check.names = FALSE)
+    p1 <- ggplot(data = pie_data[which(pie_data$Significance == "YES"),],
+                 aes(x = "", y = Number, fill = Vital)) +
+      theme_minimal() +
+      theme(plot.title = element_text(hjust = 0.5, color = "black")) +
+      geom_bar(stat = "identity", width = 1) +
+      coord_polar(theta="y") +
+      geom_text(aes(label = pie_data$Number[which(pie_data$Significance == "YES")]),
+                position = position_stack(vjust = 0.5)) +
+      labs(x = NULL, y = NULL, title = "GSEA FDR < 0.01")
+    p2 <- ggplot(data = pie_data[which(pie_data$Significance == "NO"),],
+                 aes(x = "", y = Number, fill = Vital)) +
+      theme_minimal() +
+      theme(plot.title = element_text(hjust = 0.5, color = "black")) +
+      geom_bar(stat = "identity", width = 1) +
+      coord_polar(theta="y") +
+      geom_text(aes(label = pie_data$Number[which(pie_data$Significance == "NO")]),
+                position = position_stack(vjust = 0.5)) +
+      labs(x = NULL, y = NULL, title = "GSEA FDR >= 0.01")
+    
+    ### arrange the plots and print out
+    g1 <- arrangeGrob(p1, p2, layout_matrix = rbind(c(1, 2), c(1, 2)),
+                      top = paste0("Vital Status Difference Between Two Sample Groups"))
+    ggsave(file = paste0(result_dir, "pie_chart_vital_status_", tissue, ".png"), g1, width = 20, height = 12)
+    
+    if(length(unique(gsea_result$Vital)) > 1 && length(unique(gsea_result$Significance)) > 1) {
+      ### beeswarm plot with the day_to_death
+      ggplot(gsea_result[which(!is.na(gsea_result$Day_To_Death)),], aes_string(x="Significance", y="Day_To_Death")) +
+        theme_classic(base_size = 16) +
+        geom_boxplot() +
+        geom_beeswarm(aes_string(color="Significance"), na.rm = TRUE) +
+        stat_compare_means() +
+        labs(x = paste0("GSEA FDR < ", params[[2]]), y = "Survival (Days)") +
+        theme(legend.position = "None")
+      ggsave(filename = paste0(result_dir, "beeswarm_plot_survival(days)_", tissue, ".png"), width = 12, height = 10)
+      
+      ### survival plot with the day_to_death
+      isSurvPlot <- TRUE
+      unique_vital <- unique(gsea_result$Vital)
+      unique_sig <- unique(gsea_result$Significance)
+      for(i in 1:length(unique_vital)) {
+        for(j in 1:length(unique_sig)) {
+          if(length(intersect(which(gsea_result$Vital == unique_vital[i]),
+                              which(gsea_result$Significance == unique_sig[j]))) < 2) {
+            isSurvPlot <- FALSE
+            break
+          }
+        }
+      }
+      if(isSurvPlot) {
+        gsea_result$Day_To_Death <- as.numeric(gsea_result$Day_To_Death)
+        gsea_result$Vital[gsea_result$Vital == "Alive"] <- 0
+        gsea_result$Vital[gsea_result$Vital == "Dead"] <- 1
+        gsea_result$Vital <- as.numeric(gsea_result$Vital)
+        
+        gsea_result$Significance[which(gsea_result$Significance == "YES")] <- paste0("GSEA FDR < ", params[[2]])
+        gsea_result$Significance[which(gsea_result$Significance == "NO")] <- paste0("GSEA FDR >= ", params[[2]])
+        
+        fit <- survfit(as.formula(paste("Surv(Day_To_Death, Vital)", "~", "Significance")), data = gsea_result)
+        p3 <- ggsurvplot(
+          fit,
+          data = gsea_result,
+          title = paste0("Survival Differences Between Two Groups In ", tissue),
+          legend.labs = levels(as.factor(gsea_result[,"Significance"])),
+          risk.table = TRUE,
+          tables.col = "strata",
+          pval = TRUE,
+          conf.int = TRUE,
+          conf.int.style = "ribbon",
+          xlab = "Time in Days",
+          break.time.by = round(max(gsea_result$Day_To_Death, na.rm = TRUE)/5),
+          ggtheme = theme_classic(),
+          risk.table.y.text.col = TRUE,
+          risk.table.height = 0.25,
+          risk.table.y.text = FALSE,
+          ncensor.plot = FALSE,
+          ncensor.plot.height = 0.25
+        )
+        ggsave(filename = paste0(result_dir, "survival_plot_", tissue, ".png"),
+               plot = print(p3), width = 12, height = 10)
+      }
+    }
+    
+    
+    ### for every newly added column, compare the values
+    for(column in colnames(gsea_result)[11:19]) {
+      ### create a directory for the additional results
+      result_dir <- paste0(dirname(params[[1]]), "/", column, "/")
+      dir.create(result_dir) 
+      
+      ### if it's integer column, compare the values between [FDR < 0.01] vs [FDR >= 0.01]
+      ### if it's categorical charater column, compare FDRs of the unique values of the column
+      if(class(gsea_result[,column]) == "integer") {
+        if(length(unique(gsea_result$Significance)) > 1) {
+          ### beeswarm plot
+          ggplot(gsea_result[which(!is.na(gsea_result[,column])),], aes_string(x="Significance", y=column)) +
+            theme_classic(base_size = 16) +
+            geom_boxplot() +
+            geom_beeswarm(aes_string(color="Significance"), na.rm = TRUE) +
+            stat_compare_means() +
+            labs(x = paste0("GSEA FDR < ", params[[2]]), y = column) +
+            theme(legend.position = "None")
+          ggsave(filename = paste0(result_dir, "beeswarm_plot_", column, "_", tissue, ".png"), width = 12, height = 10)
+        }
+      } else if(class(gsea_result[,column]) == "character") {
+        if(length(unique(gsea_result[,column])) > 1) {
+          ### only retain samples that have the same value more than 5 in total
+          retain_idx <- NULL
+          for(unique_value in unique(gsea_result[,column])) {
+            tempIdx <- which(gsea_result[,column] == unique_value)
+            if(length(tempIdx) > 5) {
+              retain_idx <- c(retain_idx, tempIdx)
+            }
+          }
+          retain_idx <- intersect(retain_idx, which(!is.na(gsea_result[,"Adj_PVal"])))
+          
+          ### get median for each group
+          medians <- aggregate(as.formula(paste0("Adj_PVal ~ ", column)), gsea_result[retain_idx,], median)
+          medians$Adj_PVal <- round(medians$Adj_PVal, 5)
+          
+          ### beeswarm plot
+          ggplot(gsea_result[retain_idx,], aes_string(x=column, y="Adj_PVal")) +
+            theme_classic(base_size = 16) +
+            geom_boxplot(outlier.shape = NA) +
+            geom_text(data = medians, aes(label = Adj_PVal, y = Adj_PVal + 0.5)) +
+            stat_compare_means() +
+            labs(x = column, y = "GSEA FDR") +
+            theme(legend.position = "None", axis.text.x = element_text(angle = 90, hjust = 1))
+          ggsave(filename = paste0(result_dir, "beeswarm_plot_", column, "_", tissue, ".png"), width = 12, height = 10)
+        }
+      }
+    }
+    
+  }
+  
   # ***************************** which = ech_cosmic_analysis *****************************
   # Examine significancy of target genes of the exclusively conserved hubs based on
   # enrichment with Cosmic Cancer Gene Census (CGC). In each tissue, for all the regulons,
@@ -9963,7 +10221,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
               xaxt = "n", ylim = c(min(barplot_data, na.rm=TRUE)*1.3, max(barplot_data, na.rm=TRUE)*1.3),
               xlab = "All the hubs in the Aracne network (Ordered by regulon size)",
               ylab = "log10(Enrichment p-values)")
-      legend("topright", legend = c(paste0("Top ", params[[4]], "Viper Hubs"), "Others"), col=c("red", "black"), lty = 1)
+      legend("topright", legend = c(paste0("Top ", params[[4]], " Viper Hubs"), "Others"), col=c("red", "black"), lty = 1)
       dev.off()
     }
     
