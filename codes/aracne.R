@@ -9651,6 +9651,12 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       ### get Aracne network
       aracne <- get(aracne_name)
       
+      ### get total genes in the network
+      interactome_total_genes <- as.character(getInteractomeGenes(aracne_name, count = FALSE))
+      
+      ### get cancer genes in the network
+      interactome_cancer_genes <- intersect(interactome_total_genes, as.character(cgc$`Entrez GeneId`))
+      
       ### make an empty data frame
       result_table <- data.frame(matrix(NA, params[[3]], 7))
       colnames(result_table) <- c("Hub_Gene_Symbol", "Hub_Entrez_ID", "Enriched_Regulons_Gene_Symbol",
@@ -9667,19 +9673,15 @@ oneOffs<- function (which = "freq_mods", params=NULL){
         target_genes <- rownames(aracne[[2]][[hub]])
         
         ### compute enriched genes
-        enriched_genes <- intersect(target_genes, as.character(cgc$`Entrez GeneId`))
+        enriched_genes <- intersect(target_genes, interactome_cancer_genes)
         if(length(enriched_genes) > 0) {
           result_table[hub,"Enriched_Regulons_Entrez_ID"] <- paste(enriched_genes, collapse = "/")
           result_table[hub,"Enriched_Regulons_Gene_Symbol"] <- paste(entrezIDtoSymbol(enriched_genes), collapse = "/")
           result_table[hub,"Enrichment_Count"] <- paste0(length(enriched_genes), "/", length(target_genes))
-          
-          x <- length(enriched_genes)
         } else {
           result_table[hub,"Enrichment_Count"] <- paste0("0", "/", length(target_genes))
-          
-          x <- 0
         }
-        result_table[hub,"Background"] <- paste0(nrow(cgc), "/", total_geneNum)
+        result_table[hub,"Background"] <- paste0(length(interactome_cancer_genes), "/", length(interactome_total_genes))
         
         ### calculate p-value
         ### Fisher's exact test
@@ -9688,10 +9690,11 @@ oneOffs<- function (which = "freq_mods", params=NULL){
         ###               -----------------------
         ### cancer gene   |   X           Y
         ### no-cancer gene|   Z           W
-        y <- nrow(cgc) - x
+        x <- length(enriched_genes)
+        y <- length(interactome_cancer_genes) - x
         z <- length(target_genes) - x
-        w <- total_geneNum - x - y - z
-        result_table[hub,"PVal"] <- fisher.test(matrix(c(x, z, y, w), 2, 2))$p.value
+        w <- length(interactome_total_genes) - x - y - z
+        result_table[hub,"PVal"] <- fisher.test(matrix(c(x, z, y, w), 2, 2), alternative = "greater")$p.value
       }
       
       ### print out the result table
@@ -9707,7 +9710,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
         target_genes <- rownames(aracne[[2]][[hub]])
         
         ### compute enriched genes
-        enriched_genes <- intersect(target_genes, as.character(cgc$`Entrez GeneId`))
+        enriched_genes <- intersect(target_genes, interactome_cancer_genes)
         
         ### calculate p-value
         ### Fisher's exact test
@@ -9717,12 +9720,12 @@ oneOffs<- function (which = "freq_mods", params=NULL){
         ### cancer gene   |   X           Y
         ### no-cancer gene|   Z           W
         x <- length(enriched_genes)
-        y <- nrow(cgc) - x
+        y <- length(interactome_cancer_genes) - x
         z <- length(target_genes) - x
-        w <- total_geneNum - x - y - z
+        w <- length(interactome_total_genes) - x - y - z
         
         ### Fisher's exact test p-value
-        all_enrichment_pvs[hub] <- fisher.test(matrix(c(x, z, y, w), 2, 2))$p.value
+        all_enrichment_pvs[hub] <- fisher.test(matrix(c(x, z, y, w), 2, 2), alternative = "greater")$p.value
       }
       
       ### plot all the hubs
@@ -9825,6 +9828,12 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       aracne_name <- tolower(paste(strsplit(viper_name, split = "_", fixed = TRUE)[[1]][1:2], collapse = "_"))
       aracne <- get(aracne_name)
       
+      ### get total genes in the network
+      interactome_total_genes <- as.character(getInteractomeGenes(aracne_name, count = FALSE))
+      
+      ### get cancer genes in the network
+      interactome_cancer_genes <- intersect(interactome_total_genes, as.character(cgc$`Entrez GeneId`))
+      
       ### highest Viper NES hub matrix
       viper_hub_mat <- matrix(NA, nrow(viper_profile), ncol(viper_profile))
       colnames(viper_hub_mat) <- colnames(viper_profile)
@@ -9861,19 +9870,15 @@ oneOffs<- function (which = "freq_mods", params=NULL){
         target_genes <- rownames(aracne[[2]][[hub]])
         
         ### compute enriched genes
-        enriched_genes <- intersect(target_genes, as.character(cgc$`Entrez GeneId`))
+        enriched_genes <- intersect(target_genes, interactome_cancer_genes)
         if(length(enriched_genes) > 0) {
           result_table[hub,"Enriched_Regulons_Entrez_ID"] <- paste(enriched_genes, collapse = "/")
           result_table[hub,"Enriched_Regulons_Gene_Symbol"] <- paste(entrezIDtoSymbol(enriched_genes), collapse = "/")
           result_table[hub,"Enrichment_Count"] <- paste0(length(enriched_genes), "/", length(target_genes))
-          
-          x <- length(enriched_genes)
         } else {
           result_table[hub,"Enrichment_Count"] <- paste0("0", "/", length(target_genes))
-          
-          x <- 0
         }
-        result_table[hub,"Background"] <- paste0(nrow(cgc), "/", total_geneNum)
+        result_table[hub,"Background"] <- paste0(length(interactome_cancer_genes), "/", length(interactome_total_genes))
         
         ### calculate p-value
         ### Fisher's exact test
@@ -9882,10 +9887,11 @@ oneOffs<- function (which = "freq_mods", params=NULL){
         ###               -----------------------
         ### cancer gene   |   X           Y
         ### no-cancer gene|   Z           W
-        y <- nrow(cgc) - x
+        x <- length(enriched_genes)
+        y <- length(interactome_cancer_genes) - x
         z <- length(target_genes) - x
-        w <- total_geneNum - x - y - z
-        result_table[hub,"PVal"] <- fisher.test(matrix(c(x, z, y, w), 2, 2))$p.value
+        w <- length(interactome_total_genes) - x - y - z
+        result_table[hub,"PVal"] <- fisher.test(matrix(c(x, z, y, w), 2, 2), alternative = "greater")$p.value
       }
       
       ### print out the result table
@@ -9901,7 +9907,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
         target_genes <- rownames(aracne[[2]][[hub]])
         
         ### compute enriched genes
-        enriched_genes <- intersect(target_genes, as.character(cgc$`Entrez GeneId`))
+        enriched_genes <- intersect(target_genes, interactome_cancer_genes)
         
         ### calculate p-value
         ### Fisher's exact test
@@ -9911,12 +9917,12 @@ oneOffs<- function (which = "freq_mods", params=NULL){
         ### cancer gene   |   X           Y
         ### no-cancer gene|   Z           W
         x <- length(enriched_genes)
-        y <- nrow(cgc) - x
+        y <- length(interactome_cancer_genes) - x
         z <- length(target_genes) - x
-        w <- total_geneNum - x - y - z
+        w <- length(interactome_total_genes) - x - y - z
         
         ### Fisher's exact test p-value
-        all_enrichment_pvs[hub] <- fisher.test(matrix(c(x, z, y, w), 2, 2))$p.value
+        all_enrichment_pvs[hub] <- fisher.test(matrix(c(x, z, y, w), 2, 2), alternative = "greater")$p.value
       }
       
       ### plot all the hubs
@@ -9933,7 +9939,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
               xaxt = "n", ylim = c(min(barplot_data, na.rm=TRUE)*1.3, max(barplot_data, na.rm=TRUE)*1.3),
               xlab = "All the hubs in the Aracne network",
               ylab = "log10(Enrichment p-values)")
-      legend("topright", legend = c(paste0("Top ", params[[4]], " ECHs"), "Others"), col=c("red", "black"), lty = 1)
+      legend("topright", legend = c(paste0("Top ", params[[4]], " Viper Hubs"), "Others"), col=c("red", "black"), lty = 1)
       dev.off()
       
       ### plot enrichment
@@ -9957,7 +9963,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
               xaxt = "n", ylim = c(min(barplot_data, na.rm=TRUE)*1.3, max(barplot_data, na.rm=TRUE)*1.3),
               xlab = "All the hubs in the Aracne network (Ordered by regulon size)",
               ylab = "log10(Enrichment p-values)")
-      legend("topright", legend = c(paste0("Top ", params[[4]], " ECHs"), "Others"), col=c("red", "black"), lty = 1)
+      legend("topright", legend = c(paste0("Top ", params[[4]], "Viper Hubs"), "Others"), col=c("red", "black"), lty = 1)
       dev.off()
     }
     
