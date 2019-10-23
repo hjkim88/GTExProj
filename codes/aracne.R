@@ -9742,16 +9742,20 @@ oneOffs<- function (which = "freq_mods", params=NULL){
   #              (a character vector of length 1)
   # params[[3]]: The number of top ECHs that will be tested
   #              (a number)
-  # params[[4]]: Directory path for the results
+  # params[[4]]: The file path of the GTEx-TCGA tissue mapping info (GTEx_TCGA_Map.rda)
+  #              (a character vector of length 1)
+  # params[[5]]: Directory path for the results
   #              (a character vector of length 1)
   #
   # e.g., params=list("//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_62_ARACNE.rda",
   #                   "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/Cosmic/Cosmic_Census_100419_all.tsv",
   #                   100,
+  #                   "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/GTEx_TCGA_Map.rda",
   #                   "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/exclusive_conservation/ECH/Cosmic/")
   # e.g., params=list("./data/RDA_Files/All_62_ARACNE.rda",
   #                   "./data/Cosmic/Cosmic_Census_100419_all.tsv",
   #                   100,
+  #                   "./data/RDA_Files/GTEx_TCGA_Map.rda",
   #                   "./results/exclusive_conservation/ECH/Cosmic/")
   
   if (which == "ech_cosmic_analysis") {
@@ -9761,11 +9765,13 @@ oneOffs<- function (which = "freq_mods", params=NULL){
     assertString(params[[2]])
     assertNumeric(params[[3]])
     assertString(params[[4]])
+    assertString(params[[5]])
     
     ### load data
     load(params[[1]])
     cgc <- read.table(file = params[[2]], header = TRUE, sep = "\t",
                       stringsAsFactors = FALSE, check.names = FALSE)
+    load(params[[4]])
     
     ### get top ECHs
     oneOffs("generate_exclusivity_scores")
@@ -9826,10 +9832,10 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       }
       
       ### print out the result table
-      write.table(result_table, file = paste0(params[[4]], aracne_name, "_ech_cosmic_enrichment.txt"),
+      write.table(result_table, file = paste0(params[[5]], aracne_name, "_ech_cosmic_enrichment.txt"),
                   sep = "\t", row.names = FALSE)
       
-      ### compute Fisher's exact test p-values for all the hubs in the Aracne network
+      ### compute Fisher's exact test p-values for all the hubs in the TCGA Aracne network
       all_hubs <- rownames(aracne[[1]])
       all_enrichment_pvs <- rep(0, length(all_hubs))
       names(all_enrichment_pvs) <- all_hubs
@@ -9863,10 +9869,10 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       colors <- rep("black", length(barplot_data))
       names(colors) <- names(barplot_data)
       colors[echs] <- "red"
-      png(paste0(params[[4]], aracne_name, "_top_", params[[3]], "_echs_cosmic_enrichment_pvals.png"),
+      png(paste0(params[[5]], aracne_name, "_top_", params[[3]], "_echs_cosmic_enrichment_pvals.png"),
           width = 2000, height = 1400, res = 130)
       barplot(barplot_data, col = colors, border = colors,
-              main = paste(toupper(aracne_name), "Comic Cancer Gene Census Enrichment"),
+              main = paste(toupper(aracne_name), "Cosmic Cancer Gene Census Enrichment"),
               xaxt = "n", ylim = c(min(barplot_data, na.rm=TRUE)*1.3, max(barplot_data, na.rm=TRUE)*1.3),
               xlab = "All the hubs in the Aracne network",
               ylab = "log10(Enrichment p-values)")
@@ -9878,7 +9884,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       names(input) <- paste0(aracne_name, "_top_", params[[3]], "_echs_cosmic_enrichment_GSEA")
       temp <- run_gsea(gene_list = input, signature = list(abs(barplot_data)),
                        printPlot = TRUE, fdr_cutoff = 1,
-                       printPath = paste0(params[[4]]))
+                       printPath = paste0(params[[5]]))
       
       ### plot all the hubs (ordering based on regulon size)
       barplot_data <- barplot_data[all_hubs]
@@ -9887,15 +9893,105 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       colors <- rep("black", length(barplot_data))
       names(colors) <- names(barplot_data)
       colors[echs] <- "red"
-      png(paste0(params[[4]], aracne_name, "_top_", params[[3]], "_echs_cosmic_enrichment_pvals_RS.png"),
+      png(paste0(params[[5]], aracne_name, "_top_", params[[3]], "_echs_cosmic_enrichment_pvals_RS.png"),
           width = 2000, height = 1400, res = 130)
       barplot(barplot_data, col = colors, border = colors,
-              main = paste(toupper(aracne_name), "Comic Cancer Gene Census Enrichment"),
+              main = paste(toupper(aracne_name), "Cosmic Cancer Gene Census Enrichment"),
               xaxt = "n", ylim = c(min(barplot_data, na.rm=TRUE)*1.3, max(barplot_data, na.rm=TRUE)*1.3),
               xlab = "All the hubs in the Aracne network (Ordered by regulon size)",
               ylab = "log10(Enrichment p-values)")
       legend("topright", legend = c(paste0("Top ", params[[3]], " ECHs"), "Others"), col=c("red", "black"), lty = 1)
       dev.off()
+      
+      ### get GTEx Aracne name
+      gtex_aracne_name <- GTEx_TCGA_Map[which(GTEx_TCGA_Map[,"TCGA"] == strsplit(aracne_name, "_", TRUE)[[1]][2])[1],"GTEx"]
+      
+      if(!is.na(gtex_aracne_name)) {
+        ### get GTEx Aracne network
+        gtex_aracne <- get(gtex_aracne_name)
+        
+        ### get total genes in the GTEx network
+        gtex_interactome_total_genes <- as.character(getInteractomeGenes(gtex_aracne_name, count = FALSE))
+        
+        ### get cancer genes in the  GTEx network
+        gtex_interactome_cancer_genes <- intersect(gtex_interactome_total_genes, as.character(cgc$`Entrez GeneId`))
+        
+        ### compute Fisher's exact test p-values for all the hubs in the GTEx Aracne network
+        gtex_all_hubs <- rownames(gtex_aracne[[1]])
+        gtex_all_enrichment_pvs <- rep(0, length(gtex_all_hubs))
+        names(gtex_all_enrichment_pvs) <- gtex_all_hubs
+        for(hub in gtex_all_hubs) {
+          ### get target genes
+          target_genes <- rownames(gtex_aracne[[2]][[hub]])
+          
+          ### compute enriched genes
+          enriched_genes <- intersect(target_genes, gtex_interactome_cancer_genes)
+          
+          ### calculate p-value
+          ### Fisher's exact test
+          ###
+          ###                 regulon   no-regulon
+          ###               -----------------------
+          ### cancer gene   |   X           Y
+          ### no-cancer gene|   Z           W
+          x <- length(enriched_genes)
+          y <- length(gtex_interactome_cancer_genes) - x
+          z <- length(target_genes) - x
+          w <- length(gtex_interactome_total_genes) - x - y - z
+          
+          ### Fisher's exact test p-value
+          gtex_all_enrichment_pvs[hub] <- fisher.test(matrix(c(x, z, y, w), 2, 2), alternative = "greater")$p.value
+        }
+        
+        ### get common hubs between GTEx and TCGA networks
+        common_hubs <- intersect(all_hubs, gtex_all_hubs)
+        
+        ### plot all the hubs (top: TCGA - ordered, bottom: GTEx)
+        tcga_barplot_data <- all_enrichment_pvs[common_hubs]
+        tcga_barplot_data <- tcga_barplot_data[order(tcga_barplot_data)]
+        tcga_barplot_data <- -log10(tcga_barplot_data)
+        
+        gtex_barplot_data <- gtex_all_enrichment_pvs[names(tcga_barplot_data)]
+        gtex_barplot_data <- log10(gtex_barplot_data)
+        
+        png(paste0(params[[5]], aracne_name, "_top_", params[[3]], "_echs_cosmic_enrichment_pvals_tcga_ordered.png"),
+            width = 2000, height = 1400, res = 100)
+        par(mai = c(7, 0.5, 0.5, 0))
+        barplot(tcga_barplot_data, axes = FALSE, xaxt = "n")
+        barplot(gtex_barplot_data, add = TRUE, axes = FALSE, xaxt = "n")
+        abline(h = 0, col = "white")
+        mtext("TCGA ORDERED -log10(Enrichment p-values)", side = 2, at = 5)
+        mtext("GTEx log10(Enrichment p-values)", side = 2, at = -5)
+        mtext(paste(toupper(aracne_name), "Cosmic Cancer Gene Census Enrichment with Corresponding GTEx Hubs"), side = 3)
+        dev.off()
+        
+        ### plot all the hubs (top: TCGA, bottom: GTEx - ordered)
+        gtex_barplot_data <- gtex_barplot_data[order(gtex_barplot_data)]
+        tcga_barplot_data <- tcga_barplot_data[names(gtex_barplot_data)]
+        png(paste0(params[[5]], aracne_name, "_top_", params[[3]], "_echs_cosmic_enrichment_pvals_gtex_ordered.png"),
+            width = 2000, height = 1400, res = 100)
+        par(mai = c(7, 0.5, 0.5, 0))
+        barplot(tcga_barplot_data, axes = FALSE, xaxt = "n")
+        barplot(gtex_barplot_data, add = TRUE, axes = FALSE, xaxt = "n")
+        abline(h = 0, col = "white")
+        mtext("TCGA -log10(Enrichment p-values)", side = 2, at = 5)
+        mtext("GTEx ORDERED log10(Enrichment p-values)", side = 2, at = -6)
+        mtext(paste(toupper(aracne_name), "Cosmic Cancer Gene Census Enrichment with Corresponding GTEx Hubs"), side = 3)
+        dev.off()
+        
+        ### plot all the hubs (top: TCGA - ordered, bottom: GTEx - ordered)
+        tcga_barplot_data <- tcga_barplot_data[order(-tcga_barplot_data)]
+        png(paste0(params[[5]], aracne_name, "_top_", params[[3]], "_echs_cosmic_enrichment_pvals_not_matched.png"),
+            width = 2000, height = 1400, res = 100)
+        par(mai = c(7, 0.5, 0.5, 0))
+        barplot(tcga_barplot_data, axes = FALSE, xaxt = "n")
+        barplot(gtex_barplot_data, add = TRUE, axes = FALSE, xaxt = "n")
+        abline(h = 0, col = "white")
+        mtext("TCGA ORDERED -log10(Enrichment p-values)", side = 2, at = 5)
+        mtext("GTEx ORDERED log10(Enrichment p-values)", side = 2, at = -6)
+        mtext(paste(toupper(aracne_name), "Cosmic Cancer Gene Census Enrichment with GTEx Hubs - NOT MATCHED"), side = 3)
+        dev.off()
+      }
     }
     
   }
@@ -10063,7 +10159,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       png(paste0(params[[5]], aracne_name, "_top_", params[[4]], "_tvhs_cosmic_enrichment_pvals.png"),
           width = 2000, height = 1400, res = 130)
       barplot(barplot_data, col = colors, border = colors,
-              main = paste(toupper(aracne_name), "Comic Cancer Gene Census Enrichment"),
+              main = paste(toupper(aracne_name), "Cosmic Cancer Gene Census Enrichment"),
               xaxt = "n", ylim = c(min(barplot_data, na.rm=TRUE)*1.3, max(barplot_data, na.rm=TRUE)*1.3),
               xlab = "All the hubs in the Aracne network",
               ylab = "log10(Enrichment p-values)")
@@ -10087,7 +10183,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       png(paste0(params[[5]], aracne_name, "_top_", params[[4]], "_tvhs_cosmic_enrichment_pvals_RS.png"),
           width = 2000, height = 1400, res = 130)
       barplot(barplot_data, col = colors, border = colors,
-              main = paste(toupper(aracne_name), "Comic Cancer Gene Census Enrichment"),
+              main = paste(toupper(aracne_name), "Cosmic Cancer Gene Census Enrichment"),
               xaxt = "n", ylim = c(min(barplot_data, na.rm=TRUE)*1.3, max(barplot_data, na.rm=TRUE)*1.3),
               xlab = "All the hubs in the Aracne network (Ordered by regulon size)",
               ylab = "log10(Enrichment p-values)")
