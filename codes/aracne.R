@@ -8513,18 +8513,31 @@ oneOffs<- function (which = "freq_mods", params=NULL){
 	# regulons are conserved within interactomes from the same sample collection (GTEx or TCGA) 
 	# vs. across collections. A high exclusivity score means that a regulon is conserved more 
 	# strongly between pairs of GTEx or TCGA interactomes rather than between pairs involving 
-	# one interactome from each collection. Exclusivity scores are computed by summing up 
-	# log10(FET p-values) from the matrices in tfPairEnrich[[2]]. Specifically, for every hub gene
-	# we add up the hub's regulon conservation -log10(p-values) for all interactome pairs involving either
-	# two GTEx or two TCGA interactomes and then subtract -log10(p-values) for interactome pairs involving one	 
-	# nteractome from each collection. Scores are scaled to correct for differences in the numbers of pairs
-	# in the two categories and -Inf values are replaced by the smallest non-infinite value. Accordingly,
-	# high positive are indicative of regulons strongly conserved within but not across collections.
+	# one interactome from each collection. Exclusivity scores are computed in several ways:
+	# - by summing up log10(FET p-values) from the matrices in tfPairEnrich[[2]]. Specifically, 
+	# 		for every hub genewe add up the hub's regulon conservation -log10(p-values) for all 
+	#		interactome pairs involving either two GTEx or two TCGA interactomes and then subtract 
+	#		-log10(p-values) for interactome pairs involving one nteractome from each collection.
+	# -	by using a significance threshold T. In this option, we identify all interactome pairs
+	#		where the regulon conservation log10(FET p-values) is at most log1)(T) and count
+	#		the number A of such pairs involving either either two GTEx or two TCGA interactomes
+	#		and the number B involving one GTEx and one TCGA interactome. The enrichment score 
+	#		is then defined as (A-B).
+	# In all score computations, scores are scaled to correct for differences in the numbers of 
+	# pairs in the two categories and -Inf values are replaced by the smallest non-infinite value. 
+	# Accordingly, 	# high positive are indicative of regulons strongly conserved within but not 
+	# across collections.
+	#
+	# ARGUMENTS
+	# * params[[1]]:	character strings, specifying which enrichment score computations option to 
+	#		use. Available options are "FET_SUM" and "FET_COUNT"
+	# * params[[2]]:	a positive number no more than 1 (e.g., 1e-10), specifying the significance
+	#		threshold to use when params[[1]] = "FET_COUNT"
 	#
 	# The exclusivity scores are stored in the global variable "reg_exclusivity_scores".This is a
 	# named vector with one entry per hub gene, containing the computed scores, ranked in decreasing 
 	# score order. Vector names are entrez ids for the hub genes. The method also creates a couple
-	# moer global variables, used by the call makeGraphs(which="hub_FET_enrichment_boxplot").
+	# more global variables, used by the call makeGraphs(which="hub_FET_enrichment_boxplot").
 	if(which == "generate_exclusivity_scores"){
 		all_hubs = as.character(getInteractomeGenes(nets=varNames, count=FALSE, hubs_only = TRUE))
 		
@@ -8569,12 +8582,20 @@ oneOffs<- function (which = "freq_mods", params=NULL){
 		heter_scale = max(homog_num, heter_num) / heter_num
 		scores = rep(0, length(all_hubs))
 		names(scores) = all_hubs
+		if (params[[1]] == "FET_COUNT")
+			thresh = params[[2]]
 		for (hub in all_hubs){
 			fets = cons_mat[hub, ]
 			fets = replace(fets, fets==-Inf, minp)
-			scores[hub] = round(-sum(fets[i_pair_map %in% c("TCGA", "GTEX")])*homog_scale + 
-					sum(fets[i_pair_map %in% c("BOTH")])*heter_scale)
-		}
+			if (params[[1]] == "FET_SUM")
+				scores[hub] = round(-sum(fets[i_pair_map %in% c("TCGA", "GTEX")])*homog_scale + 
+								sum(fets[i_pair_map %in% c("BOTH")])*heter_scale)
+			else if (params[[1]] == "FET_COUNT")
+				scores[hub] = round(sum(fets[i_pair_map %in% c("TCGA", "GTEX")] <= log10(thresh))*homog_scale - 
+								sum(fets[i_pair_map %in% c("BOTH")] <= log10(thresh))*heter_scale)
+			else
+				stop("params[[1]] needs to assume a value from c('FET_SUM', 'FET_COUNT')")
+}
 		scores = sort(scores, decreasing = TRUE)	
 		
 		# Assign to global variables, to make accessible to other methods
@@ -8587,7 +8608,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
   # Create Viper activity score tables. This is similar to which = viper_acitivity_all, but
   # this is only for TCGA tissues and only for TCGA-GTEx mapping tissues.
   # Match each TCGA cancer A to its corresponding GTEx tissue B. Generate the viper profile
-  # for each sample in A by using as reference the “best” 100 samples from B, based on RIN value.
+  # for each sample in A by using as reference the "best" 100 samples from B, based on RIN value.
   # Before this analysis we need to re-normalize together all A samples and the 100 samples
   # in the B reference set. Also experiment with the using Combat to code the collection
   # of origin (TCGA or GTEx). I.e., run viper with and without combat for a TCGA tumor and
@@ -8770,7 +8791,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
   # Create Viper activity score tables. This is similar to which = viper_acitivity_all, but
   # this is only for TCGA tissues and only for TCGA-GTEx mapping tissues.
   # Match each TCGA cancer A to its corresponding GTEx tissue B. Generate the viper profile
-  # for each sample in A by using as reference the “best” 100 samples from B, based on RIN value.
+  # for each sample in A by using as reference the "best" 100 samples from B, based on RIN value.
   # For the null model, we employ gene expression data of GTEx and TCGA from Schultz's group.
   # They preprocessed GTEx and TCGA data with the same pipeline and batch corrected.
   #
@@ -8973,9 +8994,18 @@ oneOffs<- function (which = "freq_mods", params=NULL){
   #                     "./data/RDA_Files/All_12_GTEx_TCGA_DE_Results.rda",
   #                     0.01,
   #                     "./results/exclusive_conservation/")
+  # e.g., params = list("reg_exclusivity_scores", "NONE", NULL,
+  #                     "./data/RDA_Files/All_12_GTEx_vs_TCGA_ViperMats.rda",
+  #                     100,
+  #                     "./data/RDA_Files/TCGA_33_Driver_Mutation_Genes.rda",
+  #                     0.1,
+  #                     "./data/RDA_Files/All_12_GTEx_TCGA_DE_Results.rda",
+  #                     0.01,
+  #                     "./results/exclusive_conservation/")
   #
   # load("./data/RDA_Files/All_62_ARACNE.rda")
-  # oneOffs("generate_exclusivity_scores")
+  # oneOffs("generate_exclusivity_scores", params = list("FET_SUM"))
+  # oneOffs("generate_exclusivity_scores", params = list("FET_COUNT", 1e-20))
   # t <- regulonConservationMode(0.01)
   
   if(which == "exclusive_conservation_analysis") {
@@ -9007,6 +9037,12 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       require(xlsx, quietly = TRUE)
     }
     
+    ### load Viper activity scores
+    load(params[[4]])
+    
+    ### load driver mutation gene info
+    load(params[[6]])
+    
     if(params[[2]] != "None") {
       ### get exclusivity counts
       exclusivity_cnt <- get(params[[1]])
@@ -9021,9 +9057,6 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       #
       ### Question #1 for each TCGA tissue (Top Active Hubs from Viper)
       #
-      ### load Viper activity scores
-      load(params[[4]])
-      
       ### create a directory for the Q1 results
       dir.create(paste0(params[[10]], "viper"))
       
@@ -9094,9 +9127,6 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       #
       ### Question #2 for each TCGA tissue (Driver Mutation Genes)
       #
-      ### load driver mutation gene info
-      load(params[[6]])
-      
       ### create a directory for the Q1 results
       dir.create(paste0(params[[10]], "DMG"))
       
@@ -10235,7 +10265,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
                       stringsAsFactors = FALSE, check.names = FALSE)
     
     ### compute exclusivity scores of all the hubs
-    oneOffs("generate_exclusivity_scores")
+    oneOffs("generate_exclusivity_scores", params = list("FET_SUM"))
     
     ### get TCGA Aracne names
     tcga_aracne_names <- varNames[grep("tcga", varNames)]
@@ -10284,7 +10314,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       
       ### permutation test for getting a p-value (1-tail)
       set.seed(1234)
-      permu_result <- sapply(1:params[[4]], function(x) {
+      permu_result <- sapply(1:(params[[4]]-1), function(x) {
         random_hubs <- names(all_enrichment_pvs)[sample(length(all_enrichment_pvs), params[[3]])]
         return(sum(reg_exclusivity_scores[random_hubs]))
       })
@@ -10307,6 +10337,161 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       legend("topright", legend = c(paste0("Top ", params[[3]], " Cosmic-enriched Hubs"), "Others"), col=c("red", "black"), lty = 1)
       dev.off()
     }
+    
+    ### get GTEx Aracne names
+    gtex_aracne_names <- varNames[!grepl("tcga", varNames)]
+    
+    ### perform analysis for each GTEx tissue
+    for(aracne_name in gtex_aracne_names) {
+      ### get Aracne network
+      aracne <- get(aracne_name)
+      
+      ### get total genes in the network
+      interactome_total_genes <- as.character(getInteractomeGenes(aracne_name, count = FALSE))
+      
+      ### get cancer genes in the network
+      interactome_cancer_genes <- intersect(interactome_total_genes, as.character(cgc$`Entrez GeneId`))
+      
+      ### compute cosmic enrichment (Fisher's exact test p-values) for all the hubs in the GTEx Aracne network
+      all_hubs <- rownames(aracne[[1]])
+      all_enrichment_pvs <- rep(0, length(all_hubs))
+      names(all_enrichment_pvs) <- all_hubs
+      for(hub in all_hubs) {
+        ### get target genes
+        target_genes <- rownames(aracne[[2]][[hub]])
+        
+        ### compute enriched genes
+        enriched_genes <- intersect(target_genes, interactome_cancer_genes)
+        
+        ### calculate p-value
+        ### Fisher's exact test
+        ###
+        ###                 regulon   no-regulon
+        ###               -----------------------
+        ### cancer gene   |   X           Y
+        ### no-cancer gene|   Z           W
+        x <- length(enriched_genes)
+        y <- length(interactome_cancer_genes) - x
+        z <- length(target_genes) - x
+        w <- length(interactome_total_genes) - x - y - z
+        
+        ### Fisher's exact test p-value
+        all_enrichment_pvs[hub] <- fisher.test(matrix(c(x, z, y, w), 2, 2), alternative = "greater")$p.value
+      }
+      
+      ### get top cosmic enriched hubs
+      all_enrichment_pvs <- all_enrichment_pvs[order(all_enrichment_pvs)]
+      top_cosmic_hubs <- names(all_enrichment_pvs)[1:params[[3]]]
+      
+      ### permutation test for getting a p-value (1-tail)
+      set.seed(1234)
+      permu_result <- sapply(1:(params[[4]]-1), function(x) {
+        random_hubs <- names(all_enrichment_pvs)[sample(length(all_enrichment_pvs), params[[3]])]
+        return(sum(reg_exclusivity_scores[random_hubs]))
+      })
+      pVal <- (length(which(permu_result > sum(reg_exclusivity_scores[top_cosmic_hubs])))+1) / params[[4]]
+      
+      ### draw a plot
+      barplot_data <- -reg_exclusivity_scores
+      barplot_data[top_cosmic_hubs] <- -barplot_data[top_cosmic_hubs]
+      colors <- rep("black", length(barplot_data))
+      names(colors) <- names(barplot_data)
+      colors[top_cosmic_hubs] <- "red"
+      png(paste0(params[[5]], aracne_name, "_top_", params[[3]], "_cosmic_hubs_exclusivity_scores.png"),
+          width = 2000, height = 1400, res = 130)
+      barplot(barplot_data, col = colors, border = colors,
+              main = paste(toupper(aracne_name), "Cosmic Enriched Hubs on Exclusivity Scores", "\n",
+                           params[[4]], " Permutation P-Value = ", pVal),
+              xaxt = "n", ylim = c(min(barplot_data, na.rm=TRUE)*1.3, max(barplot_data, na.rm=TRUE)*1.3),
+              xlab = "All the hubs in the Aracne network",
+              ylab = "Regulon Exclusivity Scores")
+      legend("topright", legend = c(paste0("Top ", params[[3]], " Cosmic-enriched Hubs"), "Others"), col=c("red", "black"), lty = 1)
+      dev.off()
+    }
+    
+  }
+  
+  # ******************* which = highly_mutated_hubs_enrichment_with_exclusivity_score *******************
+  # This function examines exclusivity scores of the top highly mutated hubs.
+  # The top highly mutated hubs are computed by mutation counts per gene normalized by gene length.
+  # The results can tell whether the target genes regulated by highly mutated regulator gene also have
+  # large exclusivity scores or not.
+  #
+  # params[[1]]: The file path of the Aracne RDA file (All_62_ARACNE.rda)
+  #              (a character vector of length 1)
+  # params[[2]]: The file path of highly mutated genes list of TCGA tissues (TCGA_33_Top_Mutated_Genes.rda)
+  #              (a character vector of length 1)
+  # params[[3]]: The number of top highly mutated hubs that will be tested
+  #              (a number)
+  # params[[4]]: The number of permutation test for computing p-value
+  #              (an integer)
+  # params[[5]]: Directory path for the results
+  #              (a character vector of length 1)
+  #
+  # e.g., params=list("//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_62_ARACNE.rda",
+  #                   "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/TCGA_33_Top_Mutated_Genes.rda",
+  #                   100, 10000,
+  #                   "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/exclusive_conservation/ECH/reg_exclusivity/highly_mutated_hubs_enrichment_with_exclusivity_score/")
+  # e.g., params=list("./data/RDA_Files/All_62_ARACNE.rda",
+  #                   "./data/RDA_Files/TCGA_33_Top_Mutated_Genes.rda",
+  #                   100, 10000,
+  #                   "./results/exclusive_conservation/ECH/reg_exclusivity/highly_mutated_hubs_enrichment_with_exclusivity_score/")
+  
+  if (which == "highly_mutated_hubs_enrichment_with_exclusivity_score") {
+    
+    ### argument checking
+    assertString(params[[1]])
+    assertString(params[[2]])
+    assertNumeric(params[[3]])
+    assertIntegerish(params[[4]])
+    assertString(params[[5]])
+    
+    ### load data
+    load(params[[1]])
+    load(params[[2]])
+    
+    ### compute exclusivity scores of all the hubs
+    oneOffs("generate_exclusivity_scores", params = list("FET_SUM"))
+    
+    ### get TCGA Aracne names
+    tcga_aracne_names <- varNames[grep("tcga", varNames)]
+    
+    ### perform analysis for each TCGA tissue
+    for(aracne_name in tcga_aracne_names) {
+      ### get Aracne network
+      aracne <- get(aracne_name)
+      
+      ### get highly mutated hubs for the tissue
+      mutated_hubs <- geneSymbolToEntrezId(names(tcga_highly_mutated_genes[[toupper(aracne_name)]]))
+      mutated_hubs <- intersect(as.character(mutated_hubs), rownames(aracne[[1]]))
+      top_mutated_hubs <- mutated_hubs[1:params[[3]]]
+      
+      ### permutation test for getting a p-value (1-tail)
+      set.seed(1234)
+      permu_result <- sapply(1:(params[[4]]-1), function(x) {
+        random_hubs <- mutated_hubs[sample(length(mutated_hubs), params[[3]])]
+        return(sum(reg_exclusivity_scores[random_hubs]))
+      })
+      pVal <- (length(which(permu_result > sum(reg_exclusivity_scores[top_mutated_hubs])))+1) / params[[4]]
+      
+      ### draw a plot
+      barplot_data <- -reg_exclusivity_scores
+      barplot_data[top_mutated_hubs] <- -barplot_data[top_mutated_hubs]
+      colors <- rep("black", length(barplot_data))
+      names(colors) <- names(barplot_data)
+      colors[top_mutated_hubs] <- "red"
+      png(paste0(params[[5]], aracne_name, "_top_", params[[3]], "_top_mutated_hubs_exclusivity_scores.png"),
+          width = 2000, height = 1400, res = 130)
+      barplot(barplot_data, col = colors, border = colors,
+              main = paste(toupper(aracne_name), "Top Mutated Hubs on Exclusivity Scores", "\n",
+                           params[[4]], " Permutation P-Value = ", pVal),
+              xaxt = "n", ylim = c(min(barplot_data, na.rm=TRUE)*1.3, max(barplot_data, na.rm=TRUE)*1.3),
+              xlab = "All the hubs in the Aracne network",
+              ylab = "Regulon Exclusivity Scores")
+      legend("topright", legend = c(paste0("Top ", params[[3]], " Top-mutated Hubs"), "Others"), col=c("red", "black"), lty = 1)
+      dev.off()
+    }
+    
   }
   
 }
