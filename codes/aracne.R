@@ -10414,8 +10414,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
   # ******************* which = highly_mutated_hubs_enrichment_with_exclusivity_score *******************
   # This function examines exclusivity scores of the top highly mutated hubs.
   # The top highly mutated hubs are computed by mutation counts per gene normalized by gene length.
-  # The results can tell whether the target genes regulated by highly mutated regulator gene also have
-  # large exclusivity scores or not.
+  # The results can tell whether highly mutated hubs also have large exclusivity scores or not.
   #
   # params[[1]]: The file path of the Aracne RDA file (All_62_ARACNE.rda)
   #              (a character vector of length 1)
