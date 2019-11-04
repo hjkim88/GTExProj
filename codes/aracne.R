@@ -10238,16 +10238,20 @@ oneOffs<- function (which = "freq_mods", params=NULL){
   #              (a number)
   # params[[4]]: The number of permutation test for computing p-value
   #              (an integer)
-  # params[[5]]: Directory path for the results
+  # params[[5]]: The file path of the GTEx-TCGA tissue mapping info (GTEx_TCGA_Map.rda)
+  #              (a character vector of length 1)
+  # params[[6]]: Directory path for the results
   #              (a character vector of length 1)
   #
   # e.g., params=list("//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_62_ARACNE.rda",
   #                   "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/Cosmic/Cosmic_Census_100419_all.tsv",
   #                   100, 10000,
+  #                   "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/GTEx_TCGA_Map.rda",
   #                   "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/exclusive_conservation/ECH/Cosmic/cosmic_hubs_enrichment_with_exclusivity_score/")
   # e.g., params=list("./data/RDA_Files/All_62_ARACNE.rda",
   #                   "./data/Cosmic/Cosmic_Census_100419_all.tsv",
   #                   100, 10000,
+  #                   "./data/RDA_Files/GTEx_TCGA_Map.rda",
   #                   "./results/exclusive_conservation/ECH/Cosmic/cosmic_hubs_enrichment_with_exclusivity_score/")
   
   if (which == "cosmic_hubs_enrichment_with_exclusivity_score") {
@@ -10258,14 +10262,26 @@ oneOffs<- function (which = "freq_mods", params=NULL){
     assertNumeric(params[[3]])
     assertIntegerish(params[[4]])
     assertString(params[[5]])
+    assertString(params[[6]])
+    
+    ### load library
+    if(!require(xlsx, quietly = TRUE)) {
+      install.packages("xlsx")
+      require(xlsx, quietly = TRUE)
+    }
     
     ### load data
     load(params[[1]])
     cgc <- read.table(file = params[[2]], header = TRUE, sep = "\t",
                       stringsAsFactors = FALSE, check.names = FALSE)
+    load(params[[5]])
     
     ### compute exclusivity scores of all the hubs
     oneOffs("generate_exclusivity_scores", params = list("FET_SUM"))
+    
+    ### make an empty list for saving top cosmic enriched regulons
+    cosmic_enriched_regulons <- vector("list", length = length(varNames))
+    names(cosmic_enriched_regulons) <- varNames
     
     ### get TCGA Aracne names
     tcga_aracne_names <- varNames[grep("tcga", varNames)]
@@ -10312,6 +10328,9 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       all_enrichment_pvs <- all_enrichment_pvs[order(all_enrichment_pvs)]
       top_cosmic_hubs <- names(all_enrichment_pvs)[1:params[[3]]]
       
+      ### save the cosmic enriched regulons
+      cosmic_enriched_regulons[[aracne_name]] <- aracne[[2]][top_cosmic_hubs]
+      
       ### permutation test for getting a p-value (1-tail)
       set.seed(1234)
       permu_result <- sapply(1:(params[[4]]-1), function(x) {
@@ -10326,7 +10345,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       colors <- rep("black", length(barplot_data))
       names(colors) <- names(barplot_data)
       colors[top_cosmic_hubs] <- "red"
-      png(paste0(params[[5]], aracne_name, "_top_", params[[3]], "_cosmic_hubs_exclusivity_scores.png"),
+      png(paste0(params[[6]], aracne_name, "_top_", params[[3]], "_cosmic_hubs_exclusivity_scores.png"),
           width = 2000, height = 1400, res = 130)
       barplot(barplot_data, col = colors, border = colors,
               main = paste(toupper(aracne_name), "Cosmic Enriched Hubs on Exclusivity Scores", "\n",
@@ -10383,6 +10402,9 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       all_enrichment_pvs <- all_enrichment_pvs[order(all_enrichment_pvs)]
       top_cosmic_hubs <- names(all_enrichment_pvs)[1:params[[3]]]
       
+      ### save the cosmic enriched regulons
+      cosmic_enriched_regulons[[aracne_name]] <- aracne[[2]][top_cosmic_hubs]
+      
       ### permutation test for getting a p-value (1-tail)
       set.seed(1234)
       permu_result <- sapply(1:(params[[4]]-1), function(x) {
@@ -10397,10 +10419,104 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       colors <- rep("black", length(barplot_data))
       names(colors) <- names(barplot_data)
       colors[top_cosmic_hubs] <- "red"
-      png(paste0(params[[5]], aracne_name, "_top_", params[[3]], "_cosmic_hubs_exclusivity_scores.png"),
+      png(paste0(params[[6]], aracne_name, "_top_", params[[3]], "_cosmic_hubs_exclusivity_scores.png"),
           width = 2000, height = 1400, res = 130)
       barplot(barplot_data, col = colors, border = colors,
               main = paste(toupper(aracne_name), "Cosmic Enriched Hubs on Exclusivity Scores", "\n",
+                           params[[4]], " Permutation P-Value = ", pVal),
+              xaxt = "n", ylim = c(min(barplot_data, na.rm=TRUE)*1.3, max(barplot_data, na.rm=TRUE)*1.3),
+              xlab = "All the hubs in the Aracne network",
+              ylab = "Regulon Exclusivity Scores")
+      legend("topright", legend = c(paste0("Top ", params[[3]], " Cosmic-enriched Hubs"), "Others"), col=c("red", "black"), lty = 1)
+      dev.off()
+    }
+    
+    ### compare comsmic-enriched hubs between GTEx and TCGA
+    common_cosmic_enriched_hubs <- data.frame(Common_Count=rep(NA, nrow(GTEx_TCGA_Map)), Common_Hubs=NA, Common_Regulon_Num=NA,
+                                              stringsAsFactors = FALSE, check.names = FALSE)
+    rownames(common_cosmic_enriched_hubs) <- paste0("GTEx_", GTEx_TCGA_Map[,1], "_TCGA_", toupper(GTEx_TCGA_Map[,2]))
+    for(i in 1:nrow(GTEx_TCGA_Map)) {
+      ### get regulon info of GTEx and TCGA
+      gtex_regulon <- cosmic_enriched_regulons[[GTEx_TCGA_Map[i,"GTEx"]]]
+      tcga_regulon <- cosmic_enriched_regulons[[paste0("tcga_", GTEx_TCGA_Map[i,"TCGA"])]]
+      
+      ### get common hubs
+      common_hubs <- intersect(names(gtex_regulon), names(tcga_regulon))
+      union_hubs <- union(names(gtex_regulon), names(tcga_regulon))
+      common_cosmic_enriched_hubs[i,"Common_Count"] <- paste0(length(common_hubs), "/", length(union_hubs))
+      common_cosmic_enriched_hubs[i,"Common_Hubs"] <- paste(common_hubs, collapse = ";")
+      
+      ### number of common target genes of the common hubs
+      common_cosmic_enriched_hubs[i,"Common_Regulon_Num"] <- paste(sapply(common_hubs, function(x) {
+        return(paste0(length(intersect(rownames(gtex_regulon[[x]]), rownames(tcga_regulon[[x]]))),
+                      "/", length(union(rownames(gtex_regulon[[x]]), rownames(tcga_regulon[[x]])))))
+      }), collapse = ";")
+    }
+    write.xlsx2(data.frame(Tissue=rownames(common_cosmic_enriched_hubs), common_cosmic_enriched_hubs,
+                           stringsAsFactors = FALSE, check.names = FALSE),
+                file = paste0(params[[6]], "top_", params[[3]], "_cosmic_hubs_common_between_GTex_vs_TCGA.xlsx"), row.names = FALSE)
+    
+    ### perform analysis with random Aracne networks
+    set.seed(1234)
+    for(aracne_name in tcga_aracne_names) {
+      ### get Aracne network
+      aracne <- get(aracne_name)
+      
+      ### get total genes in the network
+      interactome_total_genes <- as.character(getInteractomeGenes(aracne_name, count = FALSE))
+      
+      ### get cancer genes in the network
+      interactome_cancer_genes <- intersect(interactome_total_genes, as.character(cgc$`Entrez GeneId`))
+      
+      ### compute cosmic enrichment (Fisher's exact test p-values) for all the hubs in the TCGA Aracne network
+      all_hubs <- rownames(aracne[[1]])
+      all_enrichment_pvs <- rep(0, length(all_hubs))
+      names(all_enrichment_pvs) <- all_hubs
+      for(hub in all_hubs) {
+        ### get target genes
+        target_genes <- interactome_total_genes[sample(length(interactome_total_genes), nrow(aracne[[2]][[hub]]))]
+        
+        ### compute enriched genes
+        enriched_genes <- intersect(target_genes, interactome_cancer_genes)
+        
+        ### calculate p-value
+        ### Fisher's exact test
+        ###
+        ###                 regulon   no-regulon
+        ###               -----------------------
+        ### cancer gene   |   X           Y
+        ### no-cancer gene|   Z           W
+        x <- length(enriched_genes)
+        y <- length(interactome_cancer_genes) - x
+        z <- length(target_genes) - x
+        w <- length(interactome_total_genes) - x - y - z
+        
+        ### Fisher's exact test p-value
+        all_enrichment_pvs[hub] <- fisher.test(matrix(c(x, z, y, w), 2, 2), alternative = "greater")$p.value
+      }
+      
+      ### get top cosmic enriched hubs
+      all_enrichment_pvs <- all_enrichment_pvs[order(all_enrichment_pvs)]
+      top_cosmic_hubs <- names(all_enrichment_pvs)[1:params[[3]]]
+      
+      ### permutation test for getting a p-value (1-tail)
+      set.seed(1234)
+      permu_result <- sapply(1:(params[[4]]-1), function(x) {
+        random_hubs <- names(all_enrichment_pvs)[sample(length(all_enrichment_pvs), params[[3]])]
+        return(sum(reg_exclusivity_scores[random_hubs]))
+      })
+      pVal <- (length(which(permu_result > sum(reg_exclusivity_scores[top_cosmic_hubs])))+1) / params[[4]]
+      
+      ### draw a plot
+      barplot_data <- -reg_exclusivity_scores
+      barplot_data[top_cosmic_hubs] <- -barplot_data[top_cosmic_hubs]
+      colors <- rep("black", length(barplot_data))
+      names(colors) <- names(barplot_data)
+      colors[top_cosmic_hubs] <- "red"
+      png(paste0(params[[6]], "random_", aracne_name, "_top_", params[[3]], "_cosmic_hubs_exclusivity_scores.png"),
+          width = 2000, height = 1400, res = 130)
+      barplot(barplot_data, col = colors, border = colors,
+              main = paste("Random", toupper(aracne_name), "Cosmic Enriched Hubs on Exclusivity Scores", "\n",
                            params[[4]], " Permutation P-Value = ", pVal),
               xaxt = "n", ylim = c(min(barplot_data, na.rm=TRUE)*1.3, max(barplot_data, na.rm=TRUE)*1.3),
               xlab = "All the hubs in the Aracne network",
