@@ -10296,7 +10296,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       
       ### get cancer genes in the network
       interactome_cancer_genes <- intersect(interactome_total_genes, as.character(cgc$`Entrez GeneId`))
-    
+      
       ### compute cosmic enrichment (Fisher's exact test p-values) for all the hubs in the TCGA Aracne network
       all_hubs <- rownames(aracne[[1]])
       all_enrichment_pvs <- rep(0, length(all_hubs))
@@ -10326,7 +10326,8 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       
       ### get top cosmic enriched hubs
       all_enrichment_pvs <- all_enrichment_pvs[order(all_enrichment_pvs)]
-      top_cosmic_hubs <- names(all_enrichment_pvs)[1:params[[3]]]
+      top_cosmic_hubs <- intersect(names(all_enrichment_pvs),
+                                   names(reg_exclusivity_scores))[1:params[[3]]]
       
       ### save the cosmic enriched regulons
       cosmic_enriched_regulons[[aracne_name]] <- aracne[[2]][top_cosmic_hubs]
@@ -10334,7 +10335,8 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       ### permutation test for getting a p-value (1-tail)
       set.seed(1234)
       permu_result <- sapply(1:(params[[4]]-1), function(x) {
-        random_hubs <- names(all_enrichment_pvs)[sample(length(all_enrichment_pvs), params[[3]])]
+        total_hubs <- intersect(names(all_enrichment_pvs), names(reg_exclusivity_scores))
+        random_hubs <- total_hubs[sample(length(all_enrichment_pvs), params[[3]])]
         return(sum(reg_exclusivity_scores[random_hubs]))
       })
       pVal <- (length(which(permu_result > sum(reg_exclusivity_scores[top_cosmic_hubs])))+1) / params[[4]]
@@ -10400,7 +10402,8 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       
       ### get top cosmic enriched hubs
       all_enrichment_pvs <- all_enrichment_pvs[order(all_enrichment_pvs)]
-      top_cosmic_hubs <- names(all_enrichment_pvs)[1:params[[3]]]
+      top_cosmic_hubs <- intersect(names(all_enrichment_pvs),
+                                   names(reg_exclusivity_scores))[1:params[[3]]]
       
       ### save the cosmic enriched regulons
       cosmic_enriched_regulons[[aracne_name]] <- aracne[[2]][top_cosmic_hubs]
@@ -10408,7 +10411,8 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       ### permutation test for getting a p-value (1-tail)
       set.seed(1234)
       permu_result <- sapply(1:(params[[4]]-1), function(x) {
-        random_hubs <- names(all_enrichment_pvs)[sample(length(all_enrichment_pvs), params[[3]])]
+        total_hubs <- intersect(names(all_enrichment_pvs), names(reg_exclusivity_scores))
+        random_hubs <- total_hubs[sample(length(all_enrichment_pvs), params[[3]])]
         return(sum(reg_exclusivity_scores[random_hubs]))
       })
       pVal <- (length(which(permu_result > sum(reg_exclusivity_scores[top_cosmic_hubs])))+1) / params[[4]]
@@ -10497,12 +10501,14 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       
       ### get top cosmic enriched hubs
       all_enrichment_pvs <- all_enrichment_pvs[order(all_enrichment_pvs)]
-      top_cosmic_hubs <- names(all_enrichment_pvs)[1:params[[3]]]
+      top_cosmic_hubs <- intersect(names(all_enrichment_pvs),
+                                   names(reg_exclusivity_scores))[1:params[[3]]]
       
       ### permutation test for getting a p-value (1-tail)
       set.seed(1234)
       permu_result <- sapply(1:(params[[4]]-1), function(x) {
-        random_hubs <- names(all_enrichment_pvs)[sample(length(all_enrichment_pvs), params[[3]])]
+        total_hubs <- intersect(names(all_enrichment_pvs), names(reg_exclusivity_scores))
+        random_hubs <- total_hubs[sample(length(all_enrichment_pvs), params[[3]])]
         return(sum(reg_exclusivity_scores[random_hubs]))
       })
       pVal <- (length(which(permu_result > sum(reg_exclusivity_scores[top_cosmic_hubs])))+1) / params[[4]]
@@ -10578,7 +10584,8 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       
       ### get highly mutated hubs for the tissue
       mutated_hubs <- geneSymbolToEntrezId(names(tcga_highly_mutated_genes[[toupper(aracne_name)]]))
-      mutated_hubs <- intersect(as.character(mutated_hubs), rownames(aracne[[1]]))
+      mutated_hubs <- intersect(intersect(as.character(mutated_hubs), rownames(aracne[[1]])),
+                                names(reg_exclusivity_scores))
       top_mutated_hubs <- mutated_hubs[1:params[[3]]]
       
       ### permutation test for getting a p-value (1-tail)
@@ -10605,6 +10612,216 @@ oneOffs<- function (which = "freq_mods", params=NULL){
               ylab = "Regulon Exclusivity Scores")
       legend("topright", legend = c(paste0("Top ", params[[3]], " Top-mutated Hubs"), "Others"), col=c("red", "black"), lty = 1)
       dev.off()
+    }
+    
+  }
+  
+  # ******************* which = highly_mutated_regulons_enrichment_with_exclusivity_score *******************
+  # This function examines exclusivity scores of the top highly mutated hubs.
+  # The top highly mutated hubs are computed by mutation counts per gene normalized by gene length.
+  # The results can tell whether highly mutated hubs also have large exclusivity scores or not.
+  #
+  # params[[1]]: The file path of the Aracne RDA file (All_62_ARACNE.rda)
+  #              (a character vector of length 1)
+  # params[[2]]: The file path of highly mutated regulon list of TCGA tissues (TCGA_26_Top_Mutated_Regulons.rda)
+  #              (a character vector of length 1)
+  # params[[3]]: The number of top highly mutated regulons that will be tested
+  #              (a number)
+  # params[[4]]: The number of permutation test for computing p-value
+  #              (an integer)
+  # params[[5]]: Directory path for the results
+  #              (a character vector of length 1)
+  #
+  # e.g., params=list("//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_62_ARACNE.rda",
+  #                   "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/TCGA_26_Top_Mutated_Regulons.rda",
+  #                   100, 10000,
+  #                   "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/exclusive_conservation/ECH/reg_exclusivity/highly_mutated_regulons_enrichment_with_exclusivity_score/")
+  # e.g., params=list("./data/RDA_Files/All_62_ARACNE.rda",
+  #                   "./data/RDA_Files/TCGA_26_Top_Mutated_Regulons.rda",
+  #                   100, 10000,
+  #                   "./results/exclusive_conservation/ECH/reg_exclusivity/highly_mutated_regulons_enrichment_with_exclusivity_score/")
+  
+  if (which == "highly_mutated_regulons_enrichment_with_exclusivity_score") {
+    
+    ### argument checking
+    assertString(params[[1]])
+    assertString(params[[2]])
+    assertNumeric(params[[3]])
+    assertIntegerish(params[[4]])
+    assertString(params[[5]])
+    
+    ### load data
+    load(params[[1]])
+    load(params[[2]])
+    
+    ### compute exclusivity scores of all the hubs
+    oneOffs("generate_exclusivity_scores", params = list("FET_SUM"))
+    
+    ### get TCGA Aracne names
+    tcga_aracne_names <- varNames[grep("tcga", varNames)]
+    
+    ### perform analysis for each TCGA tissue
+    for(aracne_name in tcga_aracne_names) {
+      ### get highly mutated regulons for the tissue
+      mutated_regulons <- intersect(rownames(tcga_highly_mutated_regulons[[aracne_name]]),
+                                    names(reg_exclusivity_scores))
+      top_mutated_regulons <- mutated_regulons[1:params[[3]]]
+      
+      ### permutation test for getting a p-value (1-tail) (top mutated hubs on exclusivity scores)
+      set.seed(1234)
+      permu_result <- sapply(1:(params[[4]]-1), function(x) {
+        random_hubs <- mutated_regulons[sample(length(mutated_regulons), params[[3]])]
+        return(sum(reg_exclusivity_scores[random_hubs]))
+      })
+      pVal <- (length(which(permu_result > sum(reg_exclusivity_scores[top_mutated_regulons])))+1) / params[[4]]
+      
+      ### draw a plot (top mutated hubs on exclusivity scores)
+      barplot_data <- -reg_exclusivity_scores
+      barplot_data[top_mutated_regulons] <- -barplot_data[top_mutated_regulons]
+      colors <- rep("black", length(barplot_data))
+      names(colors) <- names(barplot_data)
+      colors[top_mutated_regulons] <- "red"
+      png(paste0(params[[5]], aracne_name, "_top_", params[[3]], "_mutated_regulons_exclusivity_scores.png"),
+          width = 2000, height = 1400, res = 130)
+      barplot(barplot_data, col = colors, border = colors,
+              main = paste(toupper(aracne_name), "Top Mutated Regulons on Exclusivity Scores", "\n",
+                           params[[4]], " Permutation P-Value = ", pVal),
+              xaxt = "n", ylim = c(min(barplot_data, na.rm=TRUE)*1.3, max(barplot_data, na.rm=TRUE)*1.3),
+              xlab = "All the Hubs in the Aracne Network",
+              ylab = "Regulon Exclusivity Scores")
+      legend("topright", legend = c(paste0("Top ", params[[3]], " Top-mutated Regulons"), "Others"), col=c("red", "black"), lty = 1)
+      dev.off()
+      
+      ### get top exclusively conserved hubs
+      top_echs <- intersect(names(reg_exclusivity_scores),
+                            rownames(tcga_highly_mutated_regulons[[aracne_name]]))[1:params[[3]]]
+      
+      ### permutation test for getting a p-value (1-tail) (top exclusively conserved hubs on regulon mutation statistics)
+      set.seed(1234)
+      permu_result <- sapply(1:(params[[4]]-1), function(x) {
+        total_hubs <- intersect(names(reg_exclusivity_scores), rownames(tcga_highly_mutated_regulons[[aracne_name]]))
+        random_hubs <- total_hubs[sample(length(total_hubs), params[[3]])]
+        return(sum(tcga_highly_mutated_regulons[[aracne_name]][random_hubs,"S"]))
+      })
+      pVal <- (length(which(permu_result > sum(tcga_highly_mutated_regulons[[aracne_name]][top_echs,"S"])))+1) / params[[4]]
+      
+      ### draw a plot (top exclusively conserved hubs on regulon mutation statistics)
+      barplot_data <- -tcga_highly_mutated_regulons[[aracne_name]][,"S"]
+      names(barplot_data) <- rownames(tcga_highly_mutated_regulons[[aracne_name]])
+      barplot_data[top_echs] <- -barplot_data[top_echs]
+      colors <- rep("black", length(barplot_data))
+      names(colors) <- names(barplot_data)
+      colors[top_echs] <- "red"
+      png(paste0(params[[5]], aracne_name, "_top_", params[[3]], "_ECHs_Mutation_Enrichment.png"),
+          width = 2000, height = 1400, res = 130)
+      barplot(barplot_data, col = colors, border = colors,
+              main = paste(toupper(aracne_name), "Top ECHs on Mutation Enrichment", "\n",
+                           params[[4]], " Permutation P-Value = ", pVal),
+              xaxt = "n", ylim = c(min(barplot_data, na.rm=TRUE)*1.3, max(barplot_data, na.rm=TRUE)*1.3),
+              xlab = "All the Hubs in the Aracne Network",
+              ylab = "Mutation Enrichment Chi-square Statistics")
+      legend("topright", legend = c(paste0("Top ", params[[3]], " Top-mutated Regulons"), "Others"), col=c("red", "black"), lty = 1)
+      dev.off()
+    }
+    
+  }
+  
+  # ******************* which = exclusivity_rank_comparison *******************
+  # Hubs are given ranks based on exclusivity scores/Cosmic enrichment/mutation enrichment.
+  # We would like to know where the top hubs from each are located in other's rank range.
+  # And also want to know correlations among them.
+  #
+  #
+  # params[[1]]: The file path of the Aracne RDA file (All_62_ARACNE.rda)
+  #              (a character vector of length 1)
+  # params[[2]]: The file path of Cosmic-enriched regulon list of All GTEx and TCGA tissues (All_62_Top_Cosmic_Regulons.rda)
+  #              (a character vector of length 1)
+  # params[[3]]: The file path of highly mutated regulon list of TCGA tissues (TCGA_26_Top_Mutated_Regulons.rda)
+  #              (a character vector of length 1)
+  # params[[4]]: The number of top hubs that will be tested
+  #              (a number)
+  # params[[5]]: The number of permutation test for computing p-value
+  #              (an integer)
+  # params[[6]]: Directory path for the results
+  #              (a character vector of length 1)
+  #
+  # e.g., params=list("//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_62_ARACNE.rda",
+  #                   "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_62_Top_Cosmic_Regulons.rda",
+  #                   "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/TCGA_26_Top_Mutated_Regulons.rda",
+  #                   100, 10000,
+  #                   "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/exclusive_conservation/ECH/reg_exclusivity/rank_comparison/")
+  # e.g., params=list("./data/RDA_Files/All_62_ARACNE.rda",
+  #                   "./data/RDA_Files/All_62_Top_Cosmic_Regulons.rda",
+  #                   "./data/RDA_Files/TCGA_26_Top_Mutated_Regulons.rda",
+  #                   100, 10000,
+  #                   "./results/exclusive_conservation/ECH/reg_exclusivity/rank_comparison/")
+  
+  if (which == "exclusivity_rank_comparison") {
+    
+    ### argument checking
+    assertString(params[[1]])
+    assertString(params[[2]])
+    assertString(params[[3]])
+    assertNumeric(params[[4]])
+    assertIntegerish(params[[5]])
+    assertString(params[[6]])
+    
+    ### load data
+    load(params[[1]])
+    load(params[[2]])
+    load(params[[3]])
+    
+    ### compute exclusivity scores of all the hubs
+    oneOffs("generate_exclusivity_scores", params = list("FET_SUM"))
+    
+    ### rank comparison between exclusivity score and Cosmic enrichment
+    for(tissue_name in names(cosmic_enriched_regulons)) {
+      ### get common hubs between exclusivity score and Cosmic enrichment
+      common_hubs <- intersect(names(reg_exclusivity_scores), rownames(cosmic_enriched_regulons[[tissue_name]]))
+      
+      ### prepare two vectors for comparison
+      A <- reg_exclusivity_scores[common_hubs]
+      B <- -log10(cosmic_enriched_regulons[[tissue_name]][common_hubs,"FDR"])
+      names(B) <- rownames(cosmic_enriched_regulons[[tissue_name]][common_hubs,])
+      
+      ### print plot of the rank comparison between exclusivity and cosmic enrichment
+      compare_two_different_ranks(A = A,
+                                  B = B,
+                                  A_name = "Exclusivity_Score",
+                                  B_name = "-log10(Cosmic_Enrichment_FDR)",
+                                  ordering = "decreasing",
+                                  top = params[[4]],
+                                  alternative = "greater",
+                                  permutation = 10000,
+                                  fileName = paste0("Exclusivity_VS_Cosmic_Enrichment_", tissue_name),
+                                  printPath = params[[6]],
+                                  width = 24,
+                                  height = 10)
+    }
+    
+    ### rank comparison between exclusivity score and mutation enrichment
+    for(tissue_name in names(tcga_highly_mutated_regulons)) {
+      ### get common hubs between exclusivity score and mutation enrichment
+      common_hubs <- intersect(names(reg_exclusivity_scores), rownames(tcga_highly_mutated_regulons[[tissue_name]]))
+      
+      ### prepare two vectors for comparison
+      A <- reg_exclusivity_scores[common_hubs]
+      B <- tcga_highly_mutated_regulons[[tissue_name]][common_hubs,"S"]
+      names(B) <- rownames(tcga_highly_mutated_regulons[[tissue_name]][common_hubs,])
+      
+      ### print plot of the rank comparison between exclusivity and cosmic enrichment
+      compare_two_different_ranks(A = A,
+                                  B = B,
+                                  A_name = "Exclusivity_Score",
+                                  B_name = "Mutation_Enrichment_Statistics",
+                                  ordering = "decreasing",
+                                  top = params[[4]],
+                                  alternative = "greater",
+                                  permutation = 10000,
+                                  fileName = paste0("Exclusivity_VS_Mutation_Enrichment_", tissue_name),
+                                  printPath = params[[6]],
+                                  width = 24,
+                                  height = 10)
     }
     
   }
