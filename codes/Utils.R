@@ -2539,3 +2539,242 @@ run_gsea <- function(gene_list,
   return(gsea_result)
   
 }
+
+#'****************************************************************************************
+#' Compare different ranks of the same elements
+#' 
+#' It receives (1) two named numeric vectors that contain two different rank metrics
+#' OR (2) receives two character vectors of the ordered/ranked element names
+#' 
+#' In case of (1), if the two given vectors are A and B,
+#' names(A) and names(B) should have the same elements.
+#' length(intersect(names(A), names(B))) = length(A) = length(B).
+#' In case of (2), if the two given vectors are A and B,
+#' A and B should have the same elements.
+#' length(intersect(A, B)) = length(A) = length(B).
+#' 
+#' The function will generate 4 figures in one plot.
+#' If the two given vectors are A and B,
+#' 1. a barplot of ranked metric of A
+#' 2. a line plot that shows lines connect top same elements between ranked A and ranked B
+#' 3. a barplot of ranked metric of B
+#' 4. a scatter plot of A and B
+#'****************************************************************************************
+#' @title	compare_two_different_ranks
+#' 
+#' @param A           A vector of named numeric vector or a character vector
+#' @param B           A vector of named numeric vector or a character vector
+#' @param A_name      
+#'                    (Default = "A")      
+#' @param B_name      
+#'                    (Default = "B")
+#' @param ordering    Order of the rank metric ["decreasing" or "increasing"]
+#'                    (Default = "decreasing")
+#' @param top         The number of top hubs from each of A and B that will be
+#'                    presented in the line graph
+#'                    (Default = 100)
+#' @param alternative The alternative hypothesis for enrichment permutation ["greater" or "less"]
+#'                    (Default = "greater")
+#' @param permutation The number of permutation test
+#'                    (Default = 10000)
+#' @param fileName    The name of the plot file
+#'                    (Default = "Comparison_of_Ranks_Between_A_and_B")
+#' @param printPath   Print the plot in the designated path
+#'                    (Default = "./")
+#' @param width       The width of the plot file
+#'                    (Default = 24)
+#' @param height      The height of the plot file
+#'                    (Default = 12)
+#' 
+#' @return 	          It does not return any objects
+#' 
+compare_two_different_ranks <- function(A,
+                                        B,
+                                        A_name = "A",
+                                        B_name = "B",
+                                        ordering = "decreasing",
+                                        top = 100,
+                                        alternative = "greater",
+                                        permutation = 10000,
+                                        fileName = "Comparison_of_Ranks_Between_A_and_B",
+                                        printPath = "./",
+                                        width = 24,
+                                        height = 10) {
+  
+  ### argument checking
+  assertVector(A)
+  assertVector(B)
+  assertString(A_name)
+  assertString(B_name)
+  assertChoice(ordering, c("decreasing", "increasing"))
+  assertIntegerish(top)
+  assertChoice(alternative, c("greater", "less"))
+  assertIntegerish(permutation)
+  assertString(fileName)
+  assertString(printPath)
+  assertIntegerish(width)
+  assertIntegerish(height)
+  if(length(A) != length(B)) {
+    stop("ERROR: length(A) != length(B)")
+  }
+  if(class(A) == "numeric" && class(B) == "numeric") {
+    if(length(intersect(names(A), names(B))) != length(A)) {
+      stop("ERROR: A and B should have names, and names(sort(A)) and names(sort(B)) should be the same")
+    }
+    type <- "numeric"
+  } else if(class(A) == "character" && class(B) == "character") {
+    if(length(intersect(A, B)) != length(A)) {
+      stop("ERROR: sort(A) and sort(B) should be the same")
+    }
+    type <- "character"
+    names(A) <- A
+    A <- length(A):1
+    names(B) <- B
+    B <- length(B):1
+  } else {
+    stop("ERROR: A and B should be either named numeric vectors or character vectors")
+  }
+  
+  ### load required libraries
+  if(!require(ggplot2, quietly = TRUE)) {
+    install.packages("ggplot2")
+    require(ggplot2, quietly = TRUE)
+  }
+  if(!require(gridExtra, quietly = TRUE)) {
+    install.packages("gridExtra")
+    require(gridExtra, quietly = TRUE)
+  }
+  
+  ### order the A and B
+  if(ordering == "decreasing") {
+    A <- A[order(-A)]
+    B <- B[order(-B)]
+  } else {
+    A <- A[order(A)]
+    B <- B[order(B)]
+  }
+  
+  ### data frame of A and B
+  df <- data.frame(idx=1:length(A), A=A[order(names(A))], B=B[order(names(B))],
+                   stringsAsFactors = FALSE, check.names = FALSE)
+  
+  ### give colors to the df
+  colors <- rep("lightgray", nrow(df))
+  names(colors) <- rownames(df)
+  colors[names(A)[1:top]] <- "skyblue"
+  colors[names(B)[1:top]] <- "pink"
+  colors[intersect(names(A)[1:top], names(B)[1:top])] <- "mediumpurple"
+  df$colors <- factor(colors, levels = c("skyblue", "pink", "lightgray", "mediumpurple"))
+  
+  ### data frame for the line graph
+  df2 <- data.frame(X=c(Reduce(function(x, y) {
+                                return(c(x, y, which(names(B) == names(A)[y])))
+                               }, 0:top)[-1],
+                        Reduce(function(x, y) {
+                          return(c(x, y, which(names(A) == names(B)[y])))
+                        }, 0:top)[-1]),
+                    Y=c(rep(c(1,0), top),
+                        rep(c(0,1), top)),
+                    Element=paste0("e", c(rbind(1:(top*2), 1:(top*2)))),
+                    Collection=c(rep("A", top*2),
+                                 rep("B", top*2)),
+                    stringsAsFactors = FALSE, check.names = FALSE)
+  
+  ### add top and bottom x-axis to the df2
+  df2 <- rbind(df2, data.frame(X=c(0, length(A), 0, length(B)),
+                               Y=c(1, 1, 0, 0),
+                               Element=paste0("e", c(rbind((top*2+1):(top*2+2),(top*2+1):(top*2+2)))),
+                               Collection=rep("C", 4)))
+  
+  ### permutation test for getting a p-value (1-tail)
+  set.seed(1234)
+  permu_result <- sapply(1:(permutation-1), function(x) {
+    random_hubs <- names(A)[sample(length(A), top)]
+    return(sum(B[random_hubs]))
+  })
+  if(alternative == "greater") {
+    pVal_A <- (length(which(permu_result > sum(B[names(A)[1:top]])))+1) / permutation
+  } else {
+    pVal_A <- (length(which(permu_result < sum(B[names(A)[1:top]])))+1) / permutation
+  }
+  permu_result <- sapply(1:(permutation-1), function(x) {
+    random_hubs <- names(B)[sample(length(B), top)]
+    return(sum(A[random_hubs]))
+  })
+  if(alternative == "greater") {
+    pVal_B <- (length(which(permu_result > sum(A[names(B)[1:top]])))+1) / permutation
+  } else {
+    pVal_B <- (length(which(permu_result < sum(A[names(B)[1:top]])))+1) / permutation
+  }
+  
+  if(ordering == "decreasing") {
+    ### 1. a barplot of ranked metric of A
+    p1 <- ggplot(data = df, aes(x = reorder(idx, -A), y = A, width = 1)) +
+      ylab(paste(A_name, "(A)")) +
+      theme(axis.title.x=element_blank(),
+            axis.text.x=element_blank(),
+            axis.ticks.x=element_blank(),
+            plot.margin = margin(t = 0, r = 115, b = 0, l = 5)) +
+      geom_bar(stat = "identity", color = "skyblue")
+    
+    ### 3. a barplot of ranked metric of B
+    p3 <- ggplot(data = df, aes(x = reorder(idx, -B), y = B, width = 1)) +
+      ylab(paste(B_name, "(B)")) +
+      theme(axis.title.x=element_blank(),
+            axis.text.x = element_blank(),
+            axis.ticks.x=element_blank(),
+            plot.margin = margin(t = 0, r = 115, b = 0, l = 5)) +
+      geom_bar(stat = "identity", color = "pink")
+  } else {
+    ### 1. a barplot of ranked metric of A
+    p1 <- ggplot(data = df, aes(x = reorder(idx, A), y = A, width = 1)) +
+      ylab(paste(A_name, "(A)")) +
+      theme(axis.title.x=element_blank(),
+            axis.text.x=element_blank(),
+            axis.ticks.x=element_blank(),
+            plot.margin = margin(t = 0, r = 115, b = 0, l = 5)) +
+      geom_bar(stat = "identity", color = "skyblue")
+    
+    ### 3. a barplot of ranked metric of B
+    p3 <- ggplot(data = df, aes(x = reorder(idx, B), y = B, width = 1)) +
+      ylab(paste(B_name, "(B)")) +
+      theme(axis.title.x=element_blank(),
+            axis.text.x = element_blank(),
+            axis.ticks.x=element_blank(),
+            plot.margin = margin(t = 0, r = 115, b = 0, l = 5)) +
+      geom_bar(stat = "identity", color = "pink")
+  }
+  
+  ### 2. a line plot that shows lines connect top same elements between ranked A and ranked B
+  p2 <- ggplot(data = df2, aes(x = X, y = Y, group = Element, color = Collection)) +
+          geom_line() +
+          scale_color_manual(labels = c("A", "B", "C"), values = c("skyblue", "pink", "gray")) +
+          theme_void() +
+          theme(legend.position = "none", plot.margin = margin(t = 0, r = 5, b = 0, l = 5)) +
+          annotate(geom = "text", x = length(A), y = 0.1,
+                   color = "skyblue", hjust = 0, vjust = 0, fontface = "bold",
+                   label = paste("Top", top, "(A)\nPermutation p-value\n=", pVal_A)) +
+          annotate(geom = "text", x = length(B), y = 0.9,
+                   color = "pink", hjust = 0, vjust = 1, fontface = "bold",
+                   label = paste("Top", top, "(B)\nPermutation p-value\n=", pVal_B)) +
+          expand_limits(x = length(A)*1.1)
+  
+  ### 4. a scatter plot of A and B
+  p4 <- ggplot(data = df, aes(x=A, y=B)) +
+    geom_point(aes(color=colors), size = 2) +
+    labs(subtitle=paste("Pearson Correlation =", round(cor(df$A, df$B), 5)),
+         color=paste("Top", top)) +
+    xlab(A_name) +
+    ylab(B_name) +
+    geom_smooth(method = lm, color="black", se=FALSE) +
+    scale_color_manual(labels=c("A", "B", "Others", "Intersect(A, B)"), values = c("skyblue", "pink", "lightgray", "mediumpurple")) +
+    theme_classic(base_size = 16)
+  
+  ### arrange the plots and print out
+  g <- arrangeGrob(p1, p2, p3, p4, layout_matrix = rbind(c(1, 4),
+                                                         c(2, 4),
+                                                         c(3, 4)),
+                   top = fileName)
+  ggsave(file = paste0(printPath, fileName, ".png"), g, width = width, height = height)
+  
+}
