@@ -144,6 +144,12 @@ mutated_genes <- function(mafFileDir="C:/Research/CUMC/GTExProj/data/TCGA/MAF/pr
     writeLines("It has 26 entries which indiciates that there are mutated regulon info for 26 TCGA tissues.")
     writeLines("In each of the 26 entries, there is a data frame of mutated regulons.")
     writeLines("The rows are hubs and the columns are results from Fisher's method of each hub.")
+    writeLines("")
+    writeLines("S: chi-square statistics of the integrated p-values")
+    writeLines("num.p: the number of p-values that were integrated")
+    writeLines("p.value: integrated p-values using Fisher's method")
+    writeLines("p.adj: corrected p-values using Benjamini-Hochberg")
+    writeLines("")
     writeLines("It was generated as the following:")
     writeLines("For every TCGA tissue:")
     writeLines("\tFor every hub H:")
@@ -152,7 +158,6 @@ mutated_genes <- function(mafFileDir="C:/Research/CUMC/GTExProj/data/TCGA/MAF/pr
     writeLines("\t\t\tUse FET to assess the enrichment of the regulon of H in mutated genes. Let p(H, S) be the p-value of the FET.")
     writeLines("\t\tIntegrate the p-values p(H, S) from all samples S into a master p-value p(H), using Fisher’s method (https://en.wikipedia.org/wiki/Fisher%27s_method)")
     writeLines("\tCorrect the p-values with BH method.")
-    writeLines("")
     writeLines(paste(rep("#", 100), collapse = ""))
   }
   
