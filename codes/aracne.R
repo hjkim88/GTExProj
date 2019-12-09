@@ -1,30 +1,23 @@
 
 # Source the Utils.R file, if not already loaded.
-if (Sys.info()["nodename"] == "C2B2AFPL8"){
-	UTILS_FILE = "C:/Users/floratos/workspace/R/labProjects/Common/Utils.R"
-	ARACNE_GO_FILE = "C:/Users/floratos/workspace/R/labProjects/GTEx/R/aracne_go.R"
-} else if (Sys.info()["nodename"] == "C2B2AFPL9"){
-	UTILS_FILE = "C:/Users/floratos/workspace/R/labProjects/Common/Utils.R"
-	ARACNE_GO_FILE = "C:/Users/floratos/workspace/R/labProjects/GTEx/R/aracne_go.R"
-} else if (Sys.info()["nodename"] == "C2B2AFPL10"){
-	UTILS_FILE = "C:/Users/floratos/workspace/R/labProjects/Common/Utils.R"
-	ARACNE_GO_FILE = "C:/Users/floratos/workspace/R/labProjects/GTEx/R/aracne_go.R"
+if (Sys.info()["nodename"] %in% c("C2B2AFPL8", "C2B2AFPL9", "C2B2AFPL10", "C2B2AFPD11", "C2B2AFPL7")){
+  UTILS_FILE = "C:/Users/floratos/workspace/R/labProjects/Common/Utils.R"
+  ARACNE_GO_FILE = "C:/Users/floratos/workspace/R/labProjects/GTEx/R/aracne_go.R"
+} else if (Sys.info()["nodename"] == "MDDSB-L004"){
+  UTILS_FILE = "C:/Users/af2202/workspace/R/labProjects/Common/Utils.R"
+  ARACNE_GO_FILE = "C:/Users/af2202/workspace/R/labProjects/GTEx/R/aracne_go.R"
 } else if (Sys.info()["nodename"] == "C2B2AFPD9" || Sys.info()["nodename"] == "DESKTOP-F24420B"){
-	UTILS_FILE = "C:/Research/CUMC/GTExProj/codes/Utils.R"
-	ARACNE_GO_FILE = "C:/Research/CUMC/GTExProj/codes/aracne_go.R"
+  UTILS_FILE = "C:/Research/CUMC/GTExProj/codes/Utils.R"
+  ARACNE_GO_FILE = "C:/Research/CUMC/GTExProj/codes/aracne_go.R"
 } else if (Sys.info()["nodename"] == "afdev5.c2b2.columbia.edu"){
-	UTILS_FILE = "/ifs/home/c2b2/af_lab/floratos/cvs/labProjects/Common/Utils.R"
-	ARACNE_GO_FILE = "/ifs/home/c2b2/af_lab/floratos/cvs/labProjects/GTEx/R/aracne_go.R"
-} else if (Sys.info()["nodename"] == "C2B2AFPD11"){
-	UTILS_FILE = "C:/Users/floratos/workspace/R/labProjects/Common/Utils.R"
-	ARACNE_GO_FILE = "C:/Users/floratos/workspace/R/labProjects/GTEx/R/aracne_go.R"
+  UTILS_FILE = "/ifs/home/c2b2/af_lab/floratos/cvs/labProjects/Common/Utils.R"
+  ARACNE_GO_FILE = "/ifs/home/c2b2/af_lab/floratos/cvs/labProjects/GTEx/R/aracne_go.R"
 } else if  (Sys.info()["user"]=='jb3401' || Sys.info()["user"]=='joshuabroyde'){
-	source ('~/jb3401/scripts/labProjects/Common/Broyde/rFunctions.R')
-	UTILS_FILE='~/jb3401/scripts/Utils/FloratosUtils.R'
+  source ('~/jb3401/scripts/labProjects/Common/Broyde/rFunctions.R')
+  UTILS_FILE='~/jb3401/scripts/Utils/FloratosUtils.R'
 } else if (Sys.info()["nodename"] == "C2B2AFPL6"){
-	UTILS_FILE = "C:/Users/floratos/eclipse-workspace/R/labProjects/Common/Utils.R"
-} else if (Sys.info()["nodename"] == "C2B2AFPL7"){
-	UTILS_FILE = "C:/Users/floratos/workspace/R/labProjects/Common/Utils.R"
+  UTILS_FILE = "C:/Users/floratos/eclipse-workspace/R/labProjects/Common/Utils.R"
+  ARACNE_GO_FILE = "C:/Users/floratos/eclipse-workspace/R/labProjects/GTEx/R/aracne_go.R"
 } else if (any(grepl(Sys.info()["nodename"], c("C2B2AFPD6", "C2B2AFPD10", "C2B2AFPD12"), ignore.case = TRUE))) {
   if (Sys.info()["sysname"] == "Windows") {
     UTILS_FILE = "C:/repository/floratosLabCVS/labProjects/Common/Utils.R"
@@ -34,7 +27,7 @@ if (Sys.info()["nodename"] == "C2B2AFPL8"){
     ARACNE_GO_FILE = "/mnt/c/repository/floratosLabCVS/labProjects/GTEx/R/aracne_go.R"
   }
 } else {
-	stop("No UTILS_FILE defined")
+  stop("No UTILS_FILE defined")
 }
 
 source(UTILS_FILE, chdir = TRUE)
@@ -8515,11 +8508,11 @@ oneOffs<- function (which = "freq_mods", params=NULL){
 	# strongly between pairs of GTEx or TCGA interactomes rather than between pairs involving 
 	# one interactome from each collection. Exclusivity scores are computed in several ways:
 	# - by summing up log10(FET p-values) from the matrices in tfPairEnrich[[2]]. Specifically, 
-	# 		for every hub genewe add up the hub's regulon conservation -log10(p-values) for all 
+	# 		for every hub gene we add up the hub's regulon conservation -log10(p-values) for all 
 	#		interactome pairs involving either two GTEx or two TCGA interactomes and then subtract 
-	#		-log10(p-values) for interactome pairs involving one nteractome from each collection.
+	#		-log10(p-values) for interactome pairs involving one interactome from each collection.
 	# -	by using a significance threshold T. In this option, we identify all interactome pairs
-	#		where the regulon conservation log10(FET p-values) is at most log1)(T) and count
+	#		where the regulon conservation log10(FET p-values) is at most log10(T) and count
 	#		the number A of such pairs involving either either two GTEx or two TCGA interactomes
 	#		and the number B involving one GTEx and one TCGA interactome. The enrichment score 
 	#		is then defined as (A-B).
@@ -8582,24 +8575,35 @@ oneOffs<- function (which = "freq_mods", params=NULL){
 		heter_scale = max(homog_num, heter_num) / heter_num
 		scores = rep(0, length(all_hubs))
 		names(scores) = all_hubs
+		scores2 = matrix(0, length(all_hubs), 3)
+		rownames(scores2) <- all_hubs
+		colnames(scores2) <- c("GTEX", "TCGA", "BOTH")
 		if (params[[1]] == "FET_COUNT")
 			thresh = params[[2]]
 		for (hub in all_hubs){
 			fets = cons_mat[hub, ]
 			fets = replace(fets, fets==-Inf, minp)
-			if (params[[1]] == "FET_SUM")
+			if (params[[1]] == "FET_SUM") {
 				scores[hub] = round(-sum(fets[i_pair_map %in% c("TCGA", "GTEX")])*homog_scale + 
 								sum(fets[i_pair_map %in% c("BOTH")])*heter_scale)
-			else if (params[[1]] == "FET_COUNT")
+				scores2[hub, "GTEX"] = -sum(fets[i_pair_map %in% c("GTEX")])*homog_scale
+				scores2[hub, "TCGA"] = -sum(fets[i_pair_map %in% c("TCGA")])*homog_scale
+				scores2[hub, "BOTH"] = -sum(fets[i_pair_map %in% c("BOTH")])*heter_scale
+			}
+			else if (params[[1]] == "FET_COUNT") {
 				scores[hub] = round(sum(fets[i_pair_map %in% c("TCGA", "GTEX")] <= log10(thresh))*homog_scale - 
 								sum(fets[i_pair_map %in% c("BOTH")] <= log10(thresh))*heter_scale)
-			else
+				scores2[hub, "GTEX"] = sum(fets[i_pair_map %in% c("GTEX")] <= log10(thresh))*homog_scale
+				scores2[hub, "TCGA"] = sum(fets[i_pair_map %in% c("TCGA")] <= log10(thresh))*homog_scale
+				scores2[hub, "BOTH"] = sum(fets[i_pair_map %in% c("BOTH")] <= log10(thresh))*heter_scale
+			} else
 				stop("params[[1]] needs to assume a value from c('FET_SUM', 'FET_COUNT')")
-}
+    }
 		scores = sort(scores, decreasing = TRUE)	
 		
 		# Assign to global variables, to make accessible to other methods
 		assign("reg_exclusivity_scores", scores, envir = globalenv())
+		assign("reg_exclusivity_scores_collection", scores2, envir = globalenv())
 		assign("reg_fet_cons_mat", cons_mat, envir = globalenv())
 		assign("interactome_pair_map", i_pair_map, envir = globalenv())
 	}
@@ -9798,13 +9802,14 @@ oneOffs<- function (which = "freq_mods", params=NULL){
     assertString(params[[5]])
     
     ### load data
-    load(params[[1]])
+    load(params[[1]], envir = globalenv())
     cgc <- read.table(file = params[[2]], header = TRUE, sep = "\t",
                       stringsAsFactors = FALSE, check.names = FALSE)
     load(params[[4]])
+    Sys.sleep(3)
     
     ### get top ECHs
-    oneOffs("generate_exclusivity_scores")
+    oneOffs("generate_exclusivity_scores", params = list("FET_SUM"))
     echs <- names(reg_exclusivity_scores)[1:params[[3]]]
     
     ### get TCGA Aracne names
@@ -10240,18 +10245,24 @@ oneOffs<- function (which = "freq_mods", params=NULL){
   #              (an integer)
   # params[[5]]: The file path of the GTEx-TCGA tissue mapping info (GTEx_TCGA_Map.rda)
   #              (a character vector of length 1)
-  # params[[6]]: Directory path for the results
+  # params[[6]]: Character string, specifying which enrichment score computations option
+  #		           to use when computing exclusivity scores. Should be either "FET_SUM" or "FET_COUNT".
+  #              For more details, please refer to oneOffs(which="generate_exclusivity_scores").
+  #              (a character vector of length 1)
+  # params[[7]]: Directory path for the results
   #              (a character vector of length 1)
   #
   # e.g., params=list("//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_62_ARACNE.rda",
   #                   "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/Cosmic/Cosmic_Census_100419_all.tsv",
   #                   100, 10000,
   #                   "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/GTEx_TCGA_Map.rda",
+  #                   "FET_SUM",
   #                   "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/exclusive_conservation/ECH/Cosmic/cosmic_hubs_enrichment_with_exclusivity_score/")
   # e.g., params=list("./data/RDA_Files/All_62_ARACNE.rda",
   #                   "./data/Cosmic/Cosmic_Census_100419_all.tsv",
   #                   100, 10000,
   #                   "./data/RDA_Files/GTEx_TCGA_Map.rda",
+  #                   "FET_SUM",
   #                   "./results/exclusive_conservation/ECH/Cosmic/cosmic_hubs_enrichment_with_exclusivity_score/")
   
   if (which == "cosmic_hubs_enrichment_with_exclusivity_score") {
@@ -10262,7 +10273,8 @@ oneOffs<- function (which = "freq_mods", params=NULL){
     assertNumeric(params[[3]])
     assertIntegerish(params[[4]])
     assertString(params[[5]])
-    assertString(params[[6]])
+    assertChoice(params[[6]], c("FET_SUM", "FET_COUNT"))
+    assertString(params[[7]])
     
     ### load library
     if(!require(xlsx, quietly = TRUE)) {
@@ -10271,13 +10283,18 @@ oneOffs<- function (which = "freq_mods", params=NULL){
     }
     
     ### load data
-    load(params[[1]])
+    load(params[[1]], envir = globalenv())
     cgc <- read.table(file = params[[2]], header = TRUE, sep = "\t",
                       stringsAsFactors = FALSE, check.names = FALSE)
     load(params[[5]])
+    Sys.sleep(3)
     
     ### compute exclusivity scores of all the hubs
-    oneOffs("generate_exclusivity_scores", params = list("FET_SUM"))
+    if(params[[6]] == "FET_SUM") {
+      oneOffs("generate_exclusivity_scores", params = list("FET_SUM"))
+    } else {
+      oneOffs("generate_exclusivity_scores", params = list("FET_COUNT", 1e-20))
+    }
     
     ### make an empty list for saving top cosmic enriched regulons
     cosmic_enriched_regulons <- vector("list", length = length(varNames))
@@ -10347,7 +10364,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       colors <- rep("black", length(barplot_data))
       names(colors) <- names(barplot_data)
       colors[top_cosmic_hubs] <- "red"
-      png(paste0(params[[6]], aracne_name, "_top_", params[[3]], "_cosmic_hubs_exclusivity_scores.png"),
+      png(paste0(params[[7]], aracne_name, "_top_", params[[3]], "_cosmic_hubs_exclusivity_scores.png"),
           width = 2000, height = 1400, res = 130)
       barplot(barplot_data, col = colors, border = colors,
               main = paste(toupper(aracne_name), "Cosmic Enriched Hubs on Exclusivity Scores", "\n",
@@ -10423,7 +10440,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       colors <- rep("black", length(barplot_data))
       names(colors) <- names(barplot_data)
       colors[top_cosmic_hubs] <- "red"
-      png(paste0(params[[6]], aracne_name, "_top_", params[[3]], "_cosmic_hubs_exclusivity_scores.png"),
+      png(paste0(params[[7]], aracne_name, "_top_", params[[3]], "_cosmic_hubs_exclusivity_scores.png"),
           width = 2000, height = 1400, res = 130)
       barplot(barplot_data, col = colors, border = colors,
               main = paste(toupper(aracne_name), "Cosmic Enriched Hubs on Exclusivity Scores", "\n",
@@ -10458,7 +10475,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
     }
     write.xlsx2(data.frame(Tissue=rownames(common_cosmic_enriched_hubs), common_cosmic_enriched_hubs,
                            stringsAsFactors = FALSE, check.names = FALSE),
-                file = paste0(params[[6]], "top_", params[[3]], "_cosmic_hubs_common_between_GTex_vs_TCGA.xlsx"), row.names = FALSE)
+                file = paste0(params[[7]], "top_", params[[3]], "_cosmic_hubs_common_between_GTex_vs_TCGA.xlsx"), row.names = FALSE)
     
     ### perform analysis with random Aracne networks
     set.seed(1234)
@@ -10519,7 +10536,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       colors <- rep("black", length(barplot_data))
       names(colors) <- names(barplot_data)
       colors[top_cosmic_hubs] <- "red"
-      png(paste0(params[[6]], "random_", aracne_name, "_top_", params[[3]], "_cosmic_hubs_exclusivity_scores.png"),
+      png(paste0(params[[7]], "random_", aracne_name, "_top_", params[[3]], "_cosmic_hubs_exclusivity_scores.png"),
           width = 2000, height = 1400, res = 130)
       barplot(barplot_data, col = colors, border = colors,
               main = paste("Random", toupper(aracne_name), "Cosmic Enriched Hubs on Exclusivity Scores", "\n",
@@ -10546,16 +10563,22 @@ oneOffs<- function (which = "freq_mods", params=NULL){
   #              (a number)
   # params[[4]]: The number of permutation test for computing p-value
   #              (an integer)
-  # params[[5]]: Directory path for the results
+  # params[[5]]: Character string, specifying which enrichment score computations option
+  #		           to use when computing exclusivity scores. Should be either "FET_SUM" or "FET_COUNT".
+  #              For more details, please refer to oneOffs(which="generate_exclusivity_scores").
+  #              (a character vector of length 1)
+  # params[[6]]: Directory path for the results
   #              (a character vector of length 1)
   #
   # e.g., params=list("//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_62_ARACNE.rda",
   #                   "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/TCGA_33_Top_Mutated_Genes.rda",
   #                   100, 10000,
+  #                   "FET_SUM",
   #                   "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/exclusive_conservation/ECH/reg_exclusivity/highly_mutated_hubs_enrichment_with_exclusivity_score/")
   # e.g., params=list("./data/RDA_Files/All_62_ARACNE.rda",
   #                   "./data/RDA_Files/TCGA_33_Top_Mutated_Genes.rda",
   #                   100, 10000,
+  #                   "FET_SUM",
   #                   "./results/exclusive_conservation/ECH/reg_exclusivity/highly_mutated_hubs_enrichment_with_exclusivity_score/")
   
   if (which == "highly_mutated_hubs_enrichment_with_exclusivity_score") {
@@ -10565,14 +10588,20 @@ oneOffs<- function (which = "freq_mods", params=NULL){
     assertString(params[[2]])
     assertNumeric(params[[3]])
     assertIntegerish(params[[4]])
-    assertString(params[[5]])
+    assertChoice(params[[5]], c("FET_SUM", "FET_COUNT"))
+    assertString(params[[6]])
     
     ### load data
-    load(params[[1]])
+    load(params[[1]], envir = globalenv())
     load(params[[2]])
+    Sys.sleep(3)
     
     ### compute exclusivity scores of all the hubs
-    oneOffs("generate_exclusivity_scores", params = list("FET_SUM"))
+    if(params[[5]] == "FET_SUM") {
+      oneOffs("generate_exclusivity_scores", params = list("FET_SUM"))
+    } else {
+      oneOffs("generate_exclusivity_scores", params = list("FET_COUNT", 1e-20))
+    }
     
     ### get TCGA Aracne names
     tcga_aracne_names <- varNames[grep("tcga", varNames)]
@@ -10602,7 +10631,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       colors <- rep("black", length(barplot_data))
       names(colors) <- names(barplot_data)
       colors[top_mutated_hubs] <- "red"
-      png(paste0(params[[5]], aracne_name, "_top_", params[[3]], "_top_mutated_hubs_exclusivity_scores.png"),
+      png(paste0(params[[6]], aracne_name, "_top_", params[[3]], "_top_mutated_hubs_exclusivity_scores.png"),
           width = 2000, height = 1400, res = 130)
       barplot(barplot_data, col = colors, border = colors,
               main = paste(toupper(aracne_name), "Top Mutated Hubs on Exclusivity Scores", "\n",
@@ -10629,16 +10658,22 @@ oneOffs<- function (which = "freq_mods", params=NULL){
   #              (a number)
   # params[[4]]: The number of permutation test for computing p-value
   #              (an integer)
-  # params[[5]]: Directory path for the results
+  # params[[5]]: Character string, specifying which enrichment score computations option
+  #		           to use when computing exclusivity scores. Should be either "FET_SUM" or "FET_COUNT".
+  #              For more details, please refer to oneOffs(which="generate_exclusivity_scores").
+  #              (a character vector of length 1)
+  # params[[6]]: Directory path for the results
   #              (a character vector of length 1)
   #
   # e.g., params=list("//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_62_ARACNE.rda",
   #                   "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/TCGA_26_Top_Mutated_Regulons.rda",
   #                   100, 10000,
+  #                   "FET_SUM",
   #                   "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/exclusive_conservation/ECH/reg_exclusivity/highly_mutated_regulons_enrichment_with_exclusivity_score/")
   # e.g., params=list("./data/RDA_Files/All_62_ARACNE.rda",
   #                   "./data/RDA_Files/TCGA_26_Top_Mutated_Regulons.rda",
   #                   100, 10000,
+  #                   "FET_SUM",
   #                   "./results/exclusive_conservation/ECH/reg_exclusivity/highly_mutated_regulons_enrichment_with_exclusivity_score/")
   
   if (which == "highly_mutated_regulons_enrichment_with_exclusivity_score") {
@@ -10648,14 +10683,20 @@ oneOffs<- function (which = "freq_mods", params=NULL){
     assertString(params[[2]])
     assertNumeric(params[[3]])
     assertIntegerish(params[[4]])
-    assertString(params[[5]])
+    assertChoice(params[[5]], c("FET_SUM", "FET_COUNT"))
+    assertString(params[[6]])
     
     ### load data
-    load(params[[1]])
+    load(params[[1]], envir = globalenv())
     load(params[[2]])
+    Sys.sleep(3)
     
     ### compute exclusivity scores of all the hubs
-    oneOffs("generate_exclusivity_scores", params = list("FET_SUM"))
+    if(params[[5]] == "FET_SUM") {
+      oneOffs("generate_exclusivity_scores", params = list("FET_SUM"))
+    } else {
+      oneOffs("generate_exclusivity_scores", params = list("FET_COUNT", 1e-20))
+    }
     
     ### get TCGA Aracne names
     tcga_aracne_names <- varNames[grep("tcga", varNames)]
@@ -10681,7 +10722,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       colors <- rep("black", length(barplot_data))
       names(colors) <- names(barplot_data)
       colors[top_mutated_regulons] <- "red"
-      png(paste0(params[[5]], aracne_name, "_top_", params[[3]], "_mutated_regulons_exclusivity_scores.png"),
+      png(paste0(params[[6]], aracne_name, "_top_", params[[3]], "_mutated_regulons_exclusivity_scores.png"),
           width = 2000, height = 1400, res = 130)
       barplot(barplot_data, col = colors, border = colors,
               main = paste(toupper(aracne_name), "Top Mutated Regulons on Exclusivity Scores", "\n",
@@ -10712,7 +10753,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       colors <- rep("black", length(barplot_data))
       names(colors) <- names(barplot_data)
       colors[top_echs] <- "red"
-      png(paste0(params[[5]], aracne_name, "_top_", params[[3]], "_ECHs_Mutation_Enrichment.png"),
+      png(paste0(params[[6]], aracne_name, "_top_", params[[3]], "_ECHs_Mutation_Enrichment.png"),
           width = 2000, height = 1400, res = 130)
       barplot(barplot_data, col = colors, border = colors,
               main = paste(toupper(aracne_name), "Top ECHs on Mutation Enrichment", "\n",
@@ -10742,18 +10783,24 @@ oneOffs<- function (which = "freq_mods", params=NULL){
   #              (a number)
   # params[[5]]: The number of permutation test for computing p-value
   #              (an integer)
-  # params[[6]]: Directory path for the results
+  # params[[6]]: Character string, specifying which enrichment score computations option
+  #		           to use when computing exclusivity scores. Should be either "FET_SUM" or "FET_COUNT".
+  #              For more details, please refer to oneOffs(which="generate_exclusivity_scores").
+  #              (a character vector of length 1)
+  # params[[7]]: Directory path for the results
   #              (a character vector of length 1)
   #
   # e.g., params=list("//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_62_ARACNE.rda",
   #                   "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_62_Top_Cosmic_Regulons.rda",
   #                   "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/TCGA_26_Top_Mutated_Regulons.rda",
   #                   100, 10000,
+  #                   "FET_SUM",
   #                   "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/exclusive_conservation/ECH/reg_exclusivity/rank_comparison/")
   # e.g., params=list("./data/RDA_Files/All_62_ARACNE.rda",
   #                   "./data/RDA_Files/All_62_Top_Cosmic_Regulons.rda",
   #                   "./data/RDA_Files/TCGA_26_Top_Mutated_Regulons.rda",
   #                   100, 10000,
+  #                   "FET_SUM",
   #                   "./results/exclusive_conservation/ECH/reg_exclusivity/rank_comparison/")
   
   if (which == "exclusivity_rank_comparison") {
@@ -10764,15 +10811,21 @@ oneOffs<- function (which = "freq_mods", params=NULL){
     assertString(params[[3]])
     assertNumeric(params[[4]])
     assertIntegerish(params[[5]])
-    assertString(params[[6]])
+    assertChoice(params[[6]], c("FET_SUM", "FET_COUNT"))
+    assertString(params[[7]])
     
     ### load data
-    load(params[[1]])
+    load(params[[1]], envir = globalenv())
     load(params[[2]])
     load(params[[3]])
+    Sys.sleep(3)
     
     ### compute exclusivity scores of all the hubs
-    oneOffs("generate_exclusivity_scores", params = list("FET_SUM"))
+    if(params[[6]] == "FET_SUM") {
+      oneOffs("generate_exclusivity_scores", params = list("FET_SUM"))
+    } else {
+      oneOffs("generate_exclusivity_scores", params = list("FET_COUNT", 1e-20))
+    }
     
     ### rank comparison between exclusivity score and Cosmic enrichment
     for(tissue_name in names(cosmic_enriched_regulons)) {
@@ -10794,7 +10847,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
                                   alternative = "greater",
                                   permutation = 10000,
                                   fileName = paste0("Exclusivity_VS_Cosmic_Enrichment_", tissue_name),
-                                  printPath = params[[6]],
+                                  printPath = params[[7]],
                                   width = 24,
                                   height = 10)
     }
@@ -10819,10 +10872,263 @@ oneOffs<- function (which = "freq_mods", params=NULL){
                                   alternative = "greater",
                                   permutation = 10000,
                                   fileName = paste0("Exclusivity_VS_Mutation_Enrichment_", tissue_name),
-                                  printPath = params[[6]],
+                                  printPath = params[[7]],
                                   width = 24,
                                   height = 10)
     }
+    
+  }
+  
+  # ******************* which = differentially_conserved_hubs *******************
+  # This function identifies hubs that are conserved well in both GTEx and TCGA
+  # but their target genes are very different between the two.
+  #
+  # params[[1]]: The file path of the Aracne RDA file (All_62_ARACNE.rda)
+  #              (a character vector of length 1)
+  # params[[2]]: Character string, specifying which enrichment score computations option
+  #		           to use when computing exclusivity scores. Should be either "FET_SUM" or "FET_COUNT".
+  #              For more details, please refer to oneOffs(which="generate_exclusivity_scores").
+  #              (a character vector of length 1)
+  # params[[3]]: The file path of the GTEx-TCGA tissue mapping info (GTEx_TCGA_Map.rda)
+  #              (a character vector of length 1)
+  # params[[4]]: Directory path for the results
+  #              (a character vector of length 1)
+  #
+  # e.g., params=list("//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_62_ARACNE.rda",
+  #                   "FET_SUM",
+  #                   "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/GTEx_TCGA_Map.rda",
+  #                   "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/exclusive_conservation/ECH/differentially_conserved_hubs/")
+  # e.g., params=list("./data/RDA_Files/All_62_ARACNE.rda",
+  #                   "FET_SUM",
+  #                   "./data/RDA_Files/GTEx_TCGA_Map.rda",
+  #                   "./results/exclusive_conservation/ECH/differentially_conserved_hubs/")
+  
+  if (which == "differentially_conserved_hubs") {
+    
+    ### argument checking
+    assertString(params[[1]])
+    assertChoice(params[[2]], c("FET_SUM", "FET_COUNT"))
+    assertString(params[[3]])
+    assertString(params[[4]])
+    
+    ### load library
+    if(!require(xlsx, quietly = TRUE)) {
+      install.packages("xlsx")
+      require(xlsx, quietly = TRUE)
+    }
+    
+    ### load data
+    load(params[[1]], envir = globalenv())
+    load(params[[3]])
+    Sys.sleep(3)
+    
+    ### compute exclusivity scores of all the hubs
+    if(params[[2]] == "FET_SUM") {
+      oneOffs("generate_exclusivity_scores", params = list("FET_SUM"))
+    } else {
+      oneOffs("generate_exclusivity_scores", params = list("FET_COUNT", 1e-20))
+    }
+    
+    ### prepare a result table
+    result_table <- data.frame(reg_exclusivity_scores_collection,
+                               stringsAsFactors = FALSE, check.names = FALSE)
+    colnames(result_table)[3] <- "BOTH_All"
+    
+    ### prepare colnames that are from same tissue but different collections
+    target_colnames <- apply(GTEx_TCGA_Map, 1, function(x) {
+      return(paste0(x["GTEx"], "%tcga_", x["TCGA"]))
+    })
+    
+    ### scale factors
+    homog_num = choose(sum(grepl("tcga", varNames)),2)+choose(length(varNames)-sum(grepl("tcga", varNames)), 2)
+    heter_num = choose(length(varNames), 2) - homog_num
+    same_scale = max(homog_num, heter_num) / length(target_colnames)
+    
+    ### Replace -Inf with the smallest recorded non-infinite log(p-value).
+    minp = min(reg_fet_cons_mat[reg_fet_cons_mat != -Inf])
+    
+    ### calculate the sum(FET pVal) of interactome pairs that are from the same tissue of each collection
+    result_table$BOTH_Same_Tissue <- NA
+    for(hub in rownames(result_table)) {
+      fets = reg_fet_cons_mat[hub, ]
+      fets = replace(fets, fets == -Inf, minp)
+      if(params[[2]] == "FET_SUM") {
+        result_table[hub, "BOTH_Same_Tissue"] <- -sum(fets[target_colnames])*same_scale
+      } else {
+        result_table[hub, "BOTH_Same_Tissue"] <- sum(fets[target_colnames] <= log10(thresh))*same_scale
+      }
+    }
+    
+    ### calculate exclusivity scores (the original exclusivity scores)
+    ### GTEX + TCGA - BOTH_All
+    result_table$Exclusivity_Score <- round(result_table$GTEX + result_table$TCGA - result_table$BOTH_All)
+    
+    ### calculate the differential exclusivity scores
+    ### conserved in the same collections but the hubs have very different targets
+    ### in the same tissues between GTEx and TCGA
+    ### GTEX + TCGA - BOTH_Same_Tissue
+    result_table$Differential_Exclusivity_Score <- round(result_table$GTEX + result_table$TCGA - result_table$BOTH_Same_Tissue)
+    
+    ### there are some hubs only exist in GTEx Aracne networks and
+    ### in only some of TCGA networks. Get hub names that exist in
+    ### all the GTEx and TCGA tissues, and only use them.
+    all_intersect_hubs = as.character(getInteractomeGenes(nets=varNames, count=FALSE, hubs_only=TRUE, common=TRUE))
+    result_table <- result_table[all_intersect_hubs,]
+    
+    ### order the hubs based on the differential exclusivity scores
+    result_table <- result_table[order(-result_table$Differential_Exclusivity_Score),]
+    
+    ### add gene symbol to the result_table
+    result_table <- data.frame(Entrez_ID=rownames(result_table),
+                               Gene_Symbol=entrezIDtoSymbol(rownames(result_table)),
+                               result_table,
+                               stringsAsFactors = FALSE, check.names = FALSE)
+    
+    write.xlsx2(result_table, file = paste0(params[[4]], "Differentially_Conserved_Hubs_Statics_Table.xlsx"), row.names = FALSE)
+    
+    ### with a given hub list and threshold (0.01), make a pathway table that shows
+    ### which pathways are most enriched with the regulons of all the given hubs
+    ### implement it in aracne_go.R
+    
+    
+  }
+  
+  # ******************* which = network_similarity *******************
+  # This function calculates similarities among all the existing iteractomes
+  # pairwisely with using graph kernels.
+  #
+  # params[[1]]: The file path of the Aracne RDA file (All_62_ARACNE.rda)
+  #              (a character vector of length 1)
+  # params[[2]]: Graph kernel to be used ("GeometricRandomWalk", "Graphlet", "ShortestPath")
+  #              (a character vector of length 1)
+  # params[[3]]: The file path of the interactome similarity result
+  #              (a character vector of length 1)
+  #
+  # e.g., params=list("//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_62_ARACNE.rda",
+  #                   "GeometricRandomWalk",
+  #                   "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_62_Similarity.rda")
+  # e.g., params=list("./data/RDA_Files/All_62_ARACNE.rda",
+  #                   "GeometricRandomWalk",
+  #                   "./data/RDA_Files/All_62_Similarity.rda")
+  
+  if (which == "network_similarity") {
+    
+    ### argument checking
+    assertString(params[[1]])
+    assertChoice(params[[2]], c("GeometricRandomWalk", "Graphlet", "ShortestPath"))
+    assertString(params[[3]])
+    
+    ### load library
+    if(!require(graphkernels, quietly = TRUE)) {
+      install.packages("graphkernels")
+      require(graphkernels, quietly = TRUE)
+    }
+    if(!require(igraph, quietly = TRUE)) {
+      install.packages("igraph")
+      require(igraph, quietly = TRUE)
+    }
+    
+    ### load data
+    load(params[[1]], envir = globalenv())
+    Sys.sleep(3)
+    
+    ### transform the interactome networks to igraphs
+    igs <- vector("list", length = length(varNames))
+    names(igs) <- varNames
+    for(net_name in varNames) {
+      ### get the network
+      net <- get(net_name)
+      
+      ### gather all interactions for the given network
+      edge_list <- data.frame(Hub=names(net[[2]])[1],
+                              Target=as.character(net[[2]][[1]][,1]),
+                              weight=net[[2]][[1]][,2],
+                              stringsAsFactors = FALSE)
+      for(i in 2:length(net[[2]])) {
+        edge_list <- rbind(edge_list,
+                           data.frame(Hub=names(net[[2]])[i],
+                                      Target=as.character(net[[2]][[i]][,1]),
+                                      weight=net[[2]][[i]][,2],
+                                      stringsAsFactors = FALSE))
+      }
+      
+      ### transform into an igraph
+      igs[[net_name]] <- graph.data.frame(edge_list, directed = FALSE)
+      
+      ### garbage collection
+      rm(edge_list)
+      rm(net_name, envir = globalenv())
+      gc()
+    }
+    
+    ### remove original Aracne networks from memory
+    rm(list = c(varNames), envir = globalenv())
+    gc()
+    
+    ### pairwisely calculate the similarities
+    ### the run using the graphkernels can be vectorized,
+    ### but it would take a long time, and need large memory
+    ### so we run one at a time and save each step to be safe
+    similarity_mat <- matrix(0, length(varNames), length(varNames))
+    rownames(similarity_mat) <- varNames
+    colnames(similarity_mat) <- varNames
+    if(params[[2]] == "GeometricRandomWalk") {
+      for(net1 in varNames[-length(varNames)]) {
+        for(net2 in varNames[seq(which(varNames == net1)+1, length(varNames))]) {
+          ### try the graph kernel - one pair at a time
+          kernel_mat <- CalculateGeometricRandomWalkKernel(G = list(igs[[net1]], igs[[net2]]), par = 0.1)
+          
+          ### save the calculated similarities to the result matrix
+          similarity_mat[net1, net1] <- kernel_mat[1, 1]
+          similarity_mat[net1, net2] <- kernel_mat[1, 2]
+          similarity_mat[net2, net1] <- kernel_mat[2, 1]
+          similarity_mat[net2, net2] <- kernel_mat[2, 2]
+        }
+      }
+    } else if(params[[2]] == "Graphlet") {
+      for(net1 in varNames[-length(varNames)]) {
+        for(net2 in varNames[seq(which(varNames == net1)+1, length(varNames))]) {
+          ### try the graph kernel - one pair at a time
+          kernel_mat <- CalculateConnectedGraphletKernel(G = list(igs[[net1]], igs[[net2]]), par = 4)
+          
+          ### save the calculated similarities to the result matrix
+          similarity_mat[net1, net1] <- kernel_mat[1, 1]
+          similarity_mat[net1, net2] <- kernel_mat[1, 2]
+          similarity_mat[net2, net1] <- kernel_mat[2, 1]
+          similarity_mat[net2, net2] <- kernel_mat[2, 2]
+        }
+      }
+    } else if(params[[2]] == "ShortestPath") {
+      for(net1 in varNames[-length(varNames)]) {
+        for(net2 in varNames[seq(which(varNames == net1)+1, length(varNames))]) {
+          ### try the graph kernel - one pair at a time
+          kernel_mat <- CalculateShortestPathKernel(G = list(igs[[net1]], igs[[net2]]))
+          
+          ### save the calculated similarities to the result matrix
+          similarity_mat[net1, net1] <- kernel_mat[1, 1]
+          similarity_mat[net1, net2] <- kernel_mat[1, 2]
+          similarity_mat[net2, net1] <- kernel_mat[2, 1]
+          similarity_mat[net2, net2] <- kernel_mat[2, 2]
+        }
+      }
+    } else {
+      stop("ERROR: params[[2]] should be either \"GeometricRandomWalk\", \"Graphlet\", or \"ShortestPath\".")
+    }
+    
+    ### set README function
+    README <- function() {
+      writeLines(paste(rep("#", 100), collapse = ""))
+      writeLines("The \"similarity_mat\" is a 62 x 62 numeric matrix.")
+      writeLines("It is a symmetric matrix that rows and columns both represent")
+      writeLines("62 GTEx + TCGA tissues. A value in a cell indicates similarity")
+      writeLines("between the two tissue Aracne networks.")
+      writeLines("The matrix was generated by which = \"network_similarity\"")
+      writeLines("of oneOffs() in aracne.R.")
+      writeLines(paste(rep("#", 100), collapse = ""))
+    }
+    
+    ### save as RDA
+    save(list = c("similarity_mat", "README"), file = params[[3]])
     
   }
   
