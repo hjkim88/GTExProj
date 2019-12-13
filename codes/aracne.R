@@ -11041,19 +11041,25 @@ oneOffs<- function (which = "freq_mods", params=NULL){
       
       ### gather all interactions for the given network
       edge_list <- data.frame(Hub=names(net[[2]])[1],
-                              Target=as.character(net[[2]][[1]][,1]),
+                              Target=as.character(abs(net[[2]][[1]][,1])),
                               weight=net[[2]][[1]][,2],
                               stringsAsFactors = FALSE)
       for(i in 2:length(net[[2]])) {
         edge_list <- rbind(edge_list,
                            data.frame(Hub=names(net[[2]])[i],
-                                      Target=as.character(net[[2]][[i]][,1]),
+                                      Target=as.character(abs(net[[2]][[i]][,1])),
                                       weight=net[[2]][[i]][,2],
                                       stringsAsFactors = FALSE))
       }
       
       ### transform into an igraph
       igs[[net_name]] <- graph.data.frame(edge_list, directed = FALSE)
+      
+      ### simplify the igraph (remove duplicate edges)
+      igs[[net_name]] <- simplify(igs[[net_name]],
+                                  remove.multiple = TRUE,
+                                  remove.loops = TRUE,
+                                  edge.attr.comb = "first")
       
       ### garbage collection
       rm(edge_list)
