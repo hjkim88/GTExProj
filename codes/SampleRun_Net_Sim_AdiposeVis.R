@@ -107,3 +107,108 @@ ggplot(data = df, aes(x=x, y=y)) +
 
 ### save the plot
 ggsave(filename = "C:/Research/CUMC/GTExProj/AdiposeVis_RandomWalk_Similarity_Among_GTEx.png", width = 20, height = 10)
+
+
+### This is another sample run for getting a sense of impact of regulon size on the similarity
+
+### load Aracne network
+load("C:/Research/CUMC/GTExProj/data/RDA_Files/All_62_ARACNE.rda")
+
+### get the lung cacer network
+aracne_net <- Lung[[2]]
+
+### remove all the networks
+rm(list = c(varNames, "varNames", "tfPairEnrich", "tfPairProb", "netSizes", "pairWise"))
+gc()
+
+set.seed(1234)
+### network with 3 hubs
+aracne_net3 <- aracne_net[sample(length(aracne_net), 3)]
+
+### network with 5 hubs
+aracne_net5 <- aracne_net[sample(length(aracne_net), 5)]
+
+### network with 10 hubs
+aracne_net10 <- aracne_net[sample(length(aracne_net), 10)]
+
+### network with 50 hubs
+aracne_net50 <- aracne_net[sample(length(aracne_net), 50)]
+
+### network with 100 hubs
+aracne_net100 <- aracne_net[sample(length(aracne_net), 100)]
+
+### a function to
+transform_to_igraph <- function(aracne_network) {
+  ### gather all interactions for the given network
+  edge_list <- data.frame(Hub=names(aracne_network)[1],
+                          Target=as.character(abs(aracne_network[[1]][,1])),
+                          weight=aracne_network[[1]][,2],
+                          stringsAsFactors = FALSE)
+  for(i in 2:length(aracne_network)) {
+    edge_list <- rbind(edge_list,
+                       data.frame(Hub=names(aracne_network)[i],
+                                  Target=as.character(abs(aracne_network[[i]][,1])),
+                                  weight=aracne_network[[i]][,2],
+                                  stringsAsFactors = FALSE))
+  }
+  
+  ### transform into an igraph
+  result_igs <- graph.data.frame(edge_list, directed = FALSE)
+  
+  ### simplify the igraph (remove duplicate edges)
+  result_igs <- simplify(result_igs,
+                         remove.multiple = TRUE,
+                         remove.loops = TRUE,
+                         edge.attr.comb = "first")
+  
+  return(result_igs)
+}
+
+### complete igs
+igs1 <- igs[["Lung"]]
+
+### remove igs object
+rm(list = c("igs"))
+gc()
+
+### igs with 3 hubs
+igs3 <- transform_to_igraph(aracne_net3)
+
+### igs with 5 hubs
+igs5 <- transform_to_igraph(aracne_net5)
+
+### igs with 10 hubs
+igs10 <- transform_to_igraph(aracne_net10)
+
+### igs with 50 hubs
+igs50 <- transform_to_igraph(aracne_net50)
+
+### igs with 100 hubs
+igs100 <- transform_to_igraph(aracne_net100)
+
+### exp1
+exp1 <- CalculateGeometricRandomWalkKernel(G = list(igs1, igs3), par = 0.1)
+
+### exp2
+exp2 <- CalculateGeometricRandomWalkKernel(G = list(igs1, igs5), par = 0.1)
+
+### exp3
+exp3 <- CalculateGeometricRandomWalkKernel(G = list(igs1, igs10), par = 0.1)
+
+### exp4
+exp4 <- CalculateGeometricRandomWalkKernel(G = list(igs1, igs50), par = 0.1)
+
+### exp5
+exp5 <- CalculateGeometricRandomWalkKernel(G = list(igs1, igs100), par = 0.1)
+
+### exp6
+exp6 <- CalculateGeometricRandomWalkKernel(G = list(igs3, igs100), par = 0.1)
+
+### exp7
+exp7 <- CalculateGeometricRandomWalkKernel(G = list(igs1, igs3, igs5, igs10, igs50, igs100), par = 0.1)
+
+### combine all the results
+exp_results <- list(exp1, exp2, exp3, exp4, exp5, exp6, exp7)
+
+### save the exp results
+save(list = c("exp_results"), file = "C:/Research/CUMC/GTExProj/data/RDA_Files/exp_results.rda")
