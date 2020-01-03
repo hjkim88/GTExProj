@@ -1236,10 +1236,11 @@ tfNetEnrichment <- function(partialFileDir=NULL) {
 # Arguments are:
 # * geneHub: The gene id (either as integer or as string) or the gene symbol of 
 #		the query TF gene. 
-# * net:	The network to use. This is either a string from those named in 
-#		varNames, or the actual ARACNe network variable, or NULL. In the 
+# * net:	The networks to use. This is either a subvector of varNames (i.e., a
+#		character vector of interactome variable names), or a *single* ARACNe 
+#		network variable (i.e., the actulal list object), or NULL. In the 
 #		first two cases the function returns the regulon of the TF from the
-#		specified network. Otherwise regulons for all networks are returned.
+#		specified network(s). Otherwise regulons for all networks are returned.
 # * mode:	Specifies how much data to return:
 #	* "all": Return the full M x 5 matrix corresponding to the query gene A
 #		from net[[2]][[index(A)]].
@@ -1250,17 +1251,20 @@ tfNetEnrichment <- function(partialFileDir=NULL) {
 #		most as large as this threshold.
 #
 # Returns either a vector V or a matrix with 5 columns as described above. 
-# If 'net' == NULL return a list with length(varNames) elements, one for each 
+# If 'net' == NULL or 'net' is a character vector of length > 1, return a list
+# with length(net) elements (or length(varNames), if 'net' == NULL), one for each 
 # ARACNe network, each element being the vector V or matrix M described above 
 # for the corresponding network.
 # *****************************************************************************
 getRegulon <- function(geneHub, net = NULL, mode="ids", mi = 0, pval = 1){
-	geneHub = strtoi(as.entrezId(geneHub))
-	if (is.na(geneHub))
-		return(NULL)
-	
-	if (is.null(net))
-		return(sapply(varNames, function(e){return(getRegulon(geneHub, e, mode, mi, pval))}))
+  geneHub = strtoi(as.entrezId(geneHub))
+  if (is.na(geneHub))
+    return(NULL)
+  
+  if (is.null(net))
+    net = varNames
+  if(is.character(net) && length(net) > 1)
+    return(sapply(net, function(n){return(getRegulon(geneHub, n, mode, mi, pval))}))
 	
 	# Make sure the name of the network exists
 	if (is.character(net))
@@ -2391,7 +2395,7 @@ makeGraphs <- function (which = "mods_events", save = FALSE, fName = NULL,
 		par(mar=c(8,4,4,5)+.1)
 		title = paste("Regulon sizes per interactome for gene ", hub, " (", entrezIDtoSymbol(hub), ")", sep="")
 		ylim <- c(0, 1.1*max(reg_sizes))
-		bp = barplot(reg_sizes, las=2, main = title, ylab="Regulon sizw", ylim=ylim)
+		bp = barplot(reg_sizes, las=2, main = title, ylab="Regulon size", ylim=ylim)
 		text(x = bp, y = reg_sizes, label = reg_sizes, pos = 3, cex = 0.8, col = "red")
 	}
 	
@@ -3080,14 +3084,14 @@ makeGraphs <- function (which = "mods_events", save = FALSE, fName = NULL,
 	
 	# ***************************** which = regulon_conservation ********************************
 	# Generates images that assess how well the regulon of a query hub gene is conserved across
-	# interactomes, utilizing the FET p-values in the object tfPairEnrich. Either a heatmap or
-	# a bar plot is generated, depending on the value of params[[2]].
+	# interactomes, utilizing the FET p-values in the object tfPairEnrich. A heatmap, a bar plot,
+	# or a hierarchical clustering plot is generated, depending on the value of params[[2]].
 	#
 	# ARGUMENTS
 	# * params[[1]]: the query hub gene, specified in any of the following ways:
 	#		- gene symbol, entered as a character string.
 	#		- entrez id, entered either as an integer or a character string.
-	# * params[[2]]: one of two character strings: "heatmap" or "barplot"
+	# * params[[2]]: one of three character strings: "heatmap" or "barplot" or "hierclust"
 	# params[[3]]: a positive integer, needed only when params[[2]] == "barplot". If not provided,
 	#		a default value of 100 is used.
 	#
@@ -3096,10 +3100,14 @@ makeGraphs <- function (which = "mods_events", save = FALSE, fName = NULL,
 	# showing how strong the regulon conservation is for every pair of interactomes. If params[[2]] ==
 	# "barplot", it orders the FET pvalues for the query gene across all pairs of interactomes and 
 	# selects the top params[[3]] most significant. For each of those it retrieves the relevant pair
-	# A, B of interactomes and counts how many times each interactome is seen amont the top params[[3]]
-	# such pairs. It then plots a bar plot with these counts.
+	# A, B of interactomes and counts how many times each interactome is seen among the top params[[3]]
+	# such pairs. It then plots a bar plot with these counts. If params[[2]] == "hierclust",
+  # the distances between interactome pairs are represented as a dendrogram.
 	if (which == "regulon_conservation") {
 		
+	  if(is.null(params) | (length(params) != 2 & length(params) !=3))
+	    stop("Wrong number of parameters provided")
+	  
 		plotHeatMap <- function(gene){
 			disp = 350
 			mat = regulonConservationAcrossNets(gene, mode="matrix")
@@ -3131,8 +3139,21 @@ makeGraphs <- function (which = "mods_events", save = FALSE, fName = NULL,
 			axis(1, at=mp, labels=names(t), las = 2, cex.axis=0.8)
 		}
 		
-		if(is.null(params) | (length(params) != 2 & length(params) !=3))
-			stop("Wrong number of parameters provided")
+		plotHclust <- function(gene) {
+		  disp = 350
+		  mat = regulonConservationAcrossNets(gene, mode="matrix")
+		  for (i in 1:nrow(mat))
+		    for (j in 1:ncol(mat))
+		      if (mat[i,j] == -Inf){
+		        mat[i,j] = 0
+		      }else{
+		        mat[i,j] = (mat[i,j] + disp)*log(mat[i,j] + disp+1)
+		      }
+		  rd<-as.dist(mat)
+		  plot(hclust(rd), main = paste("Hierarchical Clustering of nets according to regulon conservation for gene:", 
+		                                entrezIDtoSymbol(as.entrezId(gene))),
+		       xlab = "", sub = "")
+		}
 		
 		gene = params[[1]]
 		if (params[[2]] == "heatmap")
@@ -3142,6 +3163,8 @@ makeGraphs <- function (which = "mods_events", save = FALSE, fName = NULL,
 				plotBarPlot(gene)
 			else
 				plotBarPlot(gene, top = params[[3]])
+		if (params[[2]] == "hierclust")
+		  plotHclust(gene)
 	}  
 	
 	
@@ -3235,7 +3258,7 @@ makeGraphs <- function (which = "mods_events", save = FALSE, fName = NULL,
 		
 		# Generate variables needed by the code that follows; do only once.
 		if (!exists("reg_exclusivity_scores"))
-			oneOffs(which = "generate_exclusivity_scores")
+			oneOffs(which = "generate_exclusivity_scores", params=list("FET_SUM"))
 		
 		hub = params[[1]]
 		exclude = ifelse(length(params) == 2, params[[2]], NA)
@@ -8540,7 +8563,7 @@ oneOffs<- function (which = "freq_mods", params=NULL){
 		cons_mat = matrix(0, length(all_hubs), choose(length(varNames), 2))
 		rownames(cons_mat) = all_hubs
 		
-		# Convenence object, map interactome pairs to one of three categories: "GTEX" (meaning
+		# Convenience object, map interactome pairs to one of three categories: "GTEX" (meaning
 		# that both interactomes are from the GTEx collection), "TCGA" (meaning that both
 		# interactomes are from the TCGA collection), or "BOTH" (meaning that the two interactomes
 		# each come from the GTEx and TCGA collections).
@@ -12586,4 +12609,47 @@ getGeneExpression <- function(gene, mat_names = NULL){
 			})
 	names(res) = mat_names
 	return(res)
+}
+
+#'****************************************************************************************
+#' Generates tables listing the support and the maximum MI for every interaction.
+#'
+#' @title	computeSupportAndMaxMI
+#' 
+#' @param net	A subset of "varNames", i.e., a character string containing interactome 
+#' 				variable names.
+#' 
+#' @return 		Returns a list with two members, each member being a N x M numeric matrix
+#' 				where N is the total number of genes found in all interactomes specified 
+#' 				in "nets" and M is the total number of hubs found in all interactomes in
+#' 				"nets". In each matrix, rownames() and colnames() are the entrez Ids of 
+#' 				the N and M genes, respectively. The entry [gene, hub] in the first 
+#' 				matrix is the support of the interaction (hub, gene), i.e., the number of 
+#' 				interactomes in "nets" where the interaction is present. In the second
+#' 				matrix, the entry [gene, hub] is the maximum MI value for the interaction 
+#' 				(hub, gene) across all interactomes in "nets".
+#' 				NOTE: this is a time consuming method.
+#'****************************************************************************************
+computeSupportAndMaxMI <- function(nets = varNames){
+  all_genes = getInteractomeGenes(nets, count = FALSE, hubs_only = FALSE, common = FALSE)
+  all_hubs = getInteractomeGenes(nets, count = FALSE, hubs_only = TRUE, common = FALSE)
+  sup = matrix(0, length(all_genes), length(all_hubs))
+  maxmi = matrix(0, length(all_genes), length(all_hubs))
+  rownames(sup) = rownames(maxmi) = all_genes
+  colnames(sup) = colnames(maxmi) = all_hubs
+  for (net in nets){
+    writeLines(paste("Now processing --->", net))
+    net = get(net)
+    for (hub in names(net[[2]])){
+      reg = net[[2]][[hub]]
+      for (i in 1:nrow(reg)){
+        if (reg[i, "Target"] > 0){
+          sup[rownames(reg)[i], hub] = sup[rownames(reg)[i], hub] + 1
+          maxmi[rownames(reg)[i], hub] = max(maxmi[rownames(reg)[i], hub], reg[i, "MI"])
+        }
+      }
+    }
+  }
+  
+  return(list(sup, maxmi))
 }
