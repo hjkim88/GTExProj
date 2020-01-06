@@ -3091,7 +3091,7 @@ makeGraphs <- function (which = "mods_events", save = FALSE, fName = NULL,
 	# * params[[1]]: the query hub gene, specified in any of the following ways:
 	#		- gene symbol, entered as a character string.
 	#		- entrez id, entered either as an integer or a character string.
-	# * params[[2]]: one of three character strings: "heatmap" or "barplot" or "hierclust"
+	# * params[[2]]: one of four character strings: "heatmap" or "barplot" or "hierclust" or "mds"
 	# params[[3]]: a positive integer, needed only when params[[2]] == "barplot". If not provided,
 	#		a default value of 100 is used.
 	#
@@ -3102,7 +3102,8 @@ makeGraphs <- function (which = "mods_events", save = FALSE, fName = NULL,
 	# selects the top params[[3]] most significant. For each of those it retrieves the relevant pair
 	# A, B of interactomes and counts how many times each interactome is seen among the top params[[3]]
 	# such pairs. It then plots a bar plot with these counts. If params[[2]] == "hierclust",
-  # the distances between interactome pairs are represented as a dendrogram.
+  # the distances between interactome pairs are represented as a dendrogram. Lastly, if params[[2]] ==
+  # "mds", a MDS plot will be generated based on the distances between interactome pairs.
 	if (which == "regulon_conservation") {
 		
 	  if(is.null(params) | (length(params) != 2 & length(params) !=3))
@@ -3155,6 +3156,28 @@ makeGraphs <- function (which = "mods_events", save = FALSE, fName = NULL,
 		       xlab = "", sub = "")
 		}
 		
+		plotMDS <- function(gene) {
+		  disp = 350
+		  mat = regulonConservationAcrossNets(gene, mode="matrix")
+		  for (i in 1:nrow(mat))
+		    for (j in 1:ncol(mat))
+		      if (mat[i,j] == -Inf){
+		        mat[i,j] = 0
+		      }else{
+		        mat[i,j] = (mat[i,j] + disp)*log(mat[i,j] + disp+1)
+		      }
+		  rd<-as.dist(mat)
+		  
+		  ### get MDS points
+		  fit <- cmdscale(rd,eig=TRUE, k=2)
+		  Dimension1 <- fit$points[,1]
+		  Dimension2 <- fit$points[,2]
+		  plot(Dimension1, Dimension2, col = "white",
+		       main = paste("MDS plot of nets according to regulon conservation for gene:", 
+		                    entrezIDtoSymbol(as.entrezId(gene))))
+		  text(Dimension1, Dimension2, labels = labels(rd), cex=.7, pos=3)
+		}
+		
 		gene = params[[1]]
 		if (params[[2]] == "heatmap")
 			plotHeatMap(gene)
@@ -3165,6 +3188,8 @@ makeGraphs <- function (which = "mods_events", save = FALSE, fName = NULL,
 				plotBarPlot(gene, top = params[[3]])
 		if (params[[2]] == "hierclust")
 		  plotHclust(gene)
+		if (params[[2]] == "mds")
+		  plotMDS(gene)
 	}  
 	
 	
