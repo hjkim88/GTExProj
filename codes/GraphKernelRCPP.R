@@ -14,16 +14,36 @@
 #
 #   Example
 #               > source("The_directory_of_GraphKernelRCPP.R/GraphKernelRCPP.R")
-#               > geometricRandomWalk()
+#               > geometricRandomWalk(cppPath="./codes/GeometricRandomWalk.cpp")
 ###
 
-geometricRandomWalk <- function() {
+geometricRandomWalk <- function(cppPath="//isilon.c2b2.columbia.edu/ifs/scratch/c2b2/af_lab/hk2990/network_comparison/GeometricRandomWalk.cpp") {
   
+  ### load libraries
+  if(!require(Rcpp, quietly = TRUE)) {
+    install.packages("Rcpp")
+    require(Rcpp, quietly = TRUE)
+  }
+  if(!require(graphkernels, quietly = TRUE)) {
+    install.packages("graphkernels")
+    require(graphkernels, quietly = TRUE)
+  }
   
+  ### load the CPP function
+  ### here the function name is already designated: CalculateKernelCpp()
+  sourceCpp(file = cppPath)
   
+  ### the wrapper function
+  CalculateGeometricRandomWalkKernel <- function(G, par) {
+    graph.info.list <- vector("list", length(G))
+    for (i in 1:length(G))
+      graph.info.list[[i]] <- GetGraphInfo(G[[i]])
+
+    return(CalculateKernelCpp(graph.info.list, par, 8))
+  }
   
+  ### sample run
+  data(mutag)
+  writeLines(paste(CalculateGeometricRandomWalkKernel(list(mutag[[1]], mutag[[2]]), 0.1)))
   
 }
-
-
-
