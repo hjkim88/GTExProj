@@ -56,7 +56,7 @@ make_scripts <- function(igraphPath="//isilon.c2b2.columbia.edu/ifs/archive/shar
     scriptSample <- sample_sh
     
     ### change some things in the sample script
-    scriptSample[2,1] <- paste0("#$ -l mem=8G,time=80:00:00 -S /bin/bash -cwd -j y -N hk_", tissue)
+    scriptSample[2,1] <- paste0("#$ -l mem=12G,time=80:00:00 -S /bin/bash -cwd -j y -N hk_", tissue)
     scriptSample[4,1] <- paste0("R_code=/ifs/scratch/c2b2/af_lab/hk2990/network_comparison/", tissue, ".R")
     
     ### save the Shell script
