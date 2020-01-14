@@ -34,14 +34,15 @@ source(UTILS_FILE, chdir = TRUE)
 source(ARACNE_GO_FILE)
 
 # Map of TCGA abbreviations to full tumor name
-tcga_abbr = c("Bladder Urothelial Carcinoma", "Breast invasive carcinoma", "Colon adenocarcinoma", 
-		"Glioblastoma multiforme", "Head and Neck squamous cell carcinoma", "Kidney renal clear cell carcinoma", 
-		"Kidney renal papillary cell carcinoma", "Acute Myeloid Leukemia", "Brain Lower Grade Glioma", 
-		"Liver hepatocellular carcinoma", "Lung adenocarcinoma", "Lung squamous cell carcinoma", 
-		"Ovarian serous cystadenocarcinoma", "Prostate adenocarcinoma", "Rectum adenocarcinoma", "Sarcoma", 
-		"Skin Cutaneous Melanoma", "Stomach adenocarcinoma", "Thyroid carcinoma", "Uterine Corpus Endometrial Carcinoma")
-names(tcga_abbr) = c("blca", "brca", "coad", "gbm", "hnsc", "kirc", "kirp", "laml", "lgg", "lihc", "luad", 
-		"lusc", "ov", "prad", "read", "sarc", "skcm", "stad", "thca", "ucec")
+tcga_abbr = c("Bladder Urothelial Carcinoma", "Breast invasive carcinoma", "Cervical squamous cell carcinoma and endocervical adenocarcinoma", 
+              "Colon adenocarcinoma",	"Esophageal carcinoma", "Glioblastoma multiforme", "Head and Neck squamous cell carcinoma", 
+              "Kidney renal clear cell carcinoma", "Kidney renal papillary cell carcinoma", "Acute Myeloid Leukemia", 
+              "Brain Lower Grade Glioma",	"Liver hepatocellular carcinoma", "Lung adenocarcinoma", "Lung squamous cell carcinoma", 
+              "Ovarian serous cystadenocarcinoma", "Pancreatic adenocarcinoma", "Pheochromocytoma and Paraganglioma", "Prostate adenocarcinoma", 
+              "Rectum adenocarcinoma", "Sarcoma",	"Skin Cutaneous Melanoma", "Stomach adenocarcinoma", "Testicular Germ Cell Tumors", 
+              "Thyroid carcinoma", "Thymoma", "Uterine Corpus Endometrial Carcinoma")
+names(tcga_abbr) = c("blca", "brca", "cesc", "coad", "esca", "gbm", "hnsc", "kirc", "kirp", "laml", "lgg", "lihc", "luad", 
+                     "lusc", "ov", "paad", "pcpg", "prad", "read", "sarc", "skcm", "stad", "tgct", "thca", "thym", "ucec")
 
 # Names of ARACNe files on disk.
 # fileNames = c("Adipose-Subcutaneous_vst/Adipose-Subcutaneous_vst_6cols.txt", 
@@ -2452,6 +2453,87 @@ makeGraphs <- function (which = "mods_events", save = FALSE, fName = NULL,
 		}
 	}
 	
+  # ******************** which = interactome_sizes  *****************************
+  # Create a combined barplot+line graph to show the relationship between
+  # interactome sizes, number of hubs per interactome, and number of genes
+  # used to build each interactome. Specifically, let S, H, G be vectors with
+  # one entry per interactome N in varNames, where S[N], H[N], G[N] are, respectively,
+  # (1) the number of interactions in N, (2) the number of hubs in N, and
+  # (3) the number of genes in the gene expression dataset that ARACNe was run on,
+  # to generate N.
+  # 
+  # ARGUMENTS
+  # * params[[1]]: A list of interactomes to plot, in the form of a vector of
+  #		character strings, each string providing the variable name of an
+  #		interactome. E.g., params[[1]] = c("Lung", "tcga_read")
+  #		If params[[1]] == NULL, plot for all interactomes.
+  # * params[[2]]: The RDA file path of Aracne networks (All_62_ARACNE.rda)
+  #   If it is already loaded on memory, it will not re-load
+  # * params[[3]]: The RDA file path of Aracne-ready gene expressions (ALL_62_ARACNE_READY_EXPMAT.rda)
+  #   If it is already loaded on memory, it will not re-load
+  # * EXAMPLE: makeGraphs(which = "interactome_sizes",
+  #                       params = list(NULL,
+  #                                     "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_62_ARACNE.rda",
+  #                                     "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/ALL_62_ARACNE_READY_EXPMAT.rda"))
+  if(which == "interactome_sizes") {
+    
+    ### load necessary files it they are not loaded
+    if(!exists("varNames") || !exists("netSizes")) {
+      load(as.character(params[[2]]), envir = globalenv())
+    }
+    if(!exists("gtex_expmat_names") || !exists("tcga_expmat_names")) {
+      load(as.character(params[[3]]), envir = globalenv())
+    }
+    Sys.sleep(3)
+    
+    ### get interactomes
+    if(is.null(params[[1]])) {
+      netNames <- varNames
+    } else {
+      netNames <- params[[1]]
+    }
+    
+    ### get the three vectors
+    ### 1. the number of interactions
+    ### 2. the number of hubs
+    ### 3. the number of genes
+    interaction_nums <- sort(netSizes[netNames], decreasing = TRUE)
+    hub_nums <- sapply(names(interaction_nums), function(x){
+      return(getInteractomeGenes(x, hubs_only=TRUE))
+    })
+    gene_nums <- sapply(names(interaction_nums), function(x) {
+      if(startsWith(x, "tcga_")) {
+        return(nrow(get(paste0("expmat_", x))))
+      } else {
+        return(nrow(get(paste0("expmat_gtex_", x))))
+      }
+    })
+    
+    ### draw the plot
+    par(oma=c(0, 1, 1, 1))
+    par(mar=c(9, 6, 2, 6.5))
+    par(mgp=c(4, 1, 0))
+    df.bar <- barplot(interaction_nums, main="Interactome sizes", las = 2, col="skyblue",
+                      xlab="", space = 0, yaxs = "i",
+                      xlim = c(0, length(interaction_nums)), ylim = c(0, max(interaction_nums)*1.1))
+    par(new=TRUE)
+    plot(x = df.bar[,1], y = gene_nums, type = 'l', axes = FALSE, ann = FALSE, xlim = c(0, length(interaction_nums)),
+         col = "blue", lwd = 2, ylim = c(0, 1000*(ceiling(max(gene_nums)/1000))), yaxs = "i")
+    par(new=TRUE)
+    plot(x = df.bar[,1], y = hub_nums, type = 'l', axes = FALSE, ann = FALSE, xlim = c(0, length(interaction_nums)),
+         col = "darkorchid1", lwd = 2, ylim = c(0, 1000*(ceiling(max(gene_nums)/1000))), yaxs = "i")
+    axis(side = 4, at = seq(0, 1000*(ceiling(max(gene_nums)/1000)), length.out = 7), 
+         labels = as.character(round(seq(0, 1000*(ceiling(max(gene_nums)/1000)), length.out = 7))), 
+         col = "black", las=2, cex=0.75)
+    mtext("# of interactions", side=2, line=5, cex.lab=1, col="black")
+    mtext("# of genes", side=4, line=5, cex.lab=1, col="black")
+    legend(x = round(nrow(df.bar)*4/5), y = 1.05*1000*(ceiling(max(gene_nums)/1000)),
+           legend = c("# of interactions", "# of genes", "# of hubs"),
+           col = c("skyblue", "blue", "darkorchid1"), lwd = c(10, 3, 3),
+           cex = 0.6, y.intersp=1, xpd = TRUE, bty = "n")
+    
+  }
+  
 	# ******************** which = mods_events  *****************************
 	# Plot 2 number series, each comprising 20 counts, one for each tumor: 
 	# (1) the number of genes harboring DIGGIT events.
