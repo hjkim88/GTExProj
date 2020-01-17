@@ -449,13 +449,15 @@ README = function(){
 # 		is.tf(), is.cotf(), or is.sign(). This function will then be used to filter
 # 		interactions involving only TF, co-TF, or signaling hubs respectively. If
 # 		filterFUN == NULL, then all interactions are counted.
-# * thresh:	only interactions with p-values <= 'thresh' will be used in the 
-#		calculations. If 'thresh' is NULL then all interactions will be used.
+# * pv_thresh:	only interactions with p-values <= 'pv_thresh' will be used in the 
+#		calculations. If 'pv_thresh' is NULL then all interactions will be used.
+# * mi_thresh:  only interactions with MI >= 'mi_thresh' will be used in the
+#   calculations. If 'mi_thresh' is NULL then all interactions will be used.
 #
 # RETURN VALUE:
 # Depends on the value of the argument selector, as describe above.
 # *****************************************************************************
-interactionCounts <- function(selector = "single", filterFUN = NULL, thresh = NULL){
+interactionCounts <- function(selector = "single", filterFUN = NULL, pv_thresh = NULL, mi_thresh = NULL){
 	
 	# Check that argument is OK
 	if (selector != "single" & selector != "pairwise" & selector != "allUnique"){
@@ -468,8 +470,10 @@ interactionCounts <- function(selector = "single", filterFUN = NULL, thresh = NU
 	
 	if (is.null(filterFUN))
 		filterFUN <- function(e) {return(TRUE)}
-	if (is.null(thresh))
-		thresh = 1
+	if (is.null(pv_thresh))
+		pv_thresh = 1
+	if (is.null(mi_thresh))
+	  mi_thresh = -99
 	
 	if (selector == "single"){
 		# Go over each interactome and count non-duplicate interactions, i.e., 
@@ -480,9 +484,12 @@ interactionCounts <- function(selector = "single", filterFUN = NULL, thresh = NU
 			nList = get(varNames[i])[[2]]
 			for (j in 1:length(nList)){
 				if (filterFUN(names(nList)[j])){
-					x = nList[[j]][,"Target"]
-					y = nList[[j]][x>0, "Pvalue"]
-					count = count + length(y[y <= thresh])
+				  x = nList[[j]]
+				  x = x[which(x[,"Target"] > 0),,drop = FALSE]
+				  x = x[intersect(which(x[,"Pvalue"] <= pv_thresh),
+				                  which(x[,"MI"] >= mi_thresh)),,drop = FALSE]
+					
+					count = count + nrow(x)
 				}
 			}
 			finalCounts[fcInd] = count
@@ -525,10 +532,12 @@ interactionCounts <- function(selector = "single", filterFUN = NULL, thresh = NU
 						if (filterFUN(net1[n_1,1])){
 							ind1 = net1[n_1, 2]
 							ind2 = net2[n_2, 2]
-							t1 = net1_det[[ind1]][, "Pvalue"]
-							t2 = net2_det[[ind2]][,"Pvalue"]
-							t1 = t1 <= thresh
-							t2 = t2 <= thresh
+							t1 = net1_det[[ind1]]
+							t2 = net2_det[[ind2]]
+							t1 = intersect(which(t1[,"Pvalue"] <= pv_thresh),
+							               which(t1[,"MI"] >= mi_thresh))
+							t2 = intersect(which(t2[,"Pvalue"] <= pv_thresh),
+							               which(t2[,"MI"] >= mi_thresh))
 							x = net1_det[[ind1]][t1, "Target"]
 							y = net2_det[[ind2]][t2, "Target"]
 							count = count + length(intersect(x[x>0], y[y>0]))
@@ -544,7 +553,7 @@ interactionCounts <- function(selector = "single", filterFUN = NULL, thresh = NU
 		}
 		# Finally, count the number of unique interactions in each network and 
 		# populate the diagonal of the results matrix. 
-		x = interactionCounts(thresh = thresh)
+		x = interactionCounts(pv_thresh = pv_thresh, mi_thresh = mi_thresh)
 		for (i in 1:length(x))
 			pairCounts[i, i] = x[i]
 		return(pairCounts)
@@ -561,8 +570,9 @@ interactionCounts <- function(selector = "single", filterFUN = NULL, thresh = NU
 				if (filterFUN(net[i, 1])){
 					tf_id = net[i,1]
 					tf_ind = net[i,2]
-					t1 = netInts[[tf_ind]][, "Pvalue"]
-					t1 = t1 <= thresh
+					t1 = netInts[[tf_ind]]
+					t1 = intersect(which(t1[,"Pvalue"] <= pv_thresh),
+					               which(t1[,"MI"] >= mi_thresh))
 					tf_ints = netInts[[tf_ind]][t1,"Target"]
 					count = length(tf_ints[tf_ints>0])
 					tfCounts[tf_id] = tfCounts[tf_id] + count
@@ -602,8 +612,9 @@ interactionCounts <- function(selector = "single", filterFUN = NULL, thresh = NU
 				if (filterFUN(net[i, 1])){
 					tf_id = net[i,1]
 					tf_ind = net[i,2]
-					t1 = netInts[[tf_ind]][, "Pvalue"]
-					t1 = t1 <= thresh
+					t1 = netInts[[tf_ind]]
+					t1 = intersect(which(t1[,"Pvalue"] <= pv_thresh),
+					               which(t1[,"MI"] >= mi_thresh))
 					tf_ints = netInts[[tf_ind]][t1,"Target"]
 					tf_ints = tf_ints[tf_ints>0]
 					# logLines(paste(length(tf_ints)))
@@ -2471,11 +2482,21 @@ makeGraphs <- function (which = "mods_events", save = FALSE, fName = NULL,
   #   If it is already loaded on memory, it will not re-load
   # * params[[3]]: The RDA file path of Aracne-ready gene expressions (ALL_62_ARACNE_READY_EXPMAT.rda)
   #   If it is already loaded on memory, it will not re-load
+  # * params[[4]]: MI threshold for interactions. If this option is set,
+  #   the function will only count the interactions >= the threshold.
+  #   If NULL, then it will count all the interactions in each interactome.
   # * EXAMPLE: makeGraphs(which = "interactome_sizes",
   #                       params = list(NULL,
   #                                     "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_62_ARACNE.rda",
-  #                                     "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/ALL_62_ARACNE_READY_EXPMAT.rda"))
+  #                                     "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/ALL_62_ARACNE_READY_EXPMAT.rda",
+  #                                     NULL))
   if(which == "interactome_sizes") {
+    
+    ### params checking
+    assert(checkNull(params[[1]]), checkCharacter(params[[1]]))
+    assertCharacter(params[[2]])
+    assertCharacter(params[[3]])
+    assert(checkNull(params[[4]]), checkNumeric(params[[4]]))
     
     ### load necessary files it they are not loaded
     if(!exists("varNames") || !exists("netSizes")) {
@@ -2497,7 +2518,12 @@ makeGraphs <- function (which = "mods_events", save = FALSE, fName = NULL,
     ### 1. the number of interactions
     ### 2. the number of hubs
     ### 3. the number of genes
-    interaction_nums <- sort(netSizes[netNames], decreasing = TRUE)
+    if(is.null(params[[4]])) {
+      temp_netSizes <- netSizes
+    } else {
+      temp_netSizes <- interactionCounts(mi_thresh = params[[4]])
+    }
+    interaction_nums <- sort(temp_netSizes[netNames], decreasing = TRUE)
     hub_nums <- sapply(names(interaction_nums), function(x){
       return(getInteractomeGenes(x, hubs_only=TRUE))
     })
@@ -2527,7 +2553,7 @@ makeGraphs <- function (which = "mods_events", save = FALSE, fName = NULL,
          col = "black", las=2, cex=0.75)
     mtext("# of interactions", side=2, line=5, cex.lab=1, col="black")
     mtext("# of genes", side=4, line=5, cex.lab=1, col="black")
-    legend(x = round(nrow(df.bar)*4/5), y = 1.05*1000*(ceiling(max(gene_nums)/1000)),
+    legend(x = round(nrow(df.bar)*4/5), y = 1.07*1000*(ceiling(max(gene_nums)/1000)),
            legend = c("# of interactions", "# of genes", "# of hubs"),
            col = c("skyblue", "blue", "darkorchid1"), lwd = c(10, 3, 3),
            cex = 0.6, y.intersp=1, xpd = TRUE, bty = "n")
