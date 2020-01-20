@@ -3427,6 +3427,91 @@ makeGraphs <- function (which = "mods_events", save = FALSE, fName = NULL,
 		}
 	}
   
+  # ******************** which = mi_distribution  *****************************
+  # This function examines MI distributions of all the interactions of a tissue
+  # It draws a density plot based on MIs. 
+  # 
+  # ARGUMENTS
+  # * params[[1]]: A string of an interactome to plot.
+  #   E.g., params[[1]] = "Lung"
+  #   If params[[1]] = NULL, then it draws a density plot comparing
+  #   GTEx and TCGA tissues.
+  # * params[[2]]: The RDA file path of Aracne networks (All_62_ARACNE.rda)
+  #   If it is already loaded on memory, it will not re-load
+  # * EXAMPLE: makeGraphs(which = "mi_distribution",
+  #                       params = list("Lung",
+  #                                     "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_62_ARACNE.rda"))
+  if(which == "mi_distribution") {
+    
+    ### params checking
+    assert(checkCharacter(params[[1]]), checkNull(params[[1]]))
+    assertCharacter(params[[2]])
+    
+    ### load necessary files it they are not loaded
+    if(!exists("varNames") || !exists("netSizes") || !exists("pairWise")) {
+      load(as.character(params[[2]]), envir = globalenv())
+    }
+    Sys.sleep(3)
+    
+    if(is.null(params[[1]])) {
+      ### the first tissue
+      ### get Aracne network
+      aracne_net <- get(varNames[1])
+      
+      ### get MIs of all the unique interactions
+      MIs <- NULL
+      for(i in 1:length(aracne_net[[2]])) {
+        MIs <- c(MIs, aracne_net[[2]][[i]][which(aracne_net[[2]][[i]][,"Target"] > 0),"MI"])
+      }
+      
+      ### draw a density plot
+      if(grepl("tcga", varNames[1])) {
+        plot(density(MIs), yaxs = "i", col = "red", main = "Density of MIs between GTEx and TCGA",
+             ylim = c(0, 8))
+      } else {
+        plot(density(MIs), yaxs = "i", col = "blue", main = "Density of MIs between GTEx and TCGA",
+             ylim = c(0, 8))
+      }
+      
+      ### the other tissues
+      for(tissue in varNames[2:length(varNames)]) {
+        ### get Aracne network
+        aracne_net <- get(tissue)
+        
+        ### get MIs of all the unique interactions
+        MIs <- NULL
+        for(i in 1:length(aracne_net[[2]])) {
+          MIs <- c(MIs, aracne_net[[2]][[i]][which(aracne_net[[2]][[i]][,"Target"] > 0),"MI"])
+        }
+        
+        ### draw a density plot
+        if(grepl("tcga", tissue)) {
+          lines(density(MIs), col = "red")
+        } else {
+          lines(density(MIs), col = "blue")
+        }
+      }
+      
+      ### add a legend
+      legend("topright", title = "Tissues", legend = c("GTEx", "TCGA"),
+             fill = c("blue", "red"), cex = 1, box.lty = 1)
+    } else {
+      ### get Aracne network
+      aracne_net <- get(params[[1]])
+      
+      ### get MIs of all the unique interactions
+      MIs <- NULL
+      for(i in 1:length(aracne_net[[2]])) {
+        MIs <- c(MIs, aracne_net[[2]][[i]][which(aracne_net[[2]][[i]][,"Target"] > 0),"MI"])
+      }
+      
+      ### draw a density plot
+      plot(density(MIs), yaxs = "i", main = paste("Density of MIs from", params[[1]]))
+    }
+    
+  }
+  
+  
 	if(save)
 		dev.off()
 }
