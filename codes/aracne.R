@@ -3467,14 +3467,15 @@ makeGraphs <- function (which = "mods_events", save = FALSE, fName = NULL,
       ### draw a density plot
       if(grepl("tcga", varNames[1])) {
         plot(density(MIs), yaxs = "i", col = "red", main = "Density of MIs between GTEx and TCGA",
-             ylim = c(0, 8))
+             xlim = c(-0.2, 1), ylim = c(0, 12))
       } else {
         plot(density(MIs), yaxs = "i", col = "blue", main = "Density of MIs between GTEx and TCGA",
-             ylim = c(0, 8))
+             xlim = c(-0.2, 1), ylim = c(0, 12))
       }
       
       ### the other tissues
-      for(tissue in varNames[2:length(varNames)]) {
+      random_order <- sample(2:length(varNames), length(varNames)-1)
+      for(tissue in varNames[random_order]) {
         ### get Aracne network
         aracne_net <- get(tissue)
         
