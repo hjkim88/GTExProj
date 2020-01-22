@@ -3467,10 +3467,10 @@ makeGraphs <- function (which = "mods_events", save = FALSE, fName = NULL,
       ### draw a density plot
       if(grepl("tcga", varNames[1])) {
         plot(density(MIs), yaxs = "i", col = "red", main = "Density of MIs between GTEx and TCGA",
-             xlim = c(-0.2, 1), ylim = c(0, 12))
+             xlim = c(-0.2, 1), ylim = c(0, 12), xlab = "")
       } else {
         plot(density(MIs), yaxs = "i", col = "blue", main = "Density of MIs between GTEx and TCGA",
-             xlim = c(-0.2, 1), ylim = c(0, 12))
+             xlim = c(-0.2, 1), ylim = c(0, 12), xlab = "")
       }
       
       ### the other tissues
@@ -11377,6 +11377,196 @@ oneOffs<- function (which = "freq_mods", params=NULL){
     
     ### save as RDA
     save(list = c("similarity_mat", "README"), file = params[[3]])
+    
+  }
+  
+  # ******************* which = mi_gtex_vs_tcga *******************
+  # We found out that GTEx interactions tend to have high MIs
+  # than TCGA interactions. And we want to know why.
+  # Select a high MI GTEx tissues and a low MI TCGA tissue,
+  # then select some high interactions in the GTEx and draw scatter
+  # plots of the actual gene expressions of all the samples.
+  # Also select some low interactions in the TCGA and draw the plots
+  # of the gene expressions. See how the expressions are different
+  # between GTEx and TCGA.
+  #
+  # params[[1]]: The RDA file path of Aracne networks (All_62_ARACNE.rda)
+  #              If it is already loaded on memory, it will not re-load
+  #              (a character vector of length 1)
+  # params[[2]]: The RDA file path of Aracne-ready gene expressions (ALL_62_ARACNE_READY_EXPMAT.rda)
+  #              If it is already loaded on memory, it will not re-load
+  #              (a character vector of length 1)
+  # params[[3]]: The number of top interactions that will be used
+  #              (an integer number)
+  # params[[4]]: Directory path for the results
+  #              (a character vector of length 1)
+  #
+  # e.g., params=list("//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_62_ARACNE.rda",
+  #                   "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/ALL_62_ARACNE_READY_EXPMAT.rda",
+  #                   3,
+  #                   "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/mi_distribution/GTEx_vs_TCGA/")
+  # e.g., params=list("./data/RDA_Files/All_62_ARACNE.rda",
+  #                   "./data/RDA_Files/ALL_62_ARACNE_READY_EXPMAT.rda",
+  #                   3,
+  #                   "./results/mi_distribution/GTEx_vs_TCGA/")
+  
+  if (which == "mi_gtex_vs_tcga") {
+    
+    ### argument checking
+    assertString(params[[1]])
+    assertString(params[[2]])
+    assertNumeric(params[[3]])
+    assertString(params[[4]])
+    
+    ### load library
+    if(!require(xlsx, quietly = TRUE)) {
+      install.packages("xlsx")
+      require(xlsx, quietly = TRUE)
+    }
+    
+    ### load necessary files it they are not loaded
+    if(!exists("varNames") || !exists("netSizes") || !exists("parWise")) {
+      load(as.character(params[[1]]), envir = globalenv())
+    }
+    if(!exists("gtex_expmat_names") || !exists("tcga_expmat_names")) {
+      load(as.character(params[[2]]), envir = globalenv())
+    }
+    Sys.sleep(3)
+    
+    ### get mean and median number of interactions of every tissue
+    MIs <- vector("list", length(varNames))
+    names(MIs) <- varNames
+    mi_mean <- rep(0, length(varNames))
+    mi_median <- rep(0, length(varNames))
+    names(mi_mean) <- varNames
+    names(mi_median) <- varNames
+    for(tissue in varNames) {
+      ### get Aracne network
+      aracne_net <- get(tissue)
+      
+      ### get MIs of all the unique interactions
+      for(i in 1:length(aracne_net[[2]])) {
+        idx <- which(aracne_net[[2]][[i]][,"Target"] > 0)
+        if(length(idx) > 0) {
+          MIs[[tissue]] <- c(MIs[[tissue]], aracne_net[[2]][[i]][idx,"MI"])
+          names(MIs[[tissue]])[(length(MIs[[tissue]])-length(aracne_net[[2]][[i]][idx,"MI"])+1):length(MIs[[tissue]])] <- paste(names(aracne_net[[2]])[i], names(aracne_net[[2]][[i]][idx,"MI"]))
+        }
+      }
+      
+      ### calculate mean and median MIs
+      mi_mean[tissue] <- mean(MIs[[tissue]])
+      mi_median[tissue] <- median(MIs[[tissue]])
+    }
+    
+    ### print out the mean and median result
+    write.xlsx2(data.frame(Mean_MI=mi_mean, Median_MI=mi_median,
+                           stringsAsFactors = FALSE, check.names = FALSE),
+                sheetName = "Mean_and_Median_MIs",
+                file = paste0(params[[4]], "Mean_and_Median_MIs.xlsx"))
+    
+    ### decide a high MI GTEx tissue and a low MI TCGA tissue based on the median
+    gtex_high <- ""
+    tcga_low <- ""
+    for(tissue in names(mi_median)) {
+      if(grepl("tcga", tissue)) {
+        if(tcga_low == "" || (mi_median[tissue] < mi_median[tcga_low])) {
+          tcga_low <- tissue
+        }
+      } else {
+        if(gtex_high == "" || (mi_median[tissue] > mi_median[gtex_high])) {
+          gtex_high <- tissue
+        }
+      }
+    }
+    
+    ### get N (params[[3]]) interactions that have the median values for each
+    gtex_pool <- intersect(which(MIs[[gtex_high]] > (mi_median[gtex_high]-0.0001)),
+                           which(MIs[[gtex_high]] < (mi_median[gtex_high]+0.0001)))
+    set.seed(9999)
+    if(length(gtex_pool) < params[[3]]) {
+      N <- sample(gtex_pool, length(gtex_pool))
+    } else {
+      N <- sample(gtex_pool, params[[3]])
+    }
+    gtex_interactions <- vector("list", length(N))
+    names(gtex_interactions) <- N
+    for(random_idx in N) {
+      temp <- strsplit(names(MIs[[gtex_high]])[random_idx], split = " ", fixed = TRUE)[[1]]
+      gtex_interactions[[as.character(random_idx)]] <- list(temp[1], temp[2], MIs[[gtex_high]][random_idx])
+    }
+    
+    tcga_pool <- intersect(which(MIs[[tcga_low]] > (mi_median[tcga_low]-0.0001)),
+                           which(MIs[[tcga_low]] < (mi_median[tcga_low]+0.0001)))
+    set.seed(9999)
+    if(length(tcga_pool) < params[[3]]) {
+      N <- sample(tcga_pool, length(tcga_pool))
+    } else {
+      N <- sample(tcga_pool, params[[3]])
+    }
+    tcga_interactions <- vector("list", length(N))
+    names(tcga_interactions) <- N
+    for(random_idx in N) {
+      temp <- strsplit(names(MIs[[tcga_low]])[random_idx], split = " ", fixed = TRUE)[[1]]
+      tcga_interactions[[as.character(random_idx)]] <- list(temp[1], temp[2], MIs[[tcga_low]][random_idx])
+    }
+    
+    ### get gene expressions of the chosen tissues for each
+    gtex_high_exp <- get(paste0("expmat_gtex_", gtex_high))
+    tcga_low_exp <- get(paste0("expmat_", tcga_low))
+    
+    ### get gene expressions of the chosen interactions
+    gtex_exps <- vector("list", length(gtex_interactions))
+    names(gtex_exps) <- names(MIs[[gtex_high]])[as.integer(names(gtex_interactions))]
+    for(i in 1:length(gtex_exps)) {
+      gtex_exps[[i]] <- vector("list", 2)
+      names(gtex_exps[[i]]) <- c(gtex_interactions[[i]][[1]], gtex_interactions[[i]][[2]])
+      gtex_exps[[i]][[1]] <- gtex_high_exp[gtex_interactions[[i]][[1]],]
+      gtex_exps[[i]][[1]] <- sort(gtex_exps[[i]][[1]])
+      gtex_exps[[i]][[2]] <- gtex_high_exp[gtex_interactions[[i]][[2]],names(gtex_exps[[i]][[1]])]
+    }
+    
+    tcga_exps <- vector("list", length(tcga_interactions))
+    names(tcga_exps) <- names(MIs[[tcga_low]])[as.integer(names(tcga_interactions))]
+    for(i in 1:length(tcga_exps)) {
+      tcga_exps[[i]] <- vector("list", 2)
+      names(tcga_exps[[i]]) <- c(tcga_interactions[[i]][[1]], tcga_interactions[[i]][[2]])
+      tcga_exps[[i]][[1]] <- tcga_low_exp[tcga_interactions[[i]][[1]],]
+      tcga_exps[[i]][[1]] <- sort(tcga_exps[[i]][[1]])
+      tcga_exps[[i]][[2]] <- tcga_low_exp[tcga_interactions[[i]][[2]],names(tcga_exps[[i]][[1]])]
+    }
+    
+    ### draw scatter plots based on the raw counts of the N cases
+    for(i in 1:length(N)) {
+      png(filename = paste0(params[[4]], "Different_MI_Gene_Expressions_", i, ".png"),
+          width = 2000, height = 1000, res = 130)
+      par(mfrow=c(1,2))
+      ### GTEx
+      min_y <- min(c(gtex_exps[[i]][[1]], gtex_exps[[i]][[2]]))
+      max_y <- max(c(gtex_exps[[i]][[1]], gtex_exps[[i]][[2]]))
+      plot(x = 1:length(gtex_exps[[i]][[1]]), y = gtex_exps[[i]][[1]], type = 'l',
+           axes = TRUE, ann = TRUE, xlim = c(0, length(gtex_exps[[i]][[1]])+10), ylim = c(min_y, max_y),
+           col = "blue", lwd = 3, yaxs = "i", xlab = "Samples", ylab = "Gene Expressions",
+           main = paste0("GTEx - ", names(gtex_exps)[i], " - MI: ", signif(gtex_interactions[[i]][[3]], 5)))
+      lines(x = 1:length(gtex_exps[[i]][[2]]), y = gtex_exps[[i]][[2]], col = "blue", lwd = 1)
+      legend("topleft",
+             legend = names(gtex_exps[[i]]),
+             col = rep("blue", 2), lwd = c(3, 1),
+             cex = 0.6, y.intersp=1, xpd = TRUE, bty = "n")
+      
+      ### TCGA
+      min_y <- min(c(tcga_exps[[i]][[1]], tcga_exps[[i]][[2]]))
+      max_y <- max(c(tcga_exps[[i]][[1]], tcga_exps[[i]][[2]]))
+      plot(x = 1:length(tcga_exps[[i]][[1]]), y = tcga_exps[[i]][[1]], type = 'l',
+           axes = TRUE, ann = TRUE, xlim = c(0, length(tcga_exps[[i]][[1]])+10), ylim = c(min_y, max_y),
+           col = "red", lwd = 3, yaxs = "i", xlab = "Samples", ylab = "Gene Expressions",
+           main = paste0("TCGA - ", names(tcga_exps)[i], " - MI: ", signif(tcga_interactions[[i]][[3]], 5)))
+      lines(x = 1:length(tcga_exps[[i]][[2]]), y = tcga_exps[[i]][[2]], col = "red", lwd = 1)
+      legend("topleft",
+             legend = names(tcga_exps[[i]]),
+             col = rep("red", 2), lwd = c(3, 1),
+             cex = 0.6, y.intersp=1, xpd = TRUE, bty = "n")
+      dev.off()
+    }
     
   }
   
