@@ -107,9 +107,9 @@ object_names <- sapply(fileList, function(x) {
     } else if(temp2 == "Esophagus_mus") {
       temp2 <- "EsophagusMus"
     }
-    return(paste0("GTEx_", temp2))
+    return(paste0("gtex_", temp2))
   } else {
-    return(paste0("TCGA_", temp[[1]]))
+    return(paste0("tcga_", temp[[1]]))
   }
 }, USE.NAMES = TRUE)
 
@@ -142,11 +142,11 @@ for(i in 1:length(unique_files)) {
   temp <- temp[order(as.numeric(rownames(temp))),]
   
   ### set the data as a global object
-  assign(paste0("Schultz_Gene_Expression_", object_names[unique_files[i]]), temp, envir = globalenv())
+  assign(paste0("schultz_", object_names[unique_files[i]]), temp, envir = globalenv())
 }
 
 ### set object names
-Schultz_Gene_Expression_Names <- paste0("Schultz_Gene_Expression_", object_names[unique_files])
+Schultz_Names <- paste0("schultz_", object_names[unique_files])
 
 ### load GTEX sample info
 sampleInfo <- read.csv(gtexSampleInfoPath, check.names = FALSE, stringsAsFactors = FALSE)
@@ -154,13 +154,13 @@ rownames(sampleInfo) <- sampleInfo$SAMPID
 
 ### split Colon object into 2 (ColonSig & ColonTra)
 sampleInfo <- sampleInfo[which(sampleInfo$SMTS == "Colon"),]
-ColonTra <- Schultz_Gene_Expression_GTEx_Colon[,which(sampleInfo[colnames(Schultz_Gene_Expression_GTEx_Colon),"SMTSD"] == "Colon - Transverse")]
-ColonSig <- Schultz_Gene_Expression_GTEx_Colon[,which(sampleInfo[colnames(Schultz_Gene_Expression_GTEx_Colon),"SMTSD"] == "Colon - Sigmoid")]
-assign("Schultz_Gene_Expression_GTEx_ColonTra", ColonTra, envir = globalenv())
-assign("Schultz_Gene_Expression_GTEx_ColonSig", ColonSig, envir = globalenv())
-Schultz_Gene_Expression_Names <- Schultz_Gene_Expression_Names[-which(Schultz_Gene_Expression_Names == "Schultz_Gene_Expression_GTEx_Colon")]
-Schultz_Gene_Expression_Names <- c(Schultz_Gene_Expression_Names, "Schultz_Gene_Expression_GTEx_ColonTra", "Schultz_Gene_Expression_GTEx_ColonSig")
-Schultz_Gene_Expression_Names <- Schultz_Gene_Expression_Names[order(Schultz_Gene_Expression_Names)]
+ColonTra <- schultz_gtex_Colon[,which(sampleInfo[colnames(schultz_gtex_Colon),"SMTSD"] == "Colon - Transverse")]
+ColonSig <- schultz_gtex_Colon[,which(sampleInfo[colnames(schultz_gtex_Colon),"SMTSD"] == "Colon - Sigmoid")]
+assign("schultz_gtex_ColonTra", ColonTra, envir = globalenv())
+assign("schultz_gtex_ColonSig", ColonSig, envir = globalenv())
+Schultz_Names <- Schultz_Names[-which(Schultz_Names == "schultz_gtex_Colon")]
+Schultz_Names <- c(Schultz_Names, "schultz_gtex_ColonTra", "schultz_gtex_ColonSig")
+Schultz_Names <- Schultz_Names[order(Schultz_Names)]
 
 ### make a README
 README <- function() {
@@ -177,5 +177,5 @@ README <- function() {
 }
 
 ### save the results as a RDA file
-save(list = c(Schultz_Gene_Expression_Names, "Schultz_Gene_Expression_Names", "GTEx_TCGA_Map", "README"),
+save(list = c(Schultz_Names, "Schultz_Names", "GTEx_TCGA_Map", "README"),
      file = resultRDAPath)
