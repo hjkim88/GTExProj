@@ -4,17 +4,38 @@
 ### The dataset is available from https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5903355/
 ### This code is to combine all the gene expression data into a RDA file
 
+# ### For Hyunjin's local drive
+# #
+# ### downloaded data path
+# dataPath <- "C:/Research/CUMC/GTExProj/data/Schultz_GTEX_TCGA/"
+# 
+# ### GTEX - TCGA mapping info path
+# mapInfoPath <- "C:/Research/CUMC/GTExProj/data/RDA_Files/GTEx_TCGA_Map.rda"
+# 
+# ### GTEX sample info path
+# gtexSampleInfoPath <- "C:/Research/CUMC/GTExProj/data/GTEx_Data_V6_SampleData.csv"
+# 
+# ### result RDA path
+# resultRDAPath <- "C:/Research/CUMC/GTExProj/data/RDA_Files/All_21_Schultz_Gene_Expressions.rda"
+# #
+
+### With isilon server
+#
 ### downloaded data path
-dataPath <- "C:/Research/CUMC/GTExProj/data/Schultz_GTEX_TCGA/"
+dataPath <- "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/ExpressionMatrices/Schultz_paper/original_data/data_record_3/"
 
 ### GTEX - TCGA mapping info path
-mapInfoPath <- "./data/RDA_Files/GTEx_TCGA_Map.rda"
+mapInfoPath <- "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/GTEx_TCGA_Map.rda"
 
 ### GTEX sample info path
-gtexSampleInfoPath <- "./data/GTEx_Data_V6_SampleData.csv"
+gtexSampleInfoPath <- "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/Annotations/GTEx_Data_V6_SampleData.csv"
+
+### result RDA path
+resultRDAPath <- "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_21_Schultz_Gene_Expressions.rda"
+#
 
 ### get the file names
-fileList <- list.files(dataPath)
+fileList <- list.files(dataPath, recursive = TRUE)
 
 ### remove TCGA normal files from the list
 rIdx <- grep(pattern = "tcga.txt", fileList)
@@ -27,7 +48,9 @@ load(mapInfoPath)
 
 ### mapping our sample info and the file name
 file_tissue <- sapply(fileList, function(x) {
-  temp <- strsplit(x, split = "-", fixed = TRUE)[[1]]
+  temp <- strsplit(x, split = "/", fixed = TRUE)[[1]]
+  temp <- temp[length(temp)]
+  temp <- strsplit(temp, split = "-", fixed = TRUE)[[1]]
   if(grepl("gtex", x)) {
     temp2 <- paste0(toupper(substr(temp[[1]], 1, 1)), substring(temp[[1]], 2))
     if(temp2 == "Esophagus_gas") {
@@ -72,7 +95,9 @@ if(!require("org.Hs.eg.db", quietly = TRUE)) {
 unique_files <- unique(c(GTEx_TCGA_Map[,3], GTEx_TCGA_Map[,4]))
 unique_files <- unique_files[which(!is.na(unique_files))]
 object_names <- sapply(fileList, function(x) {
-  temp <- strsplit(x, split = "-", fixed = TRUE)[[1]]
+  temp <- strsplit(x, split = "/", fixed = TRUE)[[1]]
+  temp <- temp[length(temp)]
+  temp <- strsplit(temp, split = "-", fixed = TRUE)[[1]]
   if(grepl("gtex", x)) {
     temp2 <- paste0(toupper(substr(temp[[1]], 1, 1)), substring(temp[[1]], 2))
     if(temp2 == "Esophagus_gas") {
@@ -153,4 +178,4 @@ README <- function() {
 
 ### save the results as a RDA file
 save(list = c(Schultz_Gene_Expression_Names, "Schultz_Gene_Expression_Names", "GTEx_TCGA_Map", "README"),
-     file = "C:/Research/CUMC/GTExProj/data/RDA_Files/All_21_Schultz_Gene_Expressions.rda")
+     file = resultRDAPath)
