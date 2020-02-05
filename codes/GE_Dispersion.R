@@ -192,11 +192,45 @@ barplot(ed_tsne, las=2, main = "Euclidean Distance on the t-SNE")
 ### TPM normalized data
 load("//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/RDA_Files/All_62_TPM_normcnt.rda")
 
-### mean of Euclidean distance
+### change the sample names in vst-normalized data
+### to have the same sample names as in tpm-normalized ones
+for(tissue in tcga_expmat_names) {
+  temp <- get(tissue)
+  colnames(temp) <- tcga_sample_info[colnames(temp),"barcode"]
+  assign(tissue, temp)
+}
+
+### only retain samples that are included in the vst-normalized data
+for(tissue in names(tpm_norm_cnt)) {
+  if(grepl("tcga", tissue)) {
+    temp_name <- paste0("expmat_", tissue)
+  } else {
+    temp_name <- paste0("expmat_gtex_", tissue)
+  }
+  tpm_norm_cnt[[tissue]] <- tpm_norm_cnt[[tissue]][,colnames(get(temp_name))]
+  gc()
+}
+
+### mean of Euclidean distance - sample vs sample
 ed_dispersion <- rep(0, length(tpm_norm_cnt))
 names(ed_dispersion) <- names(tpm_norm_cnt)
 for(tissue_name in names(ed_dispersion)) {
   ed_dispersion[tissue_name] <- mean(dist(t(tpm_norm_cnt[[tissue_name]])))
+  gc()
+}
+# save(list = c("ed_dispersion"), file = "./ed_dispersion_tpm.rda")
+
+
+ed_dispersion <- ed_dispersion[colnames(mi_q1[, ind])]
+
+par(mar= c(10, 5, 5, 3))
+barplot(ed_dispersion, las=2, main = "Euclidean Distance of Gene expressions (TPM)")
+
+### mean of Euclidean distance - gene vs gene
+ed_dispersion <- rep(0, length(tpm_norm_cnt))
+names(ed_dispersion) <- names(tpm_norm_cnt)
+for(tissue_name in names(ed_dispersion)) {
+  ed_dispersion[tissue_name] <- mean(dist(tpm_norm_cnt[[tissue_name]]))
   gc()
 }
 # save(list = c("ed_dispersion"), file = "./ed_dispersion_tpm.rda")
