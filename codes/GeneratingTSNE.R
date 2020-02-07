@@ -7,6 +7,25 @@ load("C:/Research/CUMC/GTExProj/data/RDA_Files/ALL_62_ARACNE_READY_EXPMAT.rda")
 ### load the TPM-normalized gene expression data
 load("C:/Research/CUMC/GTExProj/data/RDA_Files/All_62_TPM_normcnt.rda")
 
+### change the sample names in vst-normalized data
+### to have the same sample names as in tpm-normalized ones
+for(tissue in tcga_expmat_names) {
+  temp <- get(tissue)
+  colnames(temp) <- tcga_sample_info[colnames(temp),"barcode"]
+  assign(tissue, temp)
+}
+
+### only retain samples that are included in the vst-normalized data
+for(tissue in names(tpm_norm_cnt)) {
+  if(grepl("tcga", tissue)) {
+    temp_name <- paste0("expmat_", tissue)
+  } else {
+    temp_name <- paste0("expmat_gtex_", tissue)
+  }
+  tpm_norm_cnt[[tissue]] <- tpm_norm_cnt[[tissue]][,colnames(get(temp_name))]
+  gc()
+}
+
 ### A function to perform t-SNE and save a plot
 ### normalizedMat: rows are genes and columns are samples
 ### grp: group information of the samples
