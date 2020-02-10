@@ -3512,6 +3512,50 @@ makeGraphs <- function (which = "mods_events", save = FALSE, fName = NULL,
     
   }
   
+  # ******************** which = random_walk_similarity_hclust  *****************************
+  # It create a hierarchical clustering plot of interactomes, using the similarity metric
+  # derived from the random walk algorithm.
+  # 
+  # ARGUMENTS
+  # * params[[1]]: A character vector of interactomes that will be used in the clustering.
+  #   Should be the strings in varNames.
+  #   e.g., params[[1]] = c("AdiposeSub", "Lung", "Liver")
+  #   If params[[1]] = NULL, then all 62 interactomes should be clustered.
+  # * params[[2]]: The file path of random walk similarity metric (All_62_networks_random_walk_similarities.txt)
+  #   e.g., //isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/network_comparison/all_62_tissues/similarity/All_62_networks_random_walk_similarities.txt
+  #
+  # * EXAMPLE: makeGraphs(which = "random_walk_similarity_hclust",
+  #                       params = list(c("AdiposeSub", "Lung", "Liver"),
+  #                                     "//isilon.c2b2.columbia.edu/ifs/archive/shares/af_lab/GTEx/network_comparison/all_62_tissues/similarity/All_62_networks_random_walk_similarities.txt"))
+  if(which == "random_walk_similarity_hclust") {
+    
+    ### params checking
+    assert(checkCharacter(params[[1]]), checkNull(params[[1]]))
+    assertCharacter(params[[2]])
+    
+    ### load the random walk similarity matrix
+    sim_mat <- read.table(file = params[[2]], header = TRUE, sep = "\t", row.names = 1,
+                          stringsAsFactors = FALSE, check.names = FALSE)
+    
+    ### only retain the interactomes of interest based on params[[1]]
+    if(!is.null(params[[1]])) {
+      sim_mat <- sim_mat[params[[1]],params[[1]]]
+    }
+    
+    ### scaling the similarities
+    ### -log2(similarity) - min(-log2(similarity))
+    sim_mat <- -log2(sim_mat)
+    sim_mat <- sim_mat - min(sim_mat)
+    
+    ### change it to the distance object
+    d <- as.dist(sim_mat)
+    
+    ### draw a hierarchical clustering
+    plot(hclust(d), main=paste0("Hierarchical clustering based on the geometric random walk kernel"),
+         xlab = "", sub = "")
+    
+  }
+  
   
 	if(save)
 		dev.off()
