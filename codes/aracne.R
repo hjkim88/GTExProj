@@ -453,11 +453,16 @@ README = function(){
 #		calculations. If 'pv_thresh' is NULL then all interactions will be used.
 # * mi_thresh:  only interactions with MI >= 'mi_thresh' will be used in the
 #   calculations. If 'mi_thresh' is NULL then all interactions will be used.
+# * exclude: It should be a vector of gene symbols (character strings) or a vector of
+#   entrez ids (integers or character strings) correponding to hub genes (if non-hub
+#   genes are included, they are just ignored). In that case, interactions involving
+#   these hub genes are not take into consideration. If it is NULL, it will
+#   consider all the hubs.
 #
 # RETURN VALUE:
 # Depends on the value of the argument selector, as describe above.
 # *****************************************************************************
-interactionCounts <- function(selector = "single", filterFUN = NULL, pv_thresh = NULL, mi_thresh = NULL){
+interactionCounts <- function(selector = "single", filterFUN = NULL, pv_thresh = NULL, mi_thresh = NULL, exclude = NULL){
 	
 	# Check that argument is OK
 	if (selector != "single" & selector != "pairwise" & selector != "allUnique"){
@@ -482,6 +487,9 @@ interactionCounts <- function(selector = "single", filterFUN = NULL, pv_thresh =
 		for (i in 1:length(varNames)){
 			count = 0;
 			nList = get(varNames[i])[[2]]
+			if(!is.null(exclude)) {
+			  nList <- nList[[which(!names(nList) %in% as.entrezId(exclude))]]
+			}
 			for (j in 1:length(nList)){
 				if (filterFUN(names(nList)[j])){
 				  x = nList[[j]]
@@ -507,8 +515,14 @@ interactionCounts <- function(selector = "single", filterFUN = NULL, pv_thresh =
 		for (i in 1:length(varNames)){
 			logLines(paste("net1 = ", i))
 			net1 = get(varNames[i])[[1]]
-			net1 = net1[order(net1[,1]),]
 			net1_det = get(varNames[i])[[2]]
+			
+			if(!is.null(exclude)) {
+			  net1 <- net1[which(!rownames(net1) %in% as.entrezId(exclude)),]
+			  net1_det <- net1_det[[which(!names(net1_det) %in% as.entrezId(exclude))]]
+			}
+			
+			net1 = net1[order(net1[,1]),]
 			
 			for (j in (i+1):length(varNames)){
 				if (j > length(varNames))
@@ -516,8 +530,15 @@ interactionCounts <- function(selector = "single", filterFUN = NULL, pv_thresh =
 				logLines(paste("\tnet2 = ", j))
 				count = 0
 				net2 = get(varNames[j])[[1]]
-				net2 = net2[order(net2[,1]),]
 				net2_det = get(varNames[j])[[2]]
+				
+				if(!is.null(exclude)) {
+				  net2 <- net2[which(!rownames(net2) %in% as.entrezId(exclude)),]
+				  net2_det <- net2_det[[which(!names(net2_det) %in% as.entrezId(exclude))]]
+				}
+				
+				net2 = net2[order(net2[,1]),]
+				
 				n_1 = 1
 				n_2 = 1
 				# Step down the list of TFs in the two networks that are being compared
@@ -565,6 +586,12 @@ interactionCounts <- function(selector = "single", filterFUN = NULL, pv_thresh =
 		for (ind in 1:length(varNames)){
 			net = get(varNames[ind])[[1]]
 			netInts = get(varNames[ind])[[2]]
+			
+			if(!is.null(exclude)) {
+			  net <- net[which(!rownames(net) %in% as.entrezId(exclude)),]
+			  netInts <- netInts[[which(!names(netInts) %in% as.entrezId(exclude))]]
+			}
+			
 			L = length(net[,1])
 			for (i in 1:L){
 				if (filterFUN(net[i, 1])){
@@ -607,6 +634,12 @@ interactionCounts <- function(selector = "single", filterFUN = NULL, pv_thresh =
 		for (ind in 1:length(varNames)){
 			net = get(varNames[ind])[[1]]
 			netInts = get(varNames[ind])[[2]]
+			
+			if(!is.null(exclude)) {
+			  net <- net[which(!rownames(net) %in% as.entrezId(exclude)),]
+			  netInts <- netInts[[which(!names(netInts) %in% as.entrezId(exclude))]]
+			}
+			
 			L = length(net[,1])
 			for (i in 1:L){
 				if (filterFUN(net[i, 1])){
@@ -2837,126 +2870,142 @@ makeGraphs <- function (which = "mods_events", save = FALSE, fName = NULL,
 	# is assessed using either all hubs, TFs only, TFs and co-TFs only, or siganling hubs only,
 	# thus resulting in four different cluster plots.
 	#
-	# @FIXME: the setting in params[[3]] is currently relevant only when params[[1]] == "fet".
-	# Should implement more generally.
-	#
 	# ARGUMENTS:
 	# params[[1]]: a string. If equal to "fet" then the pre-computed FET p-values stored in
 	#		the object "tfPairEnrich" are used for compuitng inter-interactome distances. If
 	#		equal to "prob" then the p-values stored in the object "tfPairProb" are used instead.
 	#		In all other cases, distances are simply based on the number of shared interactions
 	#		between two interactomes.
+  #
 	# params[[2]]: a string, specifying the type of plot. If "mds", MDS plots are created.
 	#		Otherwise, hierarchical clustering dendrograms are drawn.
-	# params[[3]]: optional parameter. If provided, it should be a vector of gene symbols
-	#		(character strings) or a vector of entrez ids (integers or character strings)
-	#		correponding to hub genes (if non-hub genes are included, they are just ignored).
-	#		In that case, when computing distances, interactions involving these hub genes are
-	#		not take into consideration. in the current implementation, the params[[3]] option
-	#		is taken into account only when params[[1]] == "fet".
-	if (which == "cluster_networks"){
-		if((is.null(params)) || is.na(params) || length(params) < 2 || length(params) > 3)
+  #
+  # params[[3]]: a string, which means the type of hubs that will be used. It can take
+  #   one of 5 values: “all”, “tf”, “tf_cotf”, “signal”, NULL. Respectively, the values mean:
+  #   (1) use all hubs,
+  #   (2) use only hubs annotated as TFs by method gene.type,
+  #   (3) use only hubs annotated as either TFs of co-TFs by method gene.type,
+  #   (4) use only hubs annotated as signaling genes by method gene.type,
+  #   (5) use all the other 4 options and put all the figures in one plot.
+	#
+  # params[[4]]: It should be a vector of gene symbols (character strings) or a vector of
+  #   entrez ids (integers or character strings) correponding to hub genes (if non-hub
+  #   genes are included, they are just ignored). In that case, when computing distances,
+  #   interactions involving these hub genes are not take into consideration.
+  #   If params[[4]] == NULL, it will consider all the hubs.
+  #
+  # params[[5]]: It is a subvector of varNames and lists the interactomes to cluster.
+  #   If params[[5]] == NULL, it is assumed that params[[5]] = varNames.
+	
+  if (which == "cluster_networks"){
+		if((is.null(params)) || is.na(params) || length(params) < 4 || length(params) > 5)
 			stop("Wrong number of parameters.")
-		if(params[[1]] == "fet") {
-			if (length(params) != 3)
-				buf <- calFet(NULL)
-			else
-				buf <- calFet(params[[3]])
-			
-			par(mfrow=c(2,2))
-			graphTitles = c("Distances using all FET",
-					"Distances using FET from TF hubs",
-					"Distances using FET from TF and co-TF hubs",
-					"Distances using FET from signaling hubs")
-			
-			for(j in 1:length(buf)) {
-				M <- min(buf[[j]])
-				buf[[j]] = buf[[j]]-M+1
-				
-				d = as.dist(buf[[j]])
-				
-				if(params[[2]] == "mds") {
-					fit <- cmdscale(d,eig=TRUE, k=2)
-					x_c <- fit$points[,1]
-					y_c <- fit$points[,2]
-					
-					plot(x_c, y_c, main=graphTitles[j],	type="n")
-					text(x_c, y_c, labels = labels(d), cex=.7, pos=3)
-				} else {
-					plot(hclust(d), main=graphTitles[j])
-				}
-			}
-			
-		} else if(params[[1]] == "prob") {
-			buf <- calNetProb()
-			
-			par(mfrow=c(2,2))
-			graphTitles = c("Distances using the probability from all hubs",
-					"Distances using the probability from TF hubs",
-					"Distances using the probability from TF and co-TF hubs",
-					"Distances using the probability from signaling hubs")
-			
-			for(j in 1:length(buf)) {
-				M <- min(buf[[j]])
-				buf[[j]] = buf[[j]]-M+1
-				
-				d = as.dist(buf[[j]])
-				
-				if(params[[2]] == "mds") {
-					fit <- cmdscale(d,eig=TRUE, k=2)
-					x_c <- fit$points[,1]
-					y_c <- fit$points[,2]
-					
-					plot(x_c, y_c, main=graphTitles[j],	type="n")
-					text(x_c, y_c, labels = labels(d), cex=.7, pos=3)
-				} else {
-					plot(hclust(d), main=graphTitles[j])
-				}
-			}
-		} else {
-			# The following 4 variables are "expensive" to generate, so do that only once.
-			if (!exists("pairWise"))
-				assign("pairWise", interactionCounts("pairwise"), envir = globalenv())	
-			if (!exists("pairWiseTFonly"))
-				assign("pairWiseTFonly", interactionCounts("pairwise", is.tf), envir = globalenv())
-			if (!exists("pairWiseTFandCoTF"))
-				assign("pairWiseTFandCoTF", interactionCounts("pairwise", function(x){return (is.tf(x) || is.cotf(x))}), 
-						envir = globalenv())
-			if (!exists("pairWiseSignalOnly"))
-				assign("pairWiseSignalOnly", interactionCounts("pairwise", is.sign), envir = globalenv())
-			pwiseCounts = list(pairWise, pairWiseTFonly, pairWiseTFandCoTF, pairWiseSignalOnly)
-			# par(mfrow=c(1,length(pwiseCounts)))
-			par(mfrow=c(2,2))
-			graphTitles = c("Distances using all interactions",
-					"Distances using only interactions from TF hubs",
-					"Distances using only interactions from TF and co-TF hubs",
-					"Distances using only interactions from signaling hubs")
-			for (j in 1:length(pwiseCounts)){
-				x = pwiseCounts[[j]]
-				N = nrow(x)
-				for (i in 1:N)
-					x[i,i]=0
-				max = max(x)
-				x = max - x
-				for (i in 1:N)
-					x[i,i]=0
-				d = as.dist(x)
-				if ((!is.null(params)) && (params[[1]] == "mds")){
-					fit <- cmdscale(d,eig=TRUE, k=2)
-					x_c <- fit$points[,1]
-					y_c <- fit$points[,2]
-					# This is a hack; when computing distances using TFs or TFs+co-TFs, the MDS diagram
-					# is plotted in the opposite orientation. To make all images look the same, we just
-					# flit the x axis.
-					# if (j %in% c(2,3))
-					#	x_c = -x_c
-					plot(x_c, y_c, main=graphTitles[j],	type="n")
-					text(x_c, y_c, labels = labels(d), cex=.7, pos=3)
-				} else{
-					plot(hclust(d), main=graphTitles[j])
-				}
-			}
-		}
+    
+    if(params[[1]] == "fet") {
+      if(is.null(params[[4]]))
+        buf <- calFet(NULL)
+      else
+        buf <- calFet(params[[4]])
+      
+      graphTitles = c("Distances using all FET",
+                      "Distances using FET from TF hubs",
+                      "Distances using FET from TF and co-TF hubs",
+                      "Distances using FET from signaling hubs")
+    } else if(params[[1]] == "prob") {
+      if(is.null(params[[4]]))
+        buf <- calNetProb(NULL)
+      else
+        buf <- calNetProb(params[[4]])
+      
+      graphTitles = c("Distances using the probability from all hubs",
+                      "Distances using the probability from TF hubs",
+                      "Distances using the probability from TF and co-TF hubs",
+                      "Distances using the probability from signaling hubs")
+    } else {
+      # The following 4 variables are "expensive" to generate, so do that only once.
+      if(is.null(params[[4]])) {
+        if (!exists("pairWise"))
+          assign("pairWise", interactionCounts("pairwise"), envir = globalenv())	
+        if (!exists("pairWiseTFonly"))
+          assign("pairWiseTFonly", interactionCounts("pairwise", is.tf), envir = globalenv())
+        if (!exists("pairWiseTFandCoTF"))
+          assign("pairWiseTFandCoTF", interactionCounts("pairwise", function(x){return (is.tf(x) || is.cotf(x))}), 
+                 envir = globalenv())
+        if (!exists("pairWiseSignalOnly"))
+          assign("pairWiseSignalOnly", interactionCounts("pairwise", is.sign), envir = globalenv())
+      } else {
+        if (!exists("pairWise"))
+          assign("pairWise", interactionCounts("pairwise", exclude = params[[4]]), envir = globalenv())	
+        if (!exists("pairWiseTFonly"))
+          assign("pairWiseTFonly", interactionCounts("pairwise", is.tf, exclude = params[[4]]), envir = globalenv())
+        if (!exists("pairWiseTFandCoTF"))
+          assign("pairWiseTFandCoTF", interactionCounts("pairwise", function(x){return (is.tf(x) || is.cotf(x))}, exclude = params[[4]]), 
+                 envir = globalenv())
+        if (!exists("pairWiseSignalOnly"))
+          assign("pairWiseSignalOnly", interactionCounts("pairwise", is.sign, exclude = params[[4]]), envir = globalenv())
+      }
+        
+      buf = list(pairWise, pairWiseTFonly, pairWiseTFandCoTF, pairWiseSignalOnly)
+      
+      graphTitles = c("Distances using all interactions",
+                      "Distances using only interactions from TF hubs",
+                      "Distances using only interactions from TF and co-TF hubs",
+                      "Distances using only interactions from signaling hubs")
+    }
+    
+    if(is.null(params[[3]])) {
+      par(mfrow=c(2,2))
+    } else if(params[[3]] == "all") {
+      par(mfrow=c(1,1))
+      buf <- list(buf[[1]])
+      graphTitles <- graphTitles[1]
+    } else if(params[[3]] == "tf") {
+      par(mfrow=c(1,1))
+      buf <- list(buf[[2]])
+      graphTitles <- graphTitles[2]
+    } else if(params[[3]] == "cotf") {
+      par(mfrow=c(1,1))
+      buf <- list(buf[[3]])
+      graphTitles <- graphTitles[3]
+    } else if(params[[3]] == "signal") {
+      par(mfrow=c(1,1))
+      buf <- list(buf[[4]])
+      graphTitles <- graphTitles[4]
+    } else {
+      stop("ERROR: makeGraphs(which = \"cluster_networks\") params[[3]] should be \"all\", \"tf\", \"cotf\", \"signal\", or NULL")
+    }
+    
+    for(j in 1:length(buf)) {
+      if(params[[1]] == "fet" || params[[1]] == "prob") {
+        M <- min(buf[[j]])
+        buf[[j]] = buf[[j]]-M+1
+        
+        d = as.dist(buf[[j]])
+      } else {
+        x = buf[[j]]
+        N = nrow(x)
+        for (i in 1:N)
+          x[i,i]=0
+        max = max(x)
+        x = max - x
+        for (i in 1:N)
+          x[i,i]=0
+        
+        d = as.dist(x)
+      }
+      
+      if(params[[2]] == "mds") {
+        fit <- cmdscale(d,eig=TRUE, k=2)
+        x_c <- fit$points[,1]
+        y_c <- fit$points[,2]
+        
+        plot(x_c, y_c, main=graphTitles[j],	type="n")
+        text(x_c, y_c, labels = labels(d), cex=.7, pos=3)
+      } else {
+        plot(hclust(d), main=graphTitles[j], xlab = "", sub = "")
+      }
+    }
+    
 	}
 	
 	
